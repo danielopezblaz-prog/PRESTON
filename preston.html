@@ -1784,9 +1784,11 @@ function subvCalcular(o){
 
  var costeTotal=e.costeTotalComunidad;
 
- /* C) CAE: 6 % del coste total de la comunidad (o importe manual) */
+ /* C) CAE: 6 % de la ACTUACIÓN ENERGÉTICA (baseEnergia), NO del total — igual que la calculadora
+    online. Los CAE salen del ahorro de kWh (SATE, cubierta, forjado…); el ascensor no ahorra
+    energía → no cuenta. Manual si se indica en s.cae. */
  var caePct=(s.caePct!=null&&s.caePct!==''?num(s.caePct):((C.cae&&C.cae.pct!=null)?C.cae.pct*100:6));
- var caeAuto=costeTotal*(caePct/100);
+ var caeAuto=baseEnergia*(caePct/100);
  var caeImporte=(num(s.cae)>0?num(s.cae):caeAuto);
  var caeTotal=s.caeInc?caeImporte:0;
 
@@ -2795,7 +2797,7 @@ function svShellHtml(o,s){
    '<option value="si"'+(s.vuln==='si'?' selected':'')+'>Sí (generalizada)</option></select>'+
    '<span class="sv-hint">Puede elevar la ayuda hasta el 100 % en casos justificados.</span></div>'+
   '<div class="sv-field" id="svVulnViv"'+(s.vuln==='parcial'?'':' style="display:none"')+'><label>Nº de viviendas vulnerables</label><input class="sv-in" data-sv="vulnViv" inputmode="numeric" value="'+esc(loose(s.vulnViv))+'"></div>'+
-  fi('CAE (% sobre coste total)','caePct',loose(s.caePct),'Por defecto 6 % del coste total de la comunidad.')+
+  fi('CAE (% sobre la actuación energética)','caePct',loose(s.caePct),'Por defecto 6 % del coste de la actuación energética (SATE, cubierta…); el ascensor no ahorra energía y no cuenta.')+
   fi('CAE importe (€) — opcional','cae',s.cae?loose(s.cae):'','Si lo dejas vacío, se calcula con el % de arriba.')+
   '<div class="sv-field"><label>&nbsp;</label>'+chk('Incluir CAE en el total','caeInc',s.caeInc!==false)+'</div>'+
   '</div></div></section>';
@@ -3183,7 +3185,7 @@ function svInformeInner(o,pal){
   (r.recorteGrants>0?svRow('Ajuste tope energía','− '+svEur(r.recorteGrants),'No superan la base de energía ('+svEur(r.baseEnergia)+')'):'')+
   svRow('Energía aplicable',svEur(r.grantsCapados),'mín('+svEur(r.grantsBrutos)+';'+svEur(r.baseEnergia)+')')+
   (hayAcc?svRow(r.incluyeRehab?'Plan Rehabilita · Línea Accesible (ascensor)':'Plan Estatal · Accesibilidad',svEur(r.accCapados),r.incluyeRehab?'Ascensor '+svEur(r.acc_cam)+', capado a '+svEur(r.accCoste)+' (coste accesibilidad)':svEur(r.acc_est)+' ('+svPctF(num(s.pctAccEstatal)/100)+' del coste de accesibilidad '+svEur(r.accCoste)+')'):'')+
-  svRow('CAE ('+loose(r.caePct)+'% del coste total)',svEur(r.caeTotal),s.caeInc?(num(s.cae)>0?'Importe manual = '+svEur(r.caeTotal):svEur(r.costeReal)+' (coste total) × '+loose(r.caePct)+'% = '+svEur(r.caeTotal)):'No incluido')+
+  svRow('CAE ('+loose(r.caePct)+'% de la actuación energética)',svEur(r.caeTotal),s.caeInc?(num(s.cae)>0?'Importe manual = '+svEur(r.caeTotal):svEur(r.baseEnergia)+' (base energía) × '+loose(r.caePct)+'% = '+svEur(r.caeTotal)):'No incluido')+
   '<tr class="total"><td>AYUDA TOTAL ESTIMADA (orientativa)</td><td class="num">'+svEur(r.obtenibleReal)+'</td></tr>'+
   svRow('% ayuda sobre PEM',svPctF(r.pctSobrePEM),svEur(r.obtenibleReal)+' / '+svEur(r.e.pem))+
   '<tr class="total"><td>RESTO A PAGAR POR LOS VECINOS</td><td class="num">'+svEur(r.restoVecinos)+'</td></tr>'+
@@ -4245,7 +4247,7 @@ window.PRESTON={state:function(){return state;},obra:obra,ficha:function(){var o
  bc3:{parse:parseBC3,obra:obraDesdeBC3},
  pres:{payload:function(){var o=obra();return o?presPayload(o):null;},url:function(){var o=obra();return o?presUrl(o):null;}},
  med:{parcial:parcialLinea,suma:sumaLineas,open:function(id){openDock(id);},close:function(){closeDock();},dock:function(){return {open:dockOpen,id:dockId};}},
- version:'v41-texto-abajo'};
+ version:'v42-cae-energia'};
 try{var th0=localStorage.getItem('preston3_theme'); if(th0)document.documentElement.setAttribute('data-theme',th0);}catch(e){}
 var _bd=document.getElementById('brandDode'); if(_bd&&typeof PBRAND!=='undefined')_bd.src=PBRAND.dode;
 state=load(); renderNav(); go('obras'); pintaThemeBtn(); applySideW();
