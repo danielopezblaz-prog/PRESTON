@@ -1153,6 +1153,7 @@ var PBRAND={
           <button class="mini acc" id="btnClone"><svg class="g" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 012-2h10"/></svg>Como una anterior</button>
           <button class="mini acc" id="btnBlank"><svg class="g" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>Nueva vacía</button>
           <label class="mini acc" style="cursor:pointer" title="Importa un presupuesto de Presto / Arquímedes en formato FIEBDC-3 (.bc3)"><svg class="g" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12m0 0l-4-4m4 4l4-4M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2"/></svg>Importar BC3 (Presto)<input type="file" id="bc3File" accept=".bc3" style="display:none"></label>
+          <label class="mini acc" style="cursor:pointer" title="Sube el PDF del presupuesto de Proyecton y Prestón detecta capítulos, importes, IVA, honorarios y tasas (necesita conexión; funciona con Prestón abierto en tu ordenador)"><svg class="g" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6M9 15h6M9 18h4"/></svg>Importar PDF<input type="file" id="pdfFile" accept="application/pdf" style="display:none"></label>
           <span class="spring"></span>
           <label class="search" style="max-width:250px"><svg class="g" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg><input id="obraSearch" type="search" placeholder="Buscar obra…"></label>
         </div>
@@ -2181,6 +2182,171 @@ function importaBC3File(file){
 }
 (function(){ var inp=document.getElementById('bc3File');
  if(inp)inp.addEventListener('change',function(){ if(inp.files[0])importaBC3File(inp.files[0]); inp.value=''; }); })();
+
+/* ================= importador PDF (presupuesto Proyecton) =================
+   Réplica del lector de la calculadora online: adjuntas el PDF del presupuesto y detecta
+   capítulos, PEM, IVA (obra/honorarios), honorarios técnico/agente, tasas, zona, nº de
+   viviendas, locales y dirección; cuadra la suma de capítulos con el PEM. Crea una obra
+   con gg/bi a 0 para que el PEM = suma de capítulos (mismo modelo económico que la calculadora).
+   pdf.js se carga de internet SOLO al usarlo: funciona con Prestón en tu ordenador con conexión;
+   en la versión web publicada el navegador lo bloquea por seguridad. */
+function pdfNumES(s){ return parseFloat(String(s).replace(/\./g,'').replace(',','.')); }
+var _pdfjsP=null;
+function ensurePdfJs(){
+ if(typeof pdfjsLib!=='undefined')return Promise.resolve(pdfjsLib);
+ if(_pdfjsP)return _pdfjsP;
+ _pdfjsP=new Promise(function(res,rej){
+  var s=document.createElement('script'); s.src='https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.min.js';
+  s.onload=function(){ if(typeof pdfjsLib!=='undefined'){ try{pdfjsLib.GlobalWorkerOptions.workerSrc='https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.worker.min.js';}catch(e){} res(pdfjsLib); } else { _pdfjsP=null; rej(new Error('lector no disponible')); } };
+  s.onerror=function(){ _pdfjsP=null; rej(new Error('no se pudo cargar el lector de PDF (¿sin conexión, o versión web publicada?)')); };
+  document.head.appendChild(s);
+ });
+ return _pdfjsP;
+}
+function parsePresupuestoPDF(lines){
+ var out={capitulos:[],encontrado:[],noEncontrado:[],avisos:[]};
+ var full=lines.join('\n');
+ var bi=lines.findIndex(function(l){return /RESUMEN\s+PRESUPUESTOS/i.test(l);});
+ if(bi<0) bi=lines.findIndex(function(l){return /CAP\.?\s+MEJORA|\bCAP[ÍI]TULO/i.test(l);});
+ var ei=-1; for(var i=(bi<0?0:bi)+1;i<lines.length;i++){ if(/EJECUCI[ÓO]N\s+MATERIAL/i.test(lines[i])){ ei=i; break; } }
+ var fe=-1; for(var j=(ei<0?(bi<0?0:bi):ei)+1;j<lines.length;j++){ if(/COSTE\s+TOTAL\s+DE\s+ACTUACI[ÓO]N\s+PARA\s+LA\s+COMUNIDAD|IMPORTE\s+TOTAL\s+A\s+FINANCIAR/i.test(lines[j])){ fe=j; break; } }
+ var skipRow=/^(TOTAL|SUBTOTAL|RESUMEN|CAP[IÍ]TULO\b|CAP\.|PRESUPUESTO|COSTE|HONORARIOS?|TASAS?|ICIO|I\.?\s*V\.?\s*A|EJECUCI[ÓO]N|MEJORA\s+[A-ZÁÉÍÓÚ]\s*$|NOTAS?\b)/i;
+ var totalCapRe=/^TOTAL\s+CAP[ÍI]TULO\s+\d{1,3}\s+(.+?)[\s.]+(\d{1,3}(?:\.\d{3})*,\d{2})\s*€?$/i;
+ var capTotLines=lines.filter(function(l){return totalCapRe.test(l);});
+ if(capTotLines.length){
+  out.formato='mediciones';
+  capTotLines.forEach(function(l){ var m=l.match(totalCapRe); if(!m)return; var nombre=m[1].replace(/[.\s]+$/,'').replace(/\s+/g,' ').trim(); var imp=pdfNumES(m[2]); if(nombre.length>=2&&imp>0)out.capitulos.push({nombre:nombre,importe:imp}); });
+  var totFin=lines.filter(function(l){return /^TOTAL[\s.]+\d{1,3}(?:\.\d{3})*,\d{2}\s*€?$/i.test(l);});
+  if(totFin.length){ var mm=totFin[totFin.length-1].match(/(\d{1,3}(?:\.\d{3})*,\d{2})/); if(mm)out.pem=pdfNumES(mm[1]); }
+ } else {
+  var capBlock=(bi>=0&&ei>bi)?lines.slice(bi+1,ei):lines;
+  var pending='';
+  capBlock.forEach(function(raw){
+   var l=String(raw).replace(/\s+/g,' ').trim(); if(!l)return;
+   var am=l.match(/(\d{1,3}(?:\.\d{3})*,\d{2})\s*€?$/);
+   if(am){
+    var imp=pdfNumES(am[1]);
+    var name=l.slice(0,am.index).replace(/^(\d{1,2})(?=\s|$)/,'').replace(/\s+/g,' ').trim();
+    var full2=((pending?pending+' ':'')+name).replace(/\s+/g,' ').trim();
+    pending='';
+    if(full2.length>=3&&!skipRow.test(full2)&&imp>0)out.capitulos.push({nombre:full2,importe:imp});
+   } else if(/[A-Za-zÁÉÍÓÚÑ]/.test(l)&&!skipRow.test(l)){
+    var nm=l.replace(/^(\d{1,2})(?=\s|$)/,'').replace(/\s+/g,' ').trim();
+    if(nm.length>=2)pending=(pending?pending+' ':'')+nm;
+   }
+  });
+ }
+ var seen={}; out.capitulos=out.capitulos.filter(function(c){var k=c.nombre+'|'+c.importe; if(seen[k])return false; seen[k]=1; return true;});
+ var econLines=(bi>=0)?lines.slice(bi,(fe>bi?fe+3:Math.min(lines.length,(ei>bi?ei:bi)+50))):lines;
+ var text=econLines.join('\n');
+ var grab=function(re,t){var mm=(t||text).match(re);return mm?pdfNumES(mm[1]):null;};
+ var m;
+ if(out.pem==null) out.pem=grab(/EJECUCI[ÓO]N\s+MATERIAL\D*?(\d{1,3}(?:\.\d{3})*,\d{2})/i);
+ var ivO=text.match(/EJECUCI[ÓO]N\s+MATERIAL[\s\S]{0,90}?(\d{1,2})\s*%/i)||text.match(/I\.?\s*V\.?\s*A\.?[\s.]*?(\d{1,2})\s*%/i);
+ if(ivO) out.ivaObra=+ivO[1];
+ var ivH=text.match(/HONORARIOS[\s\S]{0,140}?I\.?\s*V\.?\s*A\.?[\s.]*?(\d{1,2})\s*%/i);
+ if(ivH) out.ivaHon=+ivH[1];
+ if(out.ivaHon==null){ var arr=[]; var re2=/I\.?\s*V\.?\s*A\.?[\s.]*?(\d{1,2})\s*%/gi, mx; while(mx=re2.exec(text))arr.push(+mx[1]); var h=arr.find(function(v){return v!==out.ivaObra;}); if(h!=null)out.ivaHon=h; }
+ var leerImporte=function(re){ var mm=text.match(re); if(!mm)return null; return /^-/.test(mm[1].trim())?0:pdfNumES(mm[1]); };
+ out.honTec=leerImporte(/HONORARIOS\s+T[ÉE]CNICOS[^\n]{0,90}?(-\s*€|\d{1,3}(?:\.\d{3})*,\d{2})/i);
+ out.honAgente=leerImporte(/HONORARIOS\s+AGENTE\s+REHABILITADOR\s*(-\s*€|\d{1,3}(?:\.\d{3})*,\d{2})/i);
+ out.totalHonorarios=leerImporte(/TOTAL\s+HONORARIOS\s*(-\s*€|\d{1,3}(?:\.\d{3})*,\d{2})/i);
+ if(out.honTec==null&&out.totalHonorarios!=null){ var iv=(out.ivaHon!=null?out.ivaHon:21)/100; out.honTec=+(((out.totalHonorarios)-(out.honAgente||0)*(1+iv))/(1+iv)).toFixed(2); if(out.honTec>0)out.avisos.push('Honorarios técnicos estimados a partir del total de honorarios del PDF.'); }
+ out.subvencionablePDF=grab(/SUBVENCIONABLE[S]?\D*?(\d{1,3}(?:\.\d{3})*,\d{2})/i);
+ out.costeTotalPDF=grab(/COSTE\s+TOTAL\s+DE\s+ACTUACI[ÓO]N\s+PARA\s+LA\s+COMUNIDAD\D*?(\d{1,3}(?:\.\d{3})*,\d{2})/i);
+ if(m=text.match(/TASAS[\s\S]{0,160}?(\d{1,2}(?:,\d+)?)\s*%\s+(\d{1,3}(?:\.\d{3})*,\d{2})/i)){ out.tasasPct=pdfNumES(m[1]); out.tasasEur=pdfNumES(m[2]); }
+ if(m=text.match(/Bonificad[oa]\s+al\s+(\d{1,3})\s*%/i)) out.tasasBonif=pdfNumES(m[1]);
+ if(m=full.match(/A\s+(\d{1,3})\s+MESES/i)||full.match(/(\d{1,3})\s+MESES/i)) out.finPlazo=+m[1];
+ if(m=full.match(/TIPO\s+DE\s+INTER[ÉE]S\D{0,12}(\d{1,2}(?:,\d+)?)\s*%/i)) out.finInteres=pdfNumES(m[1]);
+ if(m=full.match(/ENTRADA\s+INICIAL\s+DE\s+LA\s+COMUNIDAD[^\n]{0,20}?(-|\d{1,3}(?:\.\d{3})*,\d{2})\s*€/i)) out.finEntrada=(m[1]==='-'?0:pdfNumES(m[1]));
+ var esEmpresa=function(x){return /OVIEDO|LEGAN[ÉE]S|PROYECTON/i.test(x);};
+ if(m=full.match(/CLIENTE\s*:?[ \t]*([^\n]+?)\s*(?:PRESUPUESTO\s*:|FECHA\s*:|$)/im)){
+  var cand=m[1].replace(/\s+/g,' ').trim();
+  if(cand&&!/^(FECHA|PRESUPUESTO)\b/i.test(cand)&&/\d|C\/|CALLE|AVDA|AVENIDA|PLAZA|PASEO|\bCL\b|CTRA|CAMINO/i.test(cand)&&!esEmpresa(cand)) out.direccion=cand.replace(/^CL\b\.?/i,'Calle').replace(/\s*-\s*/g,', ');
+ }
+ if(!out.direccion){ var ms=full.match(/\b(?:C\/|CALLE|AVDA\.?|AVENIDA|PLAZA|PASEO|Pº|CTRA\.?|CAMINO)\s+[A-Za-zÁÉÍÓÚÑáéíóúñ0-9 .,ºª\/-]{3,55}?\s*\d{1,4}\b/i); if(ms&&!esEmpresa(ms[0]))out.direccion=ms[0].replace(/\s+/g,' ').trim(); }
+ var nv=null;
+ if(m=full.match(/CANTIDAD\s+DE\s+VECINOS\D{0,6}(\d{1,3})\b/i)) nv=+m[1];
+ else if(m=full.match(/N[ºo°]?\.?\s*(?:DE\s+)?(?:VIVIENDAS?|VECINOS?)\D{0,4}(\d{1,3})\b/i)) nv=+m[1];
+ else if(m=full.match(/\b(\d{1,3})\s*VIVIENDAS?\b/i)) nv=+m[1];
+ if(nv!=null&&nv>0&&nv<1000) out.numViv=nv;
+ if(m=full.match(/(\d{1,4})\s*LOCALES?/i)) out.numLocales=+(m[1]);
+ if(m=full.match(/([\d]{1,3}(?:\.\d{3})*(?:,\d+)?)\s*m2?\D{0,14}LOCAL/i)||full.match(/LOCAL\D{0,14}([\d]{1,3}(?:\.\d{3})*(?:,\d+)?)\s*m/i)) out.supLocales=pdfNumES(m[1]);
+ var ACC_RE=/ASCENSOR|RAMPA|SALVAESCALERA|PLATAFORMA|MONTACARGAS|ACCESIBILIDAD|VIDEOPORTER/i;
+ out.capitulos.forEach(function(c){ c.acc=ACC_RE.test(c.nombre); });
+ if(/\bZETU\b/i.test(full)) out.zona='ZETU'; else if(/\bZIRE\b/i.test(full)) out.zona='ZIRE';
+ var sumCap=out.capitulos.reduce(function(a,c){return a+c.importe;},0);
+ if(out.pem!=null&&Math.abs(sumCap-out.pem)>1){
+  if(sumCap<out.pem){ out.capitulos.push({nombre:'Otras partidas (ajuste al PEM del presupuesto)',importe:+(out.pem-sumCap).toFixed(2),acc:false}); out.avisos.push('La suma de capítulos ('+svEur(sumCap)+') era menor que el PEM del PDF ('+svEur(out.pem)+'). Se añadió una partida de ajuste — revisa que no falte ningún capítulo.'); }
+  else out.avisos.push('La suma de capítulos ('+svEur(sumCap)+') SUPERA el PEM del PDF ('+svEur(out.pem)+'). Puede haber un capítulo duplicado: revísalo a mano.');
+  sumCap=out.capitulos.reduce(function(a,c){return a+c.importe;},0);
+ }
+ out.accPEM=out.capitulos.filter(function(c){return c.acc;}).reduce(function(a,c){return a+c.importe;},0);
+ out.enPEM=out.capitulos.filter(function(c){return !c.acc;}).reduce(function(a,c){return a+c.importe;},0);
+ if(out.costeTotalPDF!=null&&out.pem!=null){
+  var io=(out.ivaObra!=null?out.ivaObra:10)/100, ih=(out.ivaHon!=null?out.ivaHon:21)/100;
+  var tas=(out.tasasEur!=null?out.tasasEur:out.pem*((out.tasasPct||0)/100));
+  var recon=out.pem*(1+io)+(out.honTec||0)*(1+ih)+(out.honAgente||0)*(1+ih)+tas;
+  out.checkTotal={recon:+recon.toFixed(2),pdf:out.costeTotalPDF,ok:Math.abs(recon-out.costeTotalPDF)<=2};
+  if(!out.checkTotal.ok)out.avisos.push('El coste total reconstruido ('+svEur(recon)+') no coincide con el del PDF ('+svEur(out.costeTotalPDF)+'). Revisa honorarios, IVA o tasas.');
+ }
+ var pemR=out.pem||sumCap;
+ if(out.capitulos.length)out.encontrado.push(out.capitulos.length+' capítulos (PEM '+svEur(pemR)+')');
+ if(out.accPEM>0)out.encontrado.push('accesibilidad '+svEur(out.accPEM));
+ if(out.zona)out.encontrado.push('zona '+out.zona);
+ if(out.ivaObra!=null)out.encontrado.push('IVA '+out.ivaObra+'%');
+ if(out.honTec!=null&&out.honTec>0)out.encontrado.push('honorarios '+svEur(out.honTec));
+ if(out.numViv)out.encontrado.push(out.numViv+' viviendas');
+ return out;
+}
+function obraDesdePDF(nombre,out){
+ var o=obraVacia(nombre);
+ o.config={gg:0,bi:0,iva:(out.ivaObra!=null?out.ivaObra:10)};
+ if(out.direccion)o.dir=out.direccion;
+ if(out.numViv)o.viviendas=out.numViv;
+ if(out.numLocales!=null)o.locales=out.numLocales;
+ o.capitulos=[];
+ out.capitulos.forEach(function(c,i){ var cod=('0'+(i+1)).slice(-2);
+  o.capitulos.push({id:uid('c'),cod:cod,res:c.nombre,cert:0,partidas:[
+   {id:uid('p'),cod:cod+'.01',ud:'PA',res:c.nombre,cantidad:1,precio:r2(c.importe),ref:null,med:null,spec:''}]}); });
+ o.subv={};
+ if(out.honTec!=null)o.subv.honTec=out.honTec;
+ if(out.honAgente!=null)o.subv.honAgente=out.honAgente;
+ if(out.ivaHon!=null)o.subv.ivaHon=out.ivaHon;
+ if(out.tasasPct!=null)o.subv.tasasPct=out.tasasPct;
+ if(out.tasasBonif!=null)o.subv.tasasBonif=out.tasasBonif;
+ if(out.zona)o.subv.zona=out.zona;
+ if(out.finPlazo)o.subv.finPlazo=out.finPlazo;
+ if(out.finInteres!=null)o.subv.finInteres=out.finInteres;
+ if(out.finEntrada!=null)o.subv.finEntrada=out.finEntrada;
+ if(out.supLocales)o.subv.supLocales=out.supLocales;
+ return o;
+}
+function importarPDFPreston(file){
+ if(!file)return;
+ toast('Leyendo «'+file.name+'»…');
+ ensurePdfJs().then(function(lib){ return file.arrayBuffer().then(function(buf){ return lib.getDocument({data:buf}).promise; }); })
+ .then(function(pdf){
+  var chain=Promise.resolve(); var lines=[];
+  var handle=function(p){ return pdf.getPage(p).then(function(page){ return page.getTextContent(); }).then(function(tc){
+    var byY={}; tc.items.forEach(function(it){ if(!it.str)return; var y=Math.round(it.transform[5]); (byY[y]=byY[y]||[]).push({x:it.transform[4],s:it.str}); });
+    Object.keys(byY).map(Number).sort(function(a,b){return b-a;}).forEach(function(y){ var l=byY[y].sort(function(a,b){return a.x-b.x;}).map(function(o){return o.s;}).join(' ').replace(/\s+/g,' ').trim(); if(l)lines.push(l); });
+  }); };
+  for(var p=1;p<=pdf.numPages;p++){ (function(pp){ chain=chain.then(function(){return handle(pp);}); })(p); }
+  return chain.then(function(){ return lines; });
+ })
+ .then(function(lines){
+  var out=parsePresupuestoPDF(lines);
+  if(!out.capitulos.length){ toast('No se detectaron capítulos. ¿Es un presupuesto de Proyecton en PDF?'); return; }
+  var o=obraDesdePDF(String(file.name||'Obra PDF').replace(/\.pdf$/i,''),out);
+  normObra(o); state.obras.unshift(o); state.activeId=o.id; selected=null; collapsed={}; save(); go('presupuesto');
+  toast('PDF importado: '+out.encontrado.join(' · '));
+  if(out.avisos&&out.avisos.length)setTimeout(function(){toast('⚠ '+out.avisos[0]);},1600);
+ })
+ .catch(function(e){ toast('No se pudo leer el PDF: '+(e&&e.message||e)); });
+}
+(function(){ var inp=document.getElementById('pdfFile');
+ if(inp)inp.addEventListener('change',function(){ if(inp.files[0])importarPDFPreston(inp.files[0]); inp.value=''; }); })();
 
 /* ================= iconos ================= */
 var ICN={obras:'<path d="M3 21V8l7-5 7 5v13M3 21h18M10 21v-6h4v6"/>',tree:'<path d="M4 6h6M4 12h10M4 18h14"/>',
@@ -4245,9 +4411,10 @@ window.PRESTON={state:function(){return state;},obra:obra,ficha:function(){var o
  wiz:function(){return wizData;},
  subv:{calc:function(){var o=obra();return o?subvCalcular(o):null;},de:function(){var o=obra();return o?subvDe(o):null;},eco:function(){var o=obra();return o?subvEconomia(o,subvDe(o)):null;},ver:svVerInforme,volver:svVolverEdicion},
  bc3:{parse:parseBC3,obra:obraDesdeBC3},
+ pdf:{parse:parsePresupuestoPDF,obra:obraDesdePDF,importar:importarPDFPreston},
  pres:{payload:function(){var o=obra();return o?presPayload(o):null;},url:function(){var o=obra();return o?presUrl(o):null;}},
  med:{parcial:parcialLinea,suma:sumaLineas,open:function(id){openDock(id);},close:function(){closeDock();},dock:function(){return {open:dockOpen,id:dockId};}},
- version:'v43-titulo-limpio'};
+ version:'v44-import-pdf'};
 try{var th0=localStorage.getItem('preston3_theme'); if(th0)document.documentElement.setAttribute('data-theme',th0);}catch(e){}
 var _bd=document.getElementById('brandDode'); if(_bd&&typeof PBRAND!=='undefined')_bd.src=PBRAND.dode;
 state=load(); renderNav(); go('obras'); pintaThemeBtn(); applySideW();
