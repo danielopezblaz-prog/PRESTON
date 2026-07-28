@@ -1170,6 +1170,17 @@ a,button,.btn,.mini,.nav a,.iconbtn,.ocard,.sv-btn,.wctog,summary,[data-drag]{-w
 /* -- Safe-area (notch): los flotantes quedan por encima de la barra de gestos; sin notch env()=0 -- */
 .toast{bottom:calc(18px + env(safe-area-inset-bottom,0px))}
 .sv-cob{bottom:calc(18px + env(safe-area-inset-bottom,0px))}
+
+/* -- Cajones móviles: fondo oscuro que cierra al tocar fuera + deslizamiento de entrada -- */
+.drawer-scrim{position:fixed;left:0;right:0;top:52px;bottom:0;background:rgba(0,0,0,.44);opacity:0;pointer-events:none;transition:opacity .22s var(--ease-out);z-index:55;-webkit-tap-highlight-color:transparent}
+.drawer-scrim.show{opacity:1;pointer-events:auto}
+@media (min-width:961px){.drawer-scrim{display:none}}
+@media (max-width:960px){
+  .rail.open{animation:pvDrawerL .26s var(--ease-out) both}
+  .presu.side-open .side{animation:pvDrawerR .26s var(--ease-out) both}
+}
+@keyframes pvDrawerL{from{transform:translateX(-100%)}to{transform:none}}
+@keyframes pvDrawerR{from{transform:translateX(100%)}to{transform:none}}
 </style>
 <script>
 var PBRAND={
@@ -4217,6 +4228,20 @@ document.getElementById('tgPresto').onclick=function(){ UI2.presto=(UI2.presto==
  else { prestoSync(); toast('Modo Presto: descripción y medición siempre visibles'); } };
 (function(){ var b=document.getElementById('tgPresto'); if(b)b.classList.toggle('on',isPresto()); })();
 document.getElementById('menuBtn').onclick=function(){ document.querySelector('.rail').classList.toggle('open'); };
+/* Cajones móviles: backdrop que cierra al tocar fuera + Escape. Un MutationObserver vigila las
+   clases .open/.side-open, así el scrim se sincroniza con CUALQUIER botón que los abra/cierre. */
+(function(){
+ var scrim=document.createElement('div'); scrim.className='drawer-scrim'; document.body.appendChild(scrim);
+ var rail=document.querySelector('.rail'), presu=document.getElementById('presu');
+ function anyOpen(){ return (rail&&rail.classList.contains('open'))||(presu&&presu.classList.contains('side-open')); }
+ function sync(){ scrim.classList.toggle('show',anyOpen()); }
+ function closeAll(){ if(rail)rail.classList.remove('open'); if(presu)presu.classList.remove('side-open'); }
+ scrim.addEventListener('click',closeAll);
+ document.addEventListener('keydown',function(e){ if(e.key==='Escape'&&anyOpen())closeAll(); });
+ var mo=new MutationObserver(sync);
+ if(rail)mo.observe(rail,{attributes:true,attributeFilter:['class']});
+ if(presu)mo.observe(presu,{attributes:true,attributeFilter:['class']});
+})();
 document.getElementById('btnWizard').onclick=function(){wizStep=1;wizData=null;go('asistente');};
 document.getElementById('btnWizardEmpty').onclick=function(){wizStep=1;wizData=null;go('asistente');};
 document.getElementById('btnBlank').onclick=function(){var o=obraVacia('Nueva obra');o.capitulos=[{id:uid('c'),cod:'01',res:'Capítulo 01',cert:0,partidas:[]}];state.obras.unshift(o);state.activeId=o.id;selected=null;collapsed={};save();go('presupuesto');};
@@ -4501,7 +4526,7 @@ window.PRESTON={state:function(){return state;},obra:obra,ficha:function(){var o
  pdf:{parse:parsePresupuestoPDF,obra:obraDesdePDF,importar:importarPDFPreston},
  pres:{payload:function(){var o=obra();return o?presPayload(o):null;},url:function(){var o=obra();return o?presUrl(o):null;}},
  med:{parcial:parcialLinea,suma:sumaLineas,open:function(id){openDock(id);},close:function(){closeDock();},dock:function(){return {open:dockOpen,id:dockId};}},
- version:'v46-fluidez'};
+ version:'v47-movil'};
 try{var th0=localStorage.getItem('preston3_theme'); if(th0)document.documentElement.setAttribute('data-theme',th0);}catch(e){}
 var _bd=document.getElementById('brandDode'); if(_bd&&typeof PBRAND!=='undefined')_bd.src=PBRAND.dode;
 state=load(); renderNav(); go('obras'); pintaThemeBtn(); applySideW();
