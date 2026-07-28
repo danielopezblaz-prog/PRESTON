@@ -3111,7 +3111,7 @@ function svInformeInner(o,pal){
 
  var h='<div class="doc-head">'+
   '<img class="lg" src="'+PBRAND.logo+'" alt="Revestimientos Proyecton">'+
-  '<div><h2>Informe orientativo de Subvenciones a la Rehabilitación</h2><div style="font-size:11.5px;color:#5b6770;font-weight:600;margin-top:2px">Estimación orientativa · no es una garantía de concesión</div></div>'+
+  '<div><h2>Informe de Subvenciones a la Rehabilitación</h2></div>'+
   '<div class="who"><b>Revestimientos Proyecton SLU</b>'+(p.cif?'CIF '+esc(p.cif)+' · ':'')+esc(p.dirEmp||'Leganés (Madrid)')+'<br>'+esc(p.email||'info@proyecton.es')+' · '+esc(p.tel||'')+'</div></div>';
  h+='<p class="doc-sub"><b>'+esc(o.dir||o.nombre||'(sin dirección)')+'</b> · '+esc(o.muni||'Madrid')+(s.distrito?' ('+esc(s.distrito)+')':'')+' · '+m0(r.numViv)+' viviendas · '+hoy()+'</p>';
  h+='<div class="meta-edif">'+
@@ -4220,9 +4220,9 @@ function dossierHtml(o){ var f=fichaDe(o), t=f.t, opt=f.opt, p=state.params;
  '</div>'+dkFoot(p)+'</div>';
  /* P4 · LA HOJA DE SUBVENCIONES — el informe completo, generado en vivo con los datos de ESTA obra
     y lo configurado en Subvenciones, vestido con la estética del dossier (dk-skin + paleta #AE0B0B) */
- h+='<div class="a4">'+dkHead(p,o,'Informe orientativo de subvenciones')+
+ h+='<div class="a4">'+dkHead(p,o,'Informe de subvenciones')+
   '<div class="dk-pad"><div class="sv-page dk-skin">'+
-  '<h2 class="dk dk-black">INFORME ORIENTATIVO DE SUBVENCIONES</h2>'+
+  '<h2 class="dk dk-black">INFORME DE SUBVENCIONES</h2>'+
   svInformeInner(o,SV_DKPAL)+'</div></div>'+dkFoot(p)+'</div>';
  /* P5 · MEMORIA (si hay descripciones) */
  var mem=''; o.capitulos.forEach(function(c){ if(c.spec)mem+='<div style="margin:0 0 10px"><b style="color:#ae0b0b">'+esc(c.cod)+' · '+esc(c.res)+'</b><div class="djust" style="font-size:9.6px;color:#555;line-height:1.55">'+esc(c.spec)+'</div></div>';
@@ -4247,7 +4247,7 @@ window.PRESTON={state:function(){return state;},obra:obra,ficha:function(){var o
  bc3:{parse:parseBC3,obra:obraDesdeBC3},
  pres:{payload:function(){var o=obra();return o?presPayload(o):null;},url:function(){var o=obra();return o?presUrl(o):null;}},
  med:{parcial:parcialLinea,suma:sumaLineas,open:function(id){openDock(id);},close:function(){closeDock();},dock:function(){return {open:dockOpen,id:dockId};}},
- version:'v42-cae-energia'};
+ version:'v43-titulo-limpio'};
 try{var th0=localStorage.getItem('preston3_theme'); if(th0)document.documentElement.setAttribute('data-theme',th0);}catch(e){}
 var _bd=document.getElementById('brandDode'); if(_bd&&typeof PBRAND!=='undefined')_bd.src=PBRAND.dode;
 state=load(); renderNav(); go('obras'); pintaThemeBtn(); applySideW();
