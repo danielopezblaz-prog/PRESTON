@@ -1,5 +1,5 @@
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Prestón · Estudio de presupuestos Proyecton</title>
 <style>
 :root{
@@ -1136,6 +1136,40 @@ table.medt{width:100%;border-collapse:collapse;font-size:12px}
 
 /* -- Scroll suave en los paneles (saltos programáticos: ver informe, ir a una partida…) -- */
 .scroller{scroll-behavior:smooth}
+
+/* ===== FLUIDEZ EN CUALQUIER DISPOSITIVO (v46) — táctil, scroll con inercia, GPU y responsive ===== */
+/* -- Táctil: sin rebote elástico encadenado, con inercia iOS, sin flash de tap ni retardo de doble-toque -- */
+html,body{overscroll-behavior:none}
+.tscroll,.scroller,.side,.rail,.pal-list,.modal .mb,.pdock-body,.pdock-desc,.pdock-med,.livehead,.sv-track,.medt-scroll{overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
+a,button,.btn,.mini,.nav a,.iconbtn,.ocard,.sv-btn,.wctog,summary,[data-drag]{-webkit-tap-highlight-color:transparent}
+.btn,.mini,.nav a,.iconbtn,.ocard,.sv-btn,.wctog{touch-action:manipulation}
+
+/* -- Pista de capa GPU en los 2 elementos transitorios compuestos (evita el micro-tirón del 1er frame) -- */
+.toast{will-change:transform,opacity}
+.pdock.open{will-change:transform}
+
+/* -- Movimiento reducido: congela también el scroll suave (los scrollTo de JS llevan guard aparte) -- */
+@media (prefers-reduced-motion:reduce){html,.scroller{scroll-behavior:auto!important}}
+
+/* -- Táctil (sin hover): revela controles que solo salían al pasar el ratón e infla los hit-targets -- */
+@media (hover:none){ .spectg{opacity:1} .medt td.x button{opacity:.55} .nat.par{opacity:1} }
+@media (pointer:coarse){
+  .tw,.spectg{width:26px;height:26px}
+  .rowact button{width:30px;height:30px}
+  .medt td.x button{padding:6px}
+  .nav a{padding:11px}
+  .iconbtn{width:40px;height:40px}
+  /* evita el zoom brusco de Safari iOS al enfocar campos <16px del flujo móvil */
+  .frm .ib input,.frm .ib select,.search input,.catrow .ib input,.pfield input,.pfield select,.pfield textarea,.pal-in input,.bdp-search input{font-size:16px}
+}
+
+/* -- Responsive: la brandbar no desborda ni recorta controles en pantallas estrechas -- */
+@media (max-width:520px){ .brandbar{gap:9px;padding:0 10px} .wordmark small{display:none} .savepill span{display:none} .savepill{padding:3px 6px} }
+@media (max-width:620px){ .wiz-steps{overflow-x:auto;gap:6px;scrollbar-width:thin} .wiz-steps .ws{flex:0 0 auto} }
+
+/* -- Safe-area (notch): los flotantes quedan por encima de la barra de gestos; sin notch env()=0 -- */
+.toast{bottom:calc(18px + env(safe-area-inset-bottom,0px))}
+.sv-cob{bottom:calc(18px + env(safe-area-inset-bottom,0px))}
 </style>
 <script>
 var PBRAND={
@@ -3103,7 +3137,7 @@ function svWire(host,o){
   var st=e.target.closest('.step');
   if(st){ var sec=w.querySelector('[data-sec="'+st.dataset.step+'"]'); if(sec){
    var off=(document.querySelector('.sv-toolbar')?document.querySelector('.sv-toolbar').offsetHeight:0)+(document.getElementById('svStepper')?document.getElementById('svStepper').offsetHeight:0)+24;
-   host.scrollTo({top:sec.offsetTop-off,behavior:'smooth'}); } return; }
+   host.scrollTo({top:sec.offsetTop-off,behavior:matchMedia('(prefers-reduced-motion:reduce)').matches?'auto':'smooth'}); } return; }
  });
 
  if(!host._svScroll){ host._svScroll=1;
@@ -3189,7 +3223,7 @@ function svVerInforme(){ var o=obra(); if(!o)return false;
  var v=document.getElementById('svVer'),vo=document.getElementById('svVolver'),pi=document.getElementById('svPill');
  if(v)v.style.display='none'; if(vo)vo.style.display=''; if(pi)pi.textContent='Modo informe';
  svPintaInforme();
- var host=document.getElementById('subvView'); if(host)host.scrollTo({top:0,behavior:'smooth'});
+ var host=document.getElementById('subvView'); if(host)host.scrollTo({top:0,behavior:matchMedia('(prefers-reduced-motion:reduce)').matches?'auto':'smooth'});
  return true;
 }
 function svVolverEdicion(){ svMode='edicion';
@@ -3775,7 +3809,13 @@ function ajustaPaginasA4(cont){
  if(oculto){ prev=cont.getAttribute('style');
    cont.style.cssText='display:block;position:absolute;left:-10000px;top:0;width:210mm;visibility:hidden'; }
  var HOJA=297*mm;
- [].slice.call(cont.querySelectorAll('.a4')).forEach(function(a){
+ /* 3 fases (1 reflow): limpiar todas → medir todas → escribir todas; evita el thrash write→read→write */
+ var _a4=[].slice.call(cont.querySelectorAll('.a4'));
+ _a4.forEach(function(a){ a.style.height=''; });
+ var _hs=_a4.map(function(a){ return a.getBoundingClientRect().height; });
+ _a4.forEach(function(a,_i){ var h=_hs[_i];
+   if(h>HOJA+2){ var n=Math.ceil(h/HOJA); a.style.height=(n*297-1)+'mm'; } });
+ if(0)[].slice.call(cont.querySelectorAll('.a4')).forEach(function(a){
    a.style.height='';                                                      /* mide en limpio */
    var h=a.getBoundingClientRect().height;
    if(h>HOJA+2){ var n=Math.ceil(h/HOJA); a.style.height=(n*297-1)+'mm'; } /* −1 mm: no pisar el corte */
@@ -3879,7 +3919,7 @@ function afterStruct(sel){ reindex(); save(); renderTree(document.getElementById
  renderProps(selected); refreshDerived(); }
 
 /* ================= eventos globales ================= */
-function flash(id){ var e=document.getElementById(id); if(e){ e.classList.remove('flx'); void e.offsetWidth; e.classList.add('flx'); } }
+function flash(id){ var e=document.getElementById(id); if(e){ e.classList.remove('flx'); requestAnimationFrame(function(){ requestAnimationFrame(function(){ e.classList.add('flx'); }); }); } }
 function onEditLive(el){ var k=el.dataset.k,id=el.dataset.id,f=el.dataset.f,v=el.value;
  if(k==='partNum'&&IDX.part[id]){ if(f==='cantidad'&&tieneLineas(IDX.part[id]))return; /* la cantidad la manda la medición */
    IDX.part[id][f]=num(v); delete IDX.part[id].est; }
@@ -4162,7 +4202,8 @@ document.addEventListener('click',function(e){
    renderTree(document.getElementById('search').value); document.querySelectorAll('#treeBody tr').forEach(function(tr){tr.classList.toggle('sel',tr.dataset.id===selected);});
    renderDock(dir.dataset.id); refreshDerived(); return; } });
 document.getElementById('search').addEventListener('input',function(e){ renderTree(e.target.value); refreshDerived(); });
-document.querySelector('.tscroll').addEventListener('scroll',function(){ this.classList.toggle('hscr',this.scrollLeft>2); });
+(function(){ var _ts=document.querySelector('.tscroll'); if(!_ts)return; var _tsRaf=false;
+ _ts.addEventListener('scroll',function(){ if(_tsRaf)return; _tsRaf=true; requestAnimationFrame(function(){ var on=_ts.scrollLeft>2; if(on!==_ts._hscr){ _ts._hscr=on; _ts.classList.toggle('hscr',on); } _tsRaf=false; }); },{passive:true}); })();
 document.getElementById('obraSearch').addEventListener('input',function(){ renderObras(); });
 document.getElementById('expandAll').onclick=function(){collapsed={};renderTree(document.getElementById('search').value);refreshDerived();};
 document.getElementById('collapseAll').onclick=function(){var o=obra();if(o)o.capitulos.forEach(function(c){collapsed[c.id]=true;});renderTree('');document.getElementById('search').value='';refreshDerived();};
@@ -4324,7 +4365,7 @@ function applySideW(){ var p=document.getElementById('presu'); if(p&&UI2.sideW)p
 (function(){ var rz=document.getElementById('sideRz'); if(!rz)return; var drag=false,sx=0,w0=0;
  rz.addEventListener('pointerdown',function(e){ drag=true; sx=e.clientX; w0=UI2.sideW||330; rz.classList.add('drag');
    try{rz.setPointerCapture(e.pointerId);}catch(_){ } e.preventDefault(); });
- rz.addEventListener('pointermove',function(e){ if(!drag)return; UI2.sideW=Math.max(260,Math.min(520,w0+(sx-e.clientX))); applySideW(); });
+ rz.addEventListener('pointermove',function(e){ if(!drag)return; UI2.sideW=Math.max(260,Math.min(520,w0+(sx-e.clientX))); if(rz._rzRaf)return; rz._rzRaf=true; requestAnimationFrame(function(){ applySideW(); rz._rzRaf=false; }); });
  function end(){ if(drag){drag=false;rz.classList.remove('drag');saveUI2();} }
  rz.addEventListener('pointerup',end); rz.addEventListener('pointercancel',end);
 })();
@@ -4460,7 +4501,7 @@ window.PRESTON={state:function(){return state;},obra:obra,ficha:function(){var o
  pdf:{parse:parsePresupuestoPDF,obra:obraDesdePDF,importar:importarPDFPreston},
  pres:{payload:function(){var o=obra();return o?presPayload(o):null;},url:function(){var o=obra();return o?presUrl(o):null;}},
  med:{parcial:parcialLinea,suma:sumaLineas,open:function(id){openDock(id);},close:function(){closeDock();},dock:function(){return {open:dockOpen,id:dockId};}},
- version:'v45-motion'};
+ version:'v46-fluidez'};
 try{var th0=localStorage.getItem('preston3_theme'); if(th0)document.documentElement.setAttribute('data-theme',th0);}catch(e){}
 var _bd=document.getElementById('brandDode'); if(_bd&&typeof PBRAND!=='undefined')_bd.src=PBRAND.dode;
 state=load(); renderNav(); go('obras'); pintaThemeBtn(); applySideW();
