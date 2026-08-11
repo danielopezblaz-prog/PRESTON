@@ -198,6 +198,18 @@ const SUB_ESTADOS = [
 const SUB = Object.fromEntries(SUB_ESTADOS.map((s) => [s.id, s]));
 const SUB_EN_JUEGO = ["solicitar", "solicitada", "concedida", "justificada"];
 
+// Tramos del Plan Estatal (RD 326/2026, verificado en el BOE) + CAE.
+// Se guardan como texto en subTipo, así los CSV y datos antiguos siguen valiendo.
+const TRAMOS_PGE = [
+  { v: "PGE 40% · mejora básica",   hint: "40% de la actuación · tope 7.500 €/vivienda (envolvente parcial)" },
+  { v: "PGE 65% · ahorro 30-60%",   hint: "65% de la actuación · tope 13.000 €/vivienda + 145 €/m² de local" },
+  { v: "PGE 80% · ahorro >60%",     hint: "80% de la actuación · tope 20.500 €/vivienda + 228 €/m² de local" },
+  { v: "PGE Accesibilidad",         hint: "70% (80% con mayores de 65 años o discapacidad) · topes 13.000-22.000 €/vivienda" },
+  { v: "CAE",                       hint: "venta del ahorro en kWh · aprox. el 6% de la actuación energética" },
+  { v: "Otro programa",             hint: "" },
+];
+const tramoHint = (v) => { const t = TRAMOS_PGE.find((x) => x.v === v); return t ? t.hint : ""; };
+
 const TIPOS_APUNTE = [
   { id: "nota",       label: "Nota",        Icon: StickyNote },
   { id: "llamada",    label: "Llamada",     Icon: Phone },
@@ -375,7 +387,7 @@ function seedEjemplo() {
       id: uid(), ejemplo: true, nombre: "C.P. Calle Alcalá 214", direccion: "Calle Alcalá 214", municipio: "Madrid",
       admFincas: "Fincas Retiro", contactoNombre: "José Luis · Administrador", telefono: "915 550 123", email: "admin@fincasretiro.es",
       origen: "Administrador de fincas", tipos: ["Fachada SATE"], prioridad: "media", responsable: "Carlos Medina",
-      importe: 380000, subEstado: "solicitar", subImporte: 152000, subTipo: "PGE 40%",
+      importe: 380000, subEstado: "solicitar", subImporte: 152000, subTipo: "PGE 40% · mejora básica",
       estado: "estudio", estadoDesde: hace(6), creado: hace(6),
       historial: [{ estado: "estudio", fecha: hace(6) }],
       puntos: [{ id: uid(), texto: "Enviar propuesta de medición al administrador", fecha: ymdMas(1), responsable: "Carlos Medina", hecho: false }],
@@ -405,7 +417,7 @@ function seedEjemplo() {
       id: uid(), ejemplo: true, nombre: "C.P. Camino de los Vinateros 57", direccion: "Camino de los Vinateros 57", municipio: "Madrid",
       admFincas: "Administraciones Moratalaz", contactoNombre: "Fernando · Administrador", telefono: "914 300 877", email: "fernando@afmoratalaz.es",
       origen: "Referido", tipos: ["Fachada SATE", "Patios"], prioridad: "alta", responsable: "Carlos Medina",
-      importe: 640000, subEstado: "solicitada", subImporte: 256000, subTipo: "PGE 40%",
+      importe: 640000, subEstado: "solicitada", subImporte: 256000, subTipo: "PGE 40% · mejora básica",
       estado: "contratada", estadoDesde: hace(35), creado: hace(90),
       historial: [{ estado: "estudio", fecha: hace(90) }, { estado: "presupuesto", fecha: hace(70) }, { estado: "contratada", fecha: hace(35) }],
       puntos: [{ id: uid(), texto: "Recoger licencia en Urbanismo", fecha: ymdMas(-2), responsable: "Carlos Medina", hecho: false }],
@@ -425,7 +437,7 @@ function seedEjemplo() {
       id: uid(), ejemplo: true, nombre: "C.P. Calle Bruselas 19", direccion: "Calle Bruselas 19", municipio: "Madrid",
       admFincas: "Fincas Europa", contactoNombre: "Rosa · Administradora", telefono: "913 780 455", email: "",
       origen: "Administrador de fincas", tipos: ["Fachada SATE"], prioridad: "media", responsable: "Javier Ruiz",
-      importe: 420000, cobrado: 160000, subEstado: "concedida", subImporte: 168000, subTipo: "PGE 40%",
+      importe: 420000, cobrado: 160000, subEstado: "concedida", subImporte: 168000, subTipo: "PGE 40% · mejora básica",
       estado: "ejecucion", estadoDesde: hace(40), creado: hace(150), avance: 45,
       historial: [{ estado: "estudio", fecha: hace(150) }, { estado: "presupuesto", fecha: hace(130) }, { estado: "contratada", fecha: hace(95) }, { estado: "ejecucion", fecha: hace(40) }],
       puntos: [{ id: uid(), texto: "Pedir la certificación nº 2 a la dirección facultativa", fecha: hoyYMD(), responsable: "Javier Ruiz", hecho: false }],
@@ -445,7 +457,7 @@ function seedEjemplo() {
       id: uid(), ejemplo: true, nombre: "C.P. Plaza del Encuentro 3", direccion: "Plaza del Encuentro 3", municipio: "Madrid",
       admFincas: "", contactoNombre: "Antonio · Presidente", telefono: "", email: "",
       origen: "Obra en zona", tipos: ["Portal", "Pintura"], prioridad: "baja", responsable: "Laura Gil",
-      importe: 210000, cobrado: 210000, subEstado: "cobrada", subImporte: 84000, subTipo: "PGE 40%",
+      importe: 210000, cobrado: 210000, subEstado: "cobrada", subImporte: 84000, subTipo: "PGE 40% · mejora básica",
       estado: "finalizada", estadoDesde: hace(55), creado: hace(240), avance: 100,
       historial: [{ estado: "estudio", fecha: hace(240) }, { estado: "presupuesto", fecha: hace(220) }, { estado: "contratada", fecha: hace(180) }, { estado: "ejecucion", fecha: hace(150) }, { estado: "finalizada", fecha: hace(55) }],
       puntos: [],
@@ -1997,11 +2009,22 @@ function FichaObra({ obra, data, avisos, onClose, onEdit, setEstado, onPerdida, 
               {SUB_ESTADOS.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
             </select>
             {obra.subEstado !== "no" && (
+              <select className={inputCls + " w-auto"} style={inputStyle} value={obra.subTipo || ""} title="Tramo del Plan Estatal al que opta"
+                onChange={(e) => updateObra(obra.id, { subTipo: e.target.value })}>
+                <option value="">Tramo…</option>
+                {TRAMOS_PGE.map((t) => <option key={t.v} value={t.v}>{t.v}</option>)}
+                {obra.subTipo && !TRAMOS_PGE.some((t) => t.v === obra.subTipo) && <option value={obra.subTipo}>{obra.subTipo}</option>}
+              </select>
+            )}
+            {obra.subEstado !== "no" && (
               <span className="text-sm font-bold" style={{ color: "#1C5CAB", fontVariantNumeric: "tabular-nums" }}>
-                {obra.subImporte ? fmtEUR(obra.subImporte) : "importe sin definir"}{obra.subTipo ? ` · ${obra.subTipo}` : ""}
+                {obra.subImporte ? fmtEUR(obra.subImporte) : "importe sin definir"}
               </span>
             )}
           </div>
+          {obra.subEstado !== "no" && tramoHint(obra.subTipo) && (
+            <p className="text-xs mt-1.5" style={{ color: "#1C5CAB" }}>{tramoHint(obra.subTipo)}</p>
+          )}
           {obra.subEstado === "solicitar" && (
             <div className="flex items-center gap-2 mt-2 flex-wrap">
               <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: C.mut }}>Plazo para solicitarla</span>
@@ -2273,8 +2296,13 @@ function ObraForm({ initial, equipo, onSave, onCancel }) {
         <Field label="Subvención (€)">
           <input type="number" min="0" className={inputCls} style={inputStyle} value={f.subImporte} onChange={set("subImporte")} placeholder="0" />
         </Field>
-        <Field label="Programa">
-          <input className={inputCls} style={inputStyle} value={f.subTipo} onChange={set("subTipo")} placeholder="PGE, CAE…" />
+        <Field label="Tramo del Plan Estatal">
+          <select className={inputCls} style={inputStyle} value={f.subTipo} onChange={set("subTipo")}>
+            <option value="">Sin programa</option>
+            {TRAMOS_PGE.map((t) => <option key={t.v} value={t.v}>{t.v}</option>)}
+            {f.subTipo && !TRAMOS_PGE.some((t) => t.v === f.subTipo) && <option value={f.subTipo}>{f.subTipo}</option>}
+          </select>
+          {tramoHint(f.subTipo) && <p className="text-xs mt-1" style={{ color: "#1C5CAB" }}>{tramoHint(f.subTipo)}</p>}
         </Field>
         <Field label="Plazo para solicitarla">
           <input type="date" className={inputCls} style={inputStyle} value={f.subLimite || ""} onChange={set("subLimite")} />
