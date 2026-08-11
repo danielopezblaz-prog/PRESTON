@@ -590,89 +590,7 @@ function aplicarAutomatismos(o, estadoNuevo) {
   return { ...o, puntos, requerimientos };
 }
 
-/* ---------- copiar al portapapeles (con reserva para file://) ---------- */
-function copiarTexto(txt) {
-  return new Promise((res) => {
-    const reserva = () => {
-      try {
-        const ta = document.createElement("textarea");
-        ta.value = txt; ta.style.position = "fixed"; ta.style.opacity = "0";
-        document.body.appendChild(ta); ta.focus(); ta.select();
-        const ok = document.execCommand("copy");
-        document.body.removeChild(ta); res(!!ok);
-      } catch (e) { res(false); }
-    };
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(txt).then(() => res(true), reserva);
-    } else reserva();
-  });
-}
-
-/* ---------- parte del día y resumen semanal, con formato de WhatsApp ---------- */
-function parteDelDia(data, avisos, persona) {
-  const hoy = hoyYMD();
-  const fechaTxt = new Date().toLocaleDateString("es-ES", { weekday: "long", day: "numeric", month: "long" });
-  const filtra = (lista) => persona ? lista.filter((i) => (i.implicados || []).includes(persona)) : lista;
-  const ag = filtra(calcularAgenda(data));
-  const vencidos = ag.filter((i) => i.fecha && i.fecha < hoy).sort((a, b) => a.fecha.localeCompare(b.fecha));
-  const paraHoy = ag.filter((i) => i.fecha === hoy);
-  const proximos = ag.filter((i) => i.fecha > hoy && i.fecha <= ymdMas(7)).sort((a, b) => a.fecha.localeCompare(b.fecha));
-  const av = persona ? avisos.filter((a) => (a.para || []).includes(persona)) : avisos;
-  const sinMov = av.filter((a) => String(a.id).indexOf("sm_") === 0).length;
-  const sinPaso = av.filter((a) => String(a.id).indexOf("sp_") === 0).length;
-  const esperando = data.obras.filter((o) => !o.archivada && o.estado === "presupuesto")
-    .filter((o) => !persona || o.responsable === persona || (o.colaboradores || []).includes(persona))
-    .sort((a, b) => a.estadoDesde.localeCompare(b.estadoDesde)).slice(0, 3);
-  const linea = (i) => "- " + i.obra + ": " + i.texto
-    + (i.fecha && i.fecha !== hoy ? " (" + fmtDia(i.fecha) + ")" : "")
-    + (!persona && i.responsable ? " [" + i.responsable + "]" : "");
-  const bloque = (titulo, items, max) => !items.length ? "" :
-    "\n*" + titulo + " (" + items.length + ")*\n" + items.slice(0, max).map(linea).join("\n")
-    + (items.length > max ? "\n... y " + (items.length - max) + " más" : "") + "\n";
-  // avisos rojos que no son puntos con fecha (plazos de subvención, obras paradas…)
-  const urgentesExtra = av.filter((a) => a.nivel === "rojo"
-    && String(a.id).indexOf("pv_") !== 0 && String(a.id).indexOf("rv_") !== 0)
-    .map((a) => ({ obra: a.obra, texto: a.texto, fecha: "", responsable: "" }));
-  let t = "*Parte del día · " + (persona || "Proyecton") + "* — " + fechaTxt + "\n";
-  t += bloque("VENCIDO", vencidos, 8);
-  t += bloque("Para hoy", paraHoy, 8);
-  t += bloque("Urgente", urgentesExtra, 6);
-  t += bloque("Próximos 7 días", proximos, 6);
-  if (!vencidos.length && !paraHoy.length && !urgentesExtra.length) t += "\nNada vencido ni para hoy. ✔\n";
-  if (esperando.length) {
-    t += "\n*Presupuestos esperando respuesta*\n" + esperando.map((o) =>
-      "- " + o.nombre + " — " + daysSince(o.estadoDesde) + " días" + (o.importe ? " (" + fmtEUR(o.importe) + ")" : "")).join("\n") + "\n";
-  }
-  if (sinMov || sinPaso) {
-    t += "\nOjo: " + (sinMov ? sinMov + " obras sin movimiento" : "")
-      + (sinMov && sinPaso ? " · " : "") + (sinPaso ? sinPaso + " sin próximo paso" : "") + "\n";
-  }
-  return t.trim();
-}
-function resumenSemanal(data) {
-  const ahora = new Date().toISOString();
-  const desde = new Date(Date.now() - 7 * 86400000).toISOString();
-  const desdePrev = new Date(Date.now() - 14 * 86400000).toISOString();
-  const paso = (o, est, a, b) => (o.historial || []).some((h) => h.estado === est && h.fecha >= a && h.fecha < b);
-  const grupo = (est, a, b) => data.obras.filter((o) => paso(o, est, a, b));
-  const suma = (l) => l.reduce((s, o) => s + (o.importe || 0), 0);
-  const env = grupo("presupuesto", desde, ahora), envPrev = grupo("presupuesto", desdePrev, desde);
-  const con = grupo("contratada", desde, ahora), conPrev = grupo("contratada", desdePrev, desde);
-  const per = grupo("perdida", desde, ahora), perPrev = grupo("perdida", desdePrev, desde);
-  const nuevas = data.obras.filter((o) => o.creado >= desde);
-  const nuevasPrev = data.obras.filter((o) => o.creado >= desdePrev && o.creado < desde);
-  const pipeline = data.obras.filter((o) => !o.archivada && ["estudio", "presupuesto"].includes(o.estado));
-  const rojos = calcularAvisos(data).filter((a) => a.nivel === "rojo").length;
-  const vs = (p) => " (semana anterior: " + p + ")";
-  let t = "*Resumen semanal Proyecton* — últimos 7 días\n\n";
-  t += "- Obras nuevas: *" + nuevas.length + "*" + vs(nuevasPrev.length) + "\n";
-  t += "- Presupuestos enviados: *" + env.length + "*" + (env.length ? " · " + fmtEUR(suma(env)) : "") + vs(envPrev.length) + "\n";
-  t += "- Contratadas: *" + con.length + "*" + (con.length ? " · " + fmtEUR(suma(con)) : "") + vs(conPrev.length) + "\n";
-  t += "- Perdidas: *" + per.length + "*" + vs(perPrev.length) + "\n";
-  t += "\nEn juego ahora: *" + fmtEUR(suma(pipeline)) + "* en " + pipeline.length + " obras (estudio + presupuesto)\n";
-  t += "Avisos vencidos ahora mismo: " + rojos;
-  return t.trim();
-}
+/* [funciones de partes de WhatsApp retiradas a petición del usuario] */
 
 // Centro de avisos: cada aviso lleva nivel (rojo > ambar > azul), texto, obra
 // y "para" (la persona a la que le toca: responsable del punto o de la obra)
@@ -1114,14 +1032,6 @@ function PanelView({ data, avisos, onOpen, onNueva, onOpenAjustes, onIrAgenda, a
                 </span>
               ))}
             </div>
-            <div className="flex flex-wrap gap-1.5">
-              <BtnGhost onClick={() => copiarTexto(parteDelDia(data, avisos, "")).then((ok) => toast(ok ? "Parte del equipo copiado: pégalo en el WhatsApp del grupo." : "No se pudo copiar."))}>
-                <Copy size={14} /> Parte del día
-              </BtnGhost>
-              <BtnGhost onClick={() => copiarTexto(resumenSemanal(data)).then((ok) => toast(ok ? "Resumen semanal copiado: pégalo en WhatsApp." : "No se pudo copiar."))}>
-                <Copy size={14} /> Resumen semanal
-              </BtnGhost>
-            </div>
           </div>
         </Card>
       )}
@@ -1140,10 +1050,6 @@ function PanelView({ data, avisos, onOpen, onNueva, onOpenAjustes, onIrAgenda, a
               </p>
             </div>
             <BtnPrimary onClick={onIrAgenda}><CalendarDays size={15} /> Mi agenda</BtnPrimary>
-            <BtnGhost onClick={() => copiarTexto(parteDelDia(data, avisos, quien)).then((ok) => toast(ok ? "Tu parte del día está copiado: pégalo en WhatsApp." : "No se pudo copiar."))}
-              title="Copia tu día en texto con formato de WhatsApp">
-              <Copy size={14} /> Copiar mi parte
-            </BtnGhost>
             <BtnGhost onClick={onCambiarQuien}>Cambiar</BtnGhost>
           </div>
         </Card>
@@ -1594,12 +1500,41 @@ function ObrasView({ data, onOpen, onNueva, onExport, onImport }) {
 }
 
 /* ============================ AGENDA ============================ */
-function AgendaView({ data, onOpen, togglePendiente, quien }) {
+function AgendaView({ data, onOpen, togglePendiente, quien, addPunto, setFechaItem, crearObraVisita }) {
   const [fResp, setFResp] = useState(quien || "todos");
   const [verSinFecha, setVerSinFecha] = useState(false);
+  const [formOpen, setFormOpen] = useState(false);
+  const [modo, setModo] = useState("existente"); // existente | nueva
+  const [obraId, setObraId] = useState("");
+  const [nombre, setNombre] = useState("");
+  const [municipio, setMunicipio] = useState("");
+  const [telefono, setTelefono] = useState("");
+  const [texto, setTexto] = useState("Visita a la obra");
+  const [fecha, setFecha] = useState(ymdMas(1));
+  const [hora, setHora] = useState("");
+  const [resp, setResp] = useState(quien || "");
   const hoy = hoyYMD(), maniana = ymdMas(1), semana = ymdMas(7);
   const itemsTodos = calcularAgenda(data);
   const items = itemsTodos.filter((i) => fResp === "todos" || (i.implicados || [i.responsable]).includes(fResp));
+  const vivas = data.obras.filter((o) => !o.archivada && o.estado !== "perdida");
+  const TIPICOS_AGENDA = ["Visita a la obra", "Llamar al administrador", "Medición", "Junta de vecinos", "Enviar el presupuesto"];
+
+  const guardar = () => {
+    const txt = (texto.trim() || "Visita a la obra") + (hora ? " · " + hora : "");
+    if (modo === "existente") {
+      if (!obraId) return;
+      addPunto(obraId, { texto: txt, fecha, responsable: resp });
+    } else {
+      if (!nombre.trim()) return;
+      crearObraVisita({ nombre: nombre.trim(), municipio: municipio.trim(), telefono: telefono.trim(), responsable: resp, fecha, texto: txt });
+      setNombre(""); setMunicipio(""); setTelefono("");
+    }
+    setHora("");
+    setFormOpen(false);
+  };
+  const chip = (activo) => activo
+    ? { background: C.ink, color: "#fff", borderColor: C.ink }
+    : { background: "#fff", color: C.ink, borderColor: C.line };
 
   const grupos = [
     { id: "vencidos", titulo: "Vencidos", tone: "red", filtro: (i) => i.fecha && i.fecha < hoy },
@@ -1610,29 +1545,75 @@ function AgendaView({ data, onOpen, togglePendiente, quien }) {
     { id: "sinFecha", titulo: "Sin fecha", tone: "neutral", filtro: (i) => !i.fecha },
   ];
 
-  if (items.length === 0) {
-    if (itemsTodos.length > 0 && fResp !== "todos") {
-      return (
-        <EmptyHint icon={CalendarDays} title={`Nada asignado a ${fResp}`}
-          text={`El equipo tiene ${itemsTodos.length} pendientes, pero ninguno está asignado a ${fResp}. Puedes verlos todos o asignar puntos desde la ficha de cada obra.`}
-          action={<BtnPrimary onClick={() => setFResp("todos")}>Ver todo el equipo ({itemsTodos.length})</BtnPrimary>} />
-      );
-    }
-    return (
-      <EmptyHint icon={CalendarDays} title="La agenda está despejada"
-        text="Aquí se juntan los puntos y requerimientos pendientes de todas las obras, ordenados por fecha. Añádelos desde la ficha de cada obra y táchalos desde aquí." />
-    );
-  }
-
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 flex-wrap">
+        <BtnPrimary onClick={() => setFormOpen(!formOpen)}><Plus size={15} /> Agendar</BtnPrimary>
         <select className={inputCls + " w-auto"} style={inputStyle} value={fResp} onChange={(e) => setFResp(e.target.value)}>
           <option value="todos">Todo el equipo</option>
           {data.equipo.map((c) => <option key={c}>{c}</option>)}
         </select>
         <p className="text-xs" style={{ color: C.mut }}>{items.length} pendientes en total</p>
       </div>
+
+      {formOpen && (
+        <Card style={{ borderLeftWidth: 3, borderLeftColor: C.azul }}>
+          <div className="flex gap-1.5 mb-3 flex-wrap">
+            <button type="button" onClick={() => setModo("existente")} className="px-2.5 py-1 rounded-full text-xs font-bold border transition-colors" style={chip(modo === "existente")}>
+              En una obra de la lista
+            </button>
+            <button type="button" onClick={() => setModo("nueva")} className="px-2.5 py-1 rounded-full text-xs font-bold border transition-colors" style={chip(modo === "nueva")}>
+              Obra nueva · primera visita
+            </button>
+          </div>
+          {modo === "existente" ? (
+            <select className={inputCls} style={inputStyle} value={obraId} onChange={(e) => setObraId(e.target.value)}>
+              <option value="">Elige la obra…</option>
+              {vivas.map((o) => <option key={o.id} value={o.id}>{o.nombre}</option>)}
+            </select>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              <input className={inputCls} style={inputStyle} placeholder="Comunidad / dirección *" value={nombre} onChange={(e) => setNombre(e.target.value)} />
+              <input className={inputCls} style={inputStyle} placeholder="Municipio" value={municipio} onChange={(e) => setMunicipio(e.target.value)} />
+              <input className={inputCls} style={inputStyle} placeholder="Teléfono de contacto" value={telefono} onChange={(e) => setTelefono(e.target.value)} />
+            </div>
+          )}
+          <div className="flex flex-wrap gap-1.5 my-2.5">
+            {TIPICOS_AGENDA.map((t) => (
+              <button key={t} type="button" onClick={() => setTexto(t)}
+                className="px-2.5 py-1 rounded-full text-xs font-semibold border transition-colors" style={chip(texto === t)}>
+                {t}
+              </button>
+            ))}
+          </div>
+          <div className="flex flex-col sm:flex-row gap-2">
+            <input className={inputCls} style={inputStyle} placeholder="¿Qué hay que hacer?" value={texto} onChange={(e) => setTexto(e.target.value)} />
+            <input type="date" className={inputCls + " sm:w-40"} style={inputStyle} value={fecha} onChange={(e) => setFecha(e.target.value)} />
+            <input type="time" className={inputCls + " sm:w-28"} style={inputStyle} value={hora} onChange={(e) => setHora(e.target.value)} title="Hora (opcional)" />
+            <select className={inputCls + " sm:w-40"} style={inputStyle} value={resp} onChange={(e) => setResp(e.target.value)}>
+              <option value="">Responsable…</option>
+              {data.equipo.map((c) => <option key={c}>{c}</option>)}
+            </select>
+            <BtnPrimary onClick={guardar} disabled={modo === "existente" ? !obraId : !nombre.trim()}><Check size={15} /> Agendar</BtnPrimary>
+          </div>
+          {modo === "nueva" && (
+            <p className="text-xs mt-2" style={{ color: C.mut }}>
+              Se crea la obra en Estudio con su checklist y la visita ya en el calendario. El resto de datos se completan cuando quieras desde su ficha.
+            </p>
+          )}
+        </Card>
+      )}
+
+      {items.length === 0 && itemsTodos.length > 0 && fResp !== "todos" && (
+        <EmptyHint icon={CalendarDays} title={`Nada asignado a ${fResp}`}
+          text={`El equipo tiene ${itemsTodos.length} pendientes, pero ninguno está asignado a ${fResp}. Puedes verlos todos o asignar puntos desde la ficha de cada obra.`}
+          action={<BtnPrimary onClick={() => setFResp("todos")}>Ver todo el equipo ({itemsTodos.length})</BtnPrimary>} />
+      )}
+      {items.length === 0 && !(itemsTodos.length > 0 && fResp !== "todos") && (
+        <EmptyHint icon={CalendarDays} title="La agenda está despejada"
+          text="Agenda visitas, llamadas o juntas con el botón de arriba: quedan en el calendario de su obra y le saltan a quien le toque." />
+      )}
+
       {grupos.map((g) => {
         const lista = g.filtro ? items.filter(g.filtro).sort((a, b) => (a.fecha || "9999").localeCompare(b.fecha || "9999")) : [];
         if (!lista.length) return null;
@@ -1645,7 +1626,7 @@ function AgendaView({ data, onOpen, togglePendiente, quien }) {
                   Sin fecha <Badge>{lista.length}</Badge>
                 </p>
                 <div className="flex items-center gap-3">
-                  <p className="text-xs" style={{ color: C.mut }}>Pendientes sin día asignado: ponles fecha para que entren en el calendario.</p>
+                  <p className="text-xs" style={{ color: C.mut }}>Pendientes sin día asignado: ábrelos y ponles fecha aquí mismo.</p>
                   <BtnGhost onClick={() => setVerSinFecha(true)} className="!px-2.5 !py-1 text-xs">Ver los {lista.length}</BtnGhost>
                 </div>
               </div>
@@ -1665,7 +1646,13 @@ function AgendaView({ data, onOpen, togglePendiente, quien }) {
                     style={{ borderColor: g.id === "vencidos" ? C.red : C.mut, color: C.ok }}>
                     <Check size={13} className="opacity-0 group-hover:opacity-60" />
                   </button>
-                  {i.fecha && <Badge tone={i.fecha < hoy ? "red" : i.fecha === hoy ? "warn" : "neutral"}>{fmtDia(i.fecha)}</Badge>}
+                  {i.fecha ? (
+                    <Badge tone={i.fecha < hoy ? "red" : i.fecha === hoy ? "warn" : "neutral"}>{fmtDia(i.fecha)}</Badge>
+                  ) : (
+                    <input type="date" className="text-xs rounded-md border px-1 py-0.5 flex-shrink-0" style={{ borderColor: C.warn, color: C.txt }}
+                      value="" onChange={(e) => e.target.value && setFechaItem(i.obraId, i.clase, i.id, e.target.value)} title="Ponerle día (se agenda al elegirlo)" />
+                  )}
+                  {/visita/i.test(i.texto) && <MapPin size={13} className="flex-shrink-0" style={{ color: C.azul }} />}
                   <span className="text-sm flex-1 min-w-0 truncate" style={{ color: C.ink }}>
                     {i.clase === "req" && <span className="text-xs font-bold uppercase mr-1" style={{ color: C.mut }}>req</span>}
                     {i.texto}
@@ -1757,13 +1744,84 @@ function AnalisisView({ data }) {
     if (w <= 7) semanas[7 - w].n += 1;
   }));
 
+  // embudo comercial (histórico completo, por el recorrido de estados)
+  const enviadasHist = obras.filter((o) => primeraFechaEstado(o, "presupuesto"));
+  const vEnv = enviadasHist.reduce((s, o) => s + o.importe, 0);
+  const vCon = contratadas.reduce((s, x) => s + x.o.importe, 0);
+  const convEnvio = obras.length ? enviadasHist.length / obras.length : 0;
+  const convCierre = enviadasHist.length ? contratadas.length / enviadasHist.length : 0;
+
+  // antigüedad de los presupuestos vivos: dónde está atascado el dinero
+  const presVivas = obras.filter((o) => !o.archivada && o.estado === "presupuesto");
+  const tramosEdad = [
+    { label: "0-30 días", min: 0, max: 30, fill: "#B9B4AE" },
+    { label: "31-60 días", min: 31, max: 60, fill: C.azul },
+    { label: "61-90 días", min: 61, max: 90, fill: C.warn },
+    { label: "Más de 90", min: 91, max: 100000, fill: C.red },
+  ].map((t) => {
+    const col = presVivas.filter((o) => { const d = daysSince(o.estadoDesde); return d >= t.min && d <= t.max; });
+    return { ...t, n: col.length, v: col.reduce((s, o) => s + o.importe, 0) };
+  });
+  const maxEdad = Math.max(1, ...tramosEdad.map((x) => x.v));
+
+  // cartera viva por municipio
+  const muniMap = {};
+  vivas.forEach((o) => {
+    const m = ((o.municipio || "").trim() || "Sin municipio").toUpperCase();
+    if (!muniMap[m]) muniMap[m] = { n: 0, v: 0 };
+    muniMap[m].n++; muniMap[m].v += o.importe;
+  });
+  const munis = Object.keys(muniMap).map((m) => ({ m, n: muniMap[m].n, v: muniMap[m].v })).sort((a, b) => b.v - a.v).slice(0, 8);
+  const maxMuni = Math.max(1, ...munis.map((x) => x.v));
+
+  // por comercial: enviado y firmado
+  const porComercial = data.equipo.map((m) => {
+    const suyas = obras.filter((o) => o.responsable === m);
+    const env = suyas.filter((o) => primeraFechaEstado(o, "presupuesto"));
+    const con = suyas.filter((o) => primeraFechaEstado(o, "contratada"));
+    return { m, env: env.length, vEnvC: env.reduce((s, o) => s + o.importe, 0),
+      con: con.length, vConC: con.reduce((s, o) => s + o.importe, 0),
+      enCurso: suyas.filter((o) => esActiva(o)).length };
+  }).filter((x) => x.env > 0 || x.con > 0 || x.enCurso > 0);
+  const maxCom = Math.max(1, ...porComercial.map((x) => x.vEnvC));
+
+  // visitas agendadas por delante
+  const hoyStr = hoyYMD();
+  const visitasProx = vivas.reduce((s, o) => s + puntosPend(o).filter((p) => /visita/i.test(p.texto) && p.fecha && p.fecha >= hoyStr).length, 0);
+
   return (
     <div className="space-y-5">
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
         <KPI label={`Contratado en ${anio}`} value={fmtEUR(contratadoAnio)} accent={C.red} Icon={Hammer} />
         <KPI label="Tasa de éxito" value={pct(exito)} sub={`${contratadas.length} contratadas · ${perdidasN} perdidas`} Icon={Target} />
         <KPI label="Días hasta contratar" value={diasContratar ?? "—"} sub="media desde el alta" Icon={Clock} />
+        <KPI label="Visitas agendadas" value={visitasProx} sub="con fecha por delante" Icon={MapPin} />
         <KPI label={`Finalizadas en ${anio}`} value={finalizadasAnio} Icon={CircleCheck} />
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+        <Card>
+          <SectionTitle>Embudo comercial · histórico</SectionTitle>
+          <div className="space-y-2">
+            <HBar label="Obras estudiadas" value={obras.length} max={obras.length} right={`${obras.length}`} fill={EST.estudio.color} />
+            <HBar label="Presupuestos enviados" value={enviadasHist.length} max={obras.length} right={`${enviadasHist.length} · ${fmtEUR(vEnv)}`} fill={EST.presupuesto.color} />
+            <HBar label="Contratadas" value={contratadas.length} max={obras.length} right={`${contratadas.length} · ${fmtEUR(vCon)}`} fill={EST.contratada.color} />
+          </div>
+          <p className="text-xs mt-3" style={{ color: C.mut }}>
+            Del estudio al envío: {pct(convEnvio)} · Del envío a la firma: {pct(convCierre)}{vEnv ? ` (en dinero: ${pct(vCon / vEnv)})` : ""}
+          </p>
+        </Card>
+        <Card>
+          <SectionTitle>Presupuestos esperando, por antigüedad</SectionTitle>
+          {presVivas.length === 0 ? (
+            <p className="text-sm" style={{ color: C.mut }}>No hay presupuestos esperando respuesta ahora mismo.</p>
+          ) : (
+            <div className="space-y-2">
+              {tramosEdad.map((t) => <HBar key={t.label} label={t.label} value={t.v} max={maxEdad} right={`${fmtEUR(t.v)} · ${t.n}`} fill={t.fill} />)}
+            </div>
+          )}
+          <p className="text-xs mt-3" style={{ color: C.mut }}>Aquí se ve dónde está parado el dinero: pasados 60 días sin respuesta toca apretar con la llamada.</p>
+        </Card>
       </div>
 
       <Card>
@@ -1790,6 +1848,43 @@ function AnalisisView({ data }) {
             </div>
           )}
           <p className="text-xs mt-3" style={{ color: C.mut }}>El tono se oscurece según avanza el expediente hacia el cobro.</p>
+        </Card>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+        <Card>
+          <SectionTitle>Cartera viva por municipio</SectionTitle>
+          {munis.length === 0 ? (
+            <p className="text-sm" style={{ color: C.mut }}>Pon el municipio en la ficha de cada obra para ver dónde se concentra el trabajo.</p>
+          ) : (
+            <div className="space-y-2">
+              {munis.map((x) => <HBar key={x.m} label={x.m} value={x.v} max={maxMuni} right={`${fmtEUR(x.v)} · ${x.n}`} fill={C.azul} />)}
+            </div>
+          )}
+        </Card>
+        <Card>
+          <SectionTitle>Por comercial · enviado y firmado</SectionTitle>
+          {porComercial.length === 0 ? (
+            <p className="text-sm" style={{ color: C.mut }}>Asigna un responsable a cada obra para comparar el trabajo de cada comercial.</p>
+          ) : (
+            <div className="space-y-4">
+              {porComercial.map((x) => (
+                <div key={x.m}>
+                  <div className="flex items-center gap-2 mb-1.5">
+                    <Avatar nombre={x.m} />
+                    <span className="text-sm font-bold flex-1 truncate" style={{ color: C.ink }}>{x.m}</span>
+                    <span className="text-xs flex-shrink-0" style={{ color: C.mut }}>
+                      {x.enCurso} en curso · firma el {x.env ? pct(x.con / x.env) : "—"}
+                    </span>
+                  </div>
+                  <div className="space-y-1">
+                    <HBar label={`Enviado (${x.env})`} value={x.vEnvC} max={maxCom} right={fmtEUR(x.vEnvC)} fill={EST.presupuesto.color} />
+                    <HBar label={`Firmado (${x.con})`} value={x.vConC} max={maxCom} right={fmtEUR(x.vConC)} fill={EST.contratada.color} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </Card>
       </div>
 
@@ -2969,9 +3064,21 @@ function App() {
 
   const addPunto = (id, { texto, fecha, responsable }) =>
     mutateObra(id, (o) => ({ ...o, puntos: [...o.puntos, { id: uid(), texto, fecha: fecha || "", responsable: responsable || "", hecho: false }] }));
-  const togglePunto = (id, pid) => mutateObra(id, (o) => ({
-    ...o, puntos: o.puntos.map((p) => p.id === pid ? { ...p, hecho: !p.hecho, fechaHecho: !p.hecho ? new Date().toISOString() : null } : p),
-  }));
+  const togglePunto = (id, pid) => {
+    // al marcar hecha una VISITA en una obra en estudio, se apunta solo el siguiente paso
+    const obraAntes = data.obras.find((x) => x.id === id);
+    const pAntes = obraAntes && obraAntes.puntos.find((x) => x.id === pid);
+    const visitaHecha = pAntes && !pAntes.hecho && /visita/i.test(pAntes.texto) && obraAntes.estado === "estudio";
+    mutateObra(id, (o) => {
+      let puntos = o.puntos.map((p) => p.id === pid ? { ...p, hecho: !p.hecho, fechaHecho: !p.hecho ? new Date().toISOString() : null } : p);
+      if (visitaHecha && !puntos.some((x) => !x.hecho && /presupuesto|medici/i.test(x.texto))) {
+        puntos = [...puntos, { id: uid(), texto: "Hacer y enviar el presupuesto", fecha: "", responsable: o.responsable || "", hecho: false, auto: "postvisita" }];
+      }
+      return { ...o, puntos };
+    });
+    if (visitaHecha) toast("Visita hecha. Siguiente paso apuntado: hacer el presupuesto.");
+    return visitaHecha;
+  };
   const delPunto = (id, pid) => mutateObra(id, (o) => ({ ...o, puntos: o.puntos.filter((p) => p.id !== pid) }));
 
   const addReq = (id, { texto, fechaLimite }) =>
@@ -2987,9 +3094,36 @@ function App() {
   const delApunte = (id, aid) => mutateObra(id, (o) => ({ ...o, apuntes: o.apuntes.filter((a) => a.id !== aid) }));
 
   const togglePendiente = (obraId, clase, itemId) => {
-    if (clase === "punto") togglePunto(obraId, itemId);
-    else toggleReq(obraId, itemId);
-    toast("Marcado como hecho");
+    if (clase === "punto") {
+      const especial = togglePunto(obraId, itemId); // si era una visita, ya avisa él
+      if (!especial) toast("Marcado como hecho");
+    } else {
+      toggleReq(obraId, itemId);
+      toast("Marcado como hecho");
+    }
+  };
+
+  // agendar (o cambiar el día) de un punto o requerimiento desde la Agenda
+  const setFechaItem = (obraId, clase, itemId, fecha) => {
+    mutateObra(obraId, (o) => clase === "punto"
+      ? { ...o, puntos: o.puntos.map((p) => p.id === itemId ? { ...p, fecha } : p) }
+      : { ...o, requerimientos: o.requerimientos.map((r) => r.id === itemId ? { ...r, fechaLimite: fecha } : r) });
+    if (fecha) toast("Agendado para el " + fmtDia(fecha) + ".");
+  };
+
+  // alta rápida de los comerciales: obra nueva con su visita ya agendada
+  const crearObraVisita = ({ nombre, municipio, telefono, responsable, fecha, texto }) => {
+    const now = new Date().toISOString();
+    const base = normalizarObra({
+      id: uid(), nombre, municipio: municipio || "", telefono: telefono || "",
+      responsable: responsable || "", origen: "Llamada entrante",
+      estado: "estudio", creado: now, estadoDesde: now,
+      historial: [{ estado: "estudio", fecha: now }],
+      puntos: [{ id: uid(), texto: texto || "Visita a la obra", fecha: fecha || "", responsable: responsable || "", hecho: false }],
+    });
+    const nueva = aplicarAutomatismos(base, "estudio");
+    setData((d) => ({ ...d, obras: [nueva, ...d.obras] }));
+    toast(fecha ? "Obra creada con su visita el " + fmtDia(fecha) + "." : "Obra creada con su visita.");
   };
 
   const addMiembro = (name) => setData((d) => d.equipo.includes(name) ? d : { ...d, equipo: [...d.equipo, name] });
@@ -3328,7 +3462,8 @@ function App() {
             setEstado={setEstado} onPerdida={(id) => { setPerdidaId(id); setPerdidaMotivo(MOTIVOS[0]); }} />
         )}
         {tab === "obras" && <ObrasView data={data} onOpen={abrirObra} onNueva={() => setObraModal({})} onExport={exportCSV} onImport={() => setLoteOpen(true)} />}
-        {tab === "agenda" && <AgendaView data={data} onOpen={abrirObra} togglePendiente={togglePendiente} quien={persona} />}
+        {tab === "agenda" && <AgendaView data={data} onOpen={abrirObra} togglePendiente={togglePendiente} quien={persona}
+          addPunto={addPunto} setFechaItem={setFechaItem} crearObraVisita={crearObraVisita} />}
         {tab === "analisis" && <AnalisisView data={data} />}
       </main>
 
