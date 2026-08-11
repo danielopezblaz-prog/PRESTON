@@ -831,9 +831,9 @@ function Avatar({ nombre, size = 7 }) {
 }
 function Modal({ title, onClose, children, wide }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center p-2 sm:p-6" style={{ background: "rgba(20,20,22,0.55)" }} onClick={onClose}>
-      <div className={`bg-white rounded-2xl w-full ${wide ? "max-w-4xl" : "max-w-lg"} overflow-auto shadow-xl aparecer`}
-        style={{ maxHeight: "94vh" }} onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 z-50 flex items-start justify-center p-0 sm:p-6" style={{ background: "rgba(20,20,22,0.55)" }} onClick={onClose}>
+      <div className={`bg-white rounded-none sm:rounded-2xl w-full ${wide ? "max-w-4xl" : "max-w-lg"} overflow-auto shadow-xl aparecer max-h-[100dvh] sm:max-h-[94vh]`}
+        onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between px-5 py-4 border-b sticky top-0 bg-white z-20" style={{ borderColor: C.line }}>
           <h3 className="font-bold uppercase tracking-wider text-sm" style={{ color: C.ink }}>{title}</h3>
           <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-neutral-100" aria-label="Cerrar"><X size={18} /></button>
@@ -1348,15 +1348,15 @@ function TableroView({ data, onOpen, onNueva, setEstado, onPerdida }) {
 
   return (
     <div>
-      <div className="overflow-x-auto pb-2 -mx-1 px-1">
-        <div className="flex gap-3" style={{ minWidth: "68rem" }}>
+      <div className="overflow-x-auto pb-2 -mx-1 px-1 snap-x snap-mandatory sm:snap-none">
+        <div className="flex gap-3 min-w-[68rem]">
           {ESTADOS_TABLERO.map((e, ei) => {
             const col = obras.filter((o) => o.estado === e.id)
               .sort((a, b) => (a.prioridad === "alta" ? -1 : 0) - (b.prioridad === "alta" ? -1 : 0) || b.importe - a.importe);
             const total = col.reduce((s, o) => s + o.importe, 0);
             const resaltada = overCol === e.id;
             return (
-              <div key={e.id} className="flex-1 rounded-xl p-2 transition-colors" style={{ background: resaltada ? e.tint : "#ECEAE7", minWidth: "13rem", outline: resaltada ? `2px dashed ${e.color}` : "none" }}
+              <div key={e.id} className="flex-1 rounded-xl p-2 transition-colors snap-center min-w-[80vw] sm:min-w-[13rem]" style={{ background: resaltada ? e.tint : "#ECEAE7", outline: resaltada ? `2px dashed ${e.color}` : "none" }}
                 onDragOver={(ev) => { ev.preventDefault(); if (overCol !== e.id) setOverCol(e.id); }}
                 onDragLeave={() => overCol === e.id && setOverCol(null)}
                 onDrop={(ev) => { ev.preventDefault(); soltar(e.id); }}>
@@ -1504,7 +1504,7 @@ function ObrasView({ data, onOpen, onNueva, onExport, onImport }) {
         </div>
       </div>
 
-      <Card className="p-0 overflow-hidden">
+      <Card className="p-0 overflow-hidden hidden lg:block">
         <div className="overflow-x-auto">
           <table className="w-full text-sm" style={{ minWidth: "64rem" }}>
             <thead>
@@ -1557,6 +1557,38 @@ function ObrasView({ data, onOpen, onNueva, onExport, onImport }) {
           </table>
         </div>
       </Card>
+
+      {/* en móvil y tablet la tabla se convierte en tarjetas tocables */}
+      <div className="lg:hidden space-y-2">
+        {lista.map((o) => {
+          const paso = proximoPaso(o);
+          const venc = puntosPend(o).filter((p) => p.fecha && p.fecha < hoy).length + reqsPend(o).filter((r) => r.fechaLimite && r.fechaLimite < hoy).length;
+          return (
+            <button key={o.id} onClick={() => onOpen(o.id)} className="w-full text-left bg-white rounded-xl border p-3 active:bg-neutral-50" style={{ borderColor: C.line }}>
+              <div className="flex items-start justify-between gap-2">
+                <p className="font-bold flex items-center gap-1.5 min-w-0" style={{ color: C.ink }}>
+                  <PuntoSalud obra={o} /> <span className="truncate">{o.nombre}</span> <PrioFlag prioridad={o.prioridad} />
+                </p>
+                <span className="font-extrabold flex-shrink-0 text-sm" style={{ color: C.red, fontVariantNumeric: "tabular-nums" }}>{fmtEUR(o.importe)}</span>
+              </div>
+              <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+                <EstadoBadge estado={o.estado} conDias desde={o.estadoDesde} />
+                <SubBadge obra={o} />
+                {venc > 0 && <Badge tone="red">{venc} vencido{venc === 1 ? "" : "s"}</Badge>}
+              </div>
+              <div className="flex items-center justify-between gap-2 mt-1.5">
+                <p className="text-xs truncate flex-1" style={{ color: paso && paso.fecha && paso.fecha < hoy ? C.redDark : C.mut }}>
+                  {paso ? (paso.fecha ? fmtDia(paso.fecha) + " · " : "") + paso.texto : "Sin próximo paso"}
+                </p>
+                {o.responsable && <Avatar nombre={o.responsable} />}
+              </div>
+            </button>
+          );
+        })}
+        {lista.length === 0 && (
+          <Card><p className="text-sm text-center py-4" style={{ color: C.mut }}>No hay obras con estos filtros.</p></Card>
+        )}
+      </div>
     </div>
   );
 }
@@ -3190,9 +3222,9 @@ function App() {
           </div>
           <div className="flex items-center gap-2">
             {/* buscador */}
-            <div className="relative hidden md:block">
+            <div className="relative hidden md:block min-w-[10rem]">
               <Search size={15} className="absolute left-3 top-2.5" style={{ color: C.mut }} />
-              <input ref={buscaRef} className={inputCls + " pl-8 w-64"} style={inputStyle} placeholder="Buscar obra…  (Ctrl+K)"
+              <input ref={buscaRef} className={inputCls + " pl-8 w-44 lg:w-64"} style={inputStyle} placeholder="Buscar obra…  (Ctrl+K)"
                 title="Atajo: Ctrl+K desde cualquier pantalla"
                 value={busca} onChange={(e) => setBusca(e.target.value)}
                 onKeyDown={(e) => {
@@ -3232,7 +3264,7 @@ function App() {
                   style={{ background: C.red }}>{nAvisosCampana}</span>
               )}
             </button>
-            <BtnPrimary onClick={() => setObraModal({})}><Plus size={16} /><span className="hidden sm:inline">Nueva obra</span></BtnPrimary>
+            <BtnPrimary onClick={() => setObraModal({})}><Plus size={16} /><span className="hidden lg:inline">Nueva obra</span></BtnPrimary>
             <button onClick={() => setAjustesOpen(true)} className="p-2 rounded-lg border hover:bg-neutral-50" style={{ borderColor: C.line }} aria-label="Ajustes">
               <Settings size={17} style={{ color: C.ink }} />
             </button>
