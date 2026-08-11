@@ -237,6 +237,7 @@ const REQS_SUGERIDOS = {
 const KEY = "proyecton-central-v1";
 const KEY_FECHA_PUB = "proyecton-central-fechapub"; // fecha de la última versión publicada aplicada en este navegador
 const KEY_EDITADO = "proyecton-central-editado"; // "1" si hay cambios locales sin publicar
+const KEY_QUIEN = "proyecton-central-quien"; // quién usa este navegador (para avisos personales)
 const CRM_KEYS = ["proyecton-crm-v2", "proyecton-crm-v1"];
 const uid = () => `id_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 const fmtEUR = (v) => new Intl.NumberFormat("es-ES", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(v || 0);
@@ -485,31 +486,48 @@ const primeraFechaEstado = (o, estadoId) => {
   return h ? h.fecha : null;
 };
 
-// Centro de avisos: cada aviso lleva nivel (rojo > ambar > azul), texto y obra
+// Centro de avisos: cada aviso lleva nivel (rojo > ambar > azul), texto, obra
+// y "para" (la persona a la que le toca: responsable del punto o de la obra)
 function calcularAvisos(data) {
   const hoy = hoyYMD();
   const avisos = [];
   data.obras.filter((o) => !o.archivada && o.estado !== "perdida").forEach((o) => {
+    const resp = o.responsable || "";
     puntosPend(o).forEach((p) => {
-      if (p.fecha && p.fecha < hoy) avisos.push({ id: `pv_${o.id}_${p.id}`, nivel: "rojo", grupo: "Vencido", texto: p.texto, detalle: `desde ${fmtDia(p.fecha)}`, obraId: o.id, obra: o.nombre });
-      else if (p.fecha === hoy) avisos.push({ id: `ph_${o.id}_${p.id}`, nivel: "ambar", grupo: "Hoy", texto: p.texto, detalle: "para hoy", obraId: o.id, obra: o.nombre });
+      const para = p.responsable || resp;
+      if (p.fecha && p.fecha < hoy) avisos.push({ id: `pv_${o.id}_${p.id}`, nivel: "rojo", grupo: "Vencido", texto: p.texto, detalle: `desde ${fmtDia(p.fecha)}`, obraId: o.id, obra: o.nombre, para });
+      else if (p.fecha === hoy) avisos.push({ id: `ph_${o.id}_${p.id}`, nivel: "ambar", grupo: "Hoy", texto: p.texto, detalle: "para hoy", obraId: o.id, obra: o.nombre, para });
     });
     reqsPend(o).forEach((r) => {
-      if (r.fechaLimite && r.fechaLimite < hoy) avisos.push({ id: `rv_${o.id}_${r.id}`, nivel: "rojo", grupo: "Vencido", texto: `Requerimiento: ${r.texto}`, detalle: `desde ${fmtDia(r.fechaLimite)}`, obraId: o.id, obra: o.nombre });
-      else if (r.fechaLimite === hoy) avisos.push({ id: `rh_${o.id}_${r.id}`, nivel: "ambar", grupo: "Hoy", texto: `Requerimiento: ${r.texto}`, detalle: "para hoy", obraId: o.id, obra: o.nombre });
+      if (r.fechaLimite && r.fechaLimite < hoy) avisos.push({ id: `rv_${o.id}_${r.id}`, nivel: "rojo", grupo: "Vencido", texto: `Requerimiento: ${r.texto}`, detalle: `desde ${fmtDia(r.fechaLimite)}`, obraId: o.id, obra: o.nombre, para: resp });
+      else if (r.fechaLimite === hoy) avisos.push({ id: `rh_${o.id}_${r.id}`, nivel: "ambar", grupo: "Hoy", texto: `Requerimiento: ${r.texto}`, detalle: "para hoy", obraId: o.id, obra: o.nombre, para: resp });
     });
     if (esActiva(o)) {
       if (puntosPend(o).length === 0)
-        avisos.push({ id: `sp_${o.id}`, nivel: "ambar", grupo: "Atención", texto: "Sin próximo paso definido", detalle: "añade un punto con fecha", obraId: o.id, obra: o.nombre });
+        avisos.push({ id: `sp_${o.id}`, nivel: "ambar", grupo: "Atención", texto: "Sin próximo paso definido", detalle: "añade un punto con fecha", obraId: o.id, obra: o.nombre, para: resp });
       const dias = daysSince(ultimoMovimiento(o));
       if (dias > 14)
-        avisos.push({ id: `sm_${o.id}`, nivel: "ambar", grupo: "Atención", texto: `Sin movimiento desde hace ${dias} días`, detalle: "apunta el último avance", obraId: o.id, obra: o.nombre });
+        avisos.push({ id: `sm_${o.id}`, nivel: "ambar", grupo: "Atención", texto: `Sin movimiento desde hace ${dias} días`, detalle: "apunta el último avance", obraId: o.id, obra: o.nombre, para: resp });
       if (o.estado === "presupuesto" && daysSince(o.estadoDesde) > 21)
-        avisos.push({ id: `pe_${o.id}`, nivel: "azul", grupo: "Seguimiento", texto: `Presupuesto sin respuesta (${daysSince(o.estadoDesde)} días)`, detalle: "llama al administrador", obraId: o.id, obra: o.nombre });
+        avisos.push({ id: `pe_${o.id}`, nivel: "azul", grupo: "Seguimiento", texto: `Presupuesto sin respuesta (${daysSince(o.estadoDesde)} días)`, detalle: "llama al administrador", obraId: o.id, obra: o.nombre, para: resp });
       if (o.subEstado === "solicitar" && ["contratada", "ejecucion"].includes(o.estado))
-        avisos.push({ id: `su_${o.id}`, nivel: "azul", grupo: "Seguimiento", texto: "Subvención pendiente de solicitar", detalle: o.subImporte ? fmtEUR(o.subImporte) + " en juego" : "", obraId: o.id, obra: o.nombre });
+        avisos.push({ id: `su_${o.id}`, nivel: "azul", grupo: "Seguimiento", texto: "Subvención pendiente de solicitar", detalle: o.subImporte ? fmtEUR(o.subImporte) + " en juego" : "", obraId: o.id, obra: o.nombre, para: resp });
+      if (["contratada", "ejecucion"].includes(o.estado) && !o.importe)
+        avisos.push({ id: `si_${o.id}`, nivel: "ambar", grupo: "Atención", texto: "Obra firmada sin importe apuntado", detalle: "ponlo en Editar datos", obraId: o.id, obra: o.nombre, para: resp });
+      if (SUB_EN_JUEGO.includes(o.subEstado) && !o.subImporte)
+        avisos.push({ id: `sv_${o.id}`, nivel: "azul", grupo: "Seguimiento", texto: "Subvención sin importe definido", detalle: "apunta cuánto se pide", obraId: o.id, obra: o.nombre, para: resp });
     }
+    if (o.estado === "finalizada" && o.importe > 0 && (o.cobrado || 0) < o.importe)
+      avisos.push({ id: `co_${o.id}`, nivel: "azul", grupo: "Seguimiento", texto: `Pendiente de cobro: ${fmtEUR(o.importe - (o.cobrado || 0))}`, detalle: "obra terminada sin cobrar del todo", obraId: o.id, obra: o.nombre, para: resp });
   });
+  // datos incompletos, agrupados en una sola línea para no inundar
+  const activasTodas = data.obras.filter((o) => !o.archivada && ACTIVOS.includes(o.estado));
+  const sinImporte = activasTodas.filter((o) => !o.importe && !["contratada", "ejecucion"].includes(o.estado));
+  if (sinImporte.length)
+    avisos.push({ id: "agg_imp", nivel: "azul", grupo: "Seguimiento", texto: `${sinImporte.length} obra${sinImporte.length === 1 ? "" : "s"} en estudio o presupuesto sin importe`, detalle: "se completan desde su ficha", obraId: sinImporte.length === 1 ? sinImporte[0].id : null, obra: "Datos incompletos", para: "" });
+  const sinContacto = activasTodas.filter((o) => !o.telefono && !o.email && !o.contactoNombre && !o.admFincas);
+  if (sinContacto.length)
+    avisos.push({ id: "agg_cto", nivel: "azul", grupo: "Seguimiento", texto: `${sinContacto.length} obra${sinContacto.length === 1 ? "" : "s"} activa${sinContacto.length === 1 ? "" : "s"} sin ningún contacto`, detalle: "sin teléfono no hay seguimiento posible", obraId: sinContacto.length === 1 ? sinContacto[0].id : null, obra: "Datos incompletos", para: "" });
   const orden = { rojo: 0, ambar: 1, azul: 2 };
   avisos.sort((a, b) => orden[a.nivel] - orden[b.nivel]);
   return avisos;
@@ -701,55 +719,84 @@ function GraficaMeses({ datos, nombre }) {
 }
 
 /* ============================ CENTRO DE AVISOS ============================ */
-function ListaAvisos({ avisos, onOpen, compacta }) {
+function ListaAvisos({ avisos, onOpen, compacta, quien }) {
+  const [modo, setModo] = useState(quien ? "mios" : "todos");
+  const mios = quien ? avisos.filter((a) => (a.para || "") === quien) : [];
+  const visibles = (modo === "mios" && quien) ? mios : avisos;
   const grupos = [
     { nivel: "rojo", titulo: "Vencido", tone: "red", Icon: AlertTriangle },
     { nivel: "ambar", titulo: "Atención", tone: "warn", Icon: Clock },
     { nivel: "azul", titulo: "Seguimiento", tone: "azul", Icon: Bell },
   ];
-  if (avisos.length === 0) {
+  const conmutador = quien ? (
+    <div className="flex gap-1.5 mb-3">
+      <button onClick={() => setModo("mios")}
+        className="px-2.5 py-1 rounded-full text-xs font-bold border transition-colors"
+        style={modo === "mios" ? { background: C.ink, color: "#fff", borderColor: C.ink } : { background: "#fff", color: C.ink, borderColor: C.line }}>
+        Míos ({mios.length})
+      </button>
+      <button onClick={() => setModo("todos")}
+        className="px-2.5 py-1 rounded-full text-xs font-bold border transition-colors"
+        style={modo === "todos" ? { background: C.ink, color: "#fff", borderColor: C.ink } : { background: "#fff", color: C.ink, borderColor: C.line }}>
+        Equipo ({avisos.length})
+      </button>
+    </div>
+  ) : null;
+  if (visibles.length === 0) {
     return (
-      <div className="flex items-center gap-2 py-3">
-        <CircleCheck size={18} style={{ color: C.ok }} />
-        <p className="text-sm font-semibold" style={{ color: C.ink }}>Todo al día. Ninguna obra necesita atención inmediata.</p>
+      <div>
+        {conmutador}
+        <div className="flex items-center gap-2 py-3">
+          <CircleCheck size={18} style={{ color: C.ok }} />
+          <p className="text-sm font-semibold" style={{ color: C.ink }}>
+            {modo === "mios" && quien ? `Todo al día, ${quien}: no tienes avisos pendientes.` : "Todo al día. Ninguna obra necesita atención inmediata."}
+          </p>
+        </div>
       </div>
     );
   }
   return (
-    <div className="space-y-3">
-      {grupos.map((g) => {
-        const lista = avisos.filter((a) => a.nivel === g.nivel);
-        if (!lista.length) return null;
-        const mostrar = compacta ? lista.slice(0, 5) : lista;
-        return (
-          <div key={g.nivel}>
-            <p className="text-xs font-bold uppercase tracking-wider mb-1.5 inline-flex items-center gap-1.5" style={{ color: C.mut }}>
-              <g.Icon size={13} /> {g.titulo} <Badge tone={g.tone}>{lista.length}</Badge>
-            </p>
-            <div className="space-y-0.5">
-              {mostrar.map((a) => (
-                <button key={a.id} onClick={() => onOpen(a.obraId)}
-                  className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-neutral-50 text-left">
-                  <span className="w-1.5 h-1.5 rounded-full flex-shrink-0"
-                    style={{ background: g.nivel === "rojo" ? C.red : g.nivel === "ambar" ? C.warn : C.azul }} />
-                  <span className="text-sm font-semibold truncate" style={{ color: C.ink }}>{a.obra}</span>
-                  <span className="text-sm truncate flex-1" style={{ color: C.txt }}>· {a.texto}</span>
-                  {a.detalle && <span className="text-xs hidden sm:block flex-shrink-0" style={{ color: C.mut }}>{a.detalle}</span>}
-                </button>
-              ))}
-              {compacta && lista.length > 5 && (
-                <p className="text-xs px-2" style={{ color: C.mut }}>… y {lista.length - 5} más</p>
-              )}
+    <div>
+      {conmutador}
+      <div className="space-y-3">
+        {grupos.map((g) => {
+          const lista = visibles.filter((a) => a.nivel === g.nivel);
+          if (!lista.length) return null;
+          const mostrar = compacta ? lista.slice(0, 5) : lista;
+          return (
+            <div key={g.nivel}>
+              <p className="text-xs font-bold uppercase tracking-wider mb-1.5 inline-flex items-center gap-1.5" style={{ color: C.mut }}>
+                <g.Icon size={13} /> {g.titulo} <Badge tone={g.tone}>{lista.length}</Badge>
+              </p>
+              <div className="space-y-0.5">
+                {mostrar.map((a) => {
+                  const Fila = a.obraId ? "button" : "div";
+                  return (
+                    <Fila key={a.id} onClick={a.obraId ? () => onOpen(a.obraId) : undefined}
+                      className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-left ${a.obraId ? "hover:bg-neutral-50 cursor-pointer" : ""}`}>
+                      <span className="w-1.5 h-1.5 rounded-full flex-shrink-0"
+                        style={{ background: g.nivel === "rojo" ? C.red : g.nivel === "ambar" ? C.warn : C.azul }} />
+                      <span className="text-sm font-semibold truncate" style={{ color: C.ink }}>{a.obra}</span>
+                      <span className="text-sm truncate flex-1" style={{ color: C.txt }}>· {a.texto}</span>
+                      {modo === "todos" && a.para && <Avatar nombre={a.para} />}
+                      {a.detalle && <span className="text-xs hidden sm:block flex-shrink-0" style={{ color: C.mut }}>{a.detalle}</span>}
+                    </Fila>
+                  );
+                })}
+                {compacta && lista.length > 5 && (
+                  <p className="text-xs px-2" style={{ color: C.mut }}>… y {lista.length - 5} más</p>
+                )}
+              </div>
             </div>
-          </div>
-        );
-      })}
+          );
+        })}
+      </div>
     </div>
   );
 }
 
 /* ============================ PANEL (el corazón) ============================ */
-function PanelView({ data, avisos, onOpen, onNueva, onOpenAjustes, onIrAgenda, addApunte, toast }) {
+function PanelView({ data, avisos, onOpen, onNueva, onOpenAjustes, onIrAgenda, addApunte, toast, quien, onCambiarQuien }) {
   const obras = data.obras.filter((o) => !o.archivada);
   const activas = obras.filter((o) => ACTIVOS.includes(o.estado));
   const now = new Date();
@@ -768,6 +815,14 @@ function PanelView({ data, avisos, onOpen, onNueva, onOpenAjustes, onIrAgenda, a
   const subEnJuego = obras.filter((o) => SUB_EN_JUEGO.includes(o.subEstado)).reduce((s, o) => s + o.subImporte, 0);
   const rojos = avisos.filter((a) => a.nivel === "rojo").length;
   const paraHoy = avisos.filter((a) => a.grupo === "Hoy").length;
+
+  // los números personales de quien usa este navegador
+  const hoyStr = hoyYMD();
+  const misPuntos = quien ? activas.flatMap((o) => puntosPend(o).filter((p) => (p.responsable || o.responsable) === quien)) : [];
+  const misHoy = misPuntos.filter((p) => p.fecha === hoyStr).length;
+  const misVencidos = misPuntos.filter((p) => p.fecha && p.fecha < hoyStr).length;
+  const misObras = quien ? activas.filter((o) => o.responsable === quien).length : 0;
+  const misSinFecha = misPuntos.filter((p) => !p.fecha).length;
 
   // objetivo del mes: contratado (primer paso a "contratada") dentro del mes actual
   const esEsteMes = (iso) => { const d = new Date(iso); return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear(); };
@@ -800,6 +855,10 @@ function PanelView({ data, avisos, onOpen, onNueva, onOpenAjustes, onIrAgenda, a
   const hoy = hoyYMD(), semana = ymdMas(7);
   const agenda = calcularAgenda(data).filter((i) => i.fecha && i.fecha <= semana).sort((a, b) => a.fecha.localeCompare(b.fecha)).slice(0, 8);
 
+  // lo que nadie ve: los presupuestos que más tiempo llevan esperando respuesta
+  const esperando = obras.filter((o) => o.estado === "presupuesto")
+    .sort((a, b) => a.estadoDesde.localeCompare(b.estadoDesde)).slice(0, 3);
+
   // actividad reciente
   const recientes = obras.flatMap((o) => o.apuntes.map((a) => ({ ...a, obra: o.nombre, obraId: o.id })))
     .sort((a, b) => b.fecha.localeCompare(a.fecha)).slice(0, 6);
@@ -813,6 +872,25 @@ function PanelView({ data, avisos, onOpen, onNueva, onOpenAjustes, onIrAgenda, a
 
   return (
     <div className="space-y-5">
+      {/* mi día */}
+      {quien && (
+        <Card style={{ borderLeftWidth: 3, borderLeftColor: misVencidos > 0 ? C.red : C.ok }}>
+          <div className="flex flex-wrap items-center gap-3">
+            <Avatar nombre={quien} size={10} />
+            <div className="flex-1" style={{ minWidth: "14rem" }}>
+              <p className="text-lg font-extrabold" style={{ color: C.ink }}>Hola, {quien}</p>
+              <p className="text-sm" style={{ color: C.txt }}>
+                {misVencidos > 0 && <b style={{ color: C.redDark }}>{misVencidos} vencido{misVencidos === 1 ? "" : "s"} · </b>}
+                {misHoy} para hoy · {misObras} obra{misObras === 1 ? "" : "s"} tuya{misObras === 1 ? "" : "s"} activa{misObras === 1 ? "" : "s"}
+                {misSinFecha > 0 ? ` · ${misSinFecha} puntos sin fecha` : ""}
+              </p>
+            </div>
+            <BtnPrimary onClick={onIrAgenda}><CalendarDays size={15} /> Mi agenda</BtnPrimary>
+            <BtnGhost onClick={onCambiarQuien}>Cambiar</BtnGhost>
+          </div>
+        </Card>
+      )}
+
       {/* KPIs */}
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
         <KPI label="Obras activas" value={activas.length} sub={`${enEjecucion.length} en ejecución`} Icon={Building2} />
@@ -826,7 +904,7 @@ function PanelView({ data, avisos, onOpen, onNueva, onOpenAjustes, onIrAgenda, a
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
         <Card className="lg:col-span-2" style={rojos ? { borderLeftWidth: 3, borderLeftColor: C.red } : {}}>
           <SectionTitle>Centro de avisos</SectionTitle>
-          <ListaAvisos avisos={avisos} onOpen={onOpen} compacta />
+          <ListaAvisos avisos={avisos} onOpen={onOpen} compacta quien={quien} />
         </Card>
         <Card>
           <SectionTitle right={<BtnGhost onClick={onIrAgenda} className="!px-2 !py-1 text-xs">Ver agenda</BtnGhost>}>Próximos 7 días</SectionTitle>
@@ -841,6 +919,20 @@ function PanelView({ data, avisos, onOpen, onNueva, onOpenAjustes, onIrAgenda, a
                   <span className="text-sm truncate flex-1" style={{ color: C.ink }}>{i.texto}</span>
                 </button>
               ))}
+            </div>
+          )}
+          {esperando.length > 0 && (
+            <div className="mt-4 pt-3 border-t" style={{ borderColor: C.line }}>
+              <p className="text-xs font-bold uppercase tracking-wider mb-1.5" style={{ color: C.mut }}>Esperando respuesta desde hace más</p>
+              <div className="space-y-0.5">
+                {esperando.map((o) => (
+                  <button key={o.id} onClick={() => onOpen(o.id)} className="w-full flex items-center gap-2 px-2 py-1 rounded-lg hover:bg-neutral-50 text-left">
+                    <Badge tone="warn">{daysSince(o.estadoDesde)}d</Badge>
+                    <span className="text-sm truncate flex-1" style={{ color: C.ink }}>{o.nombre}</span>
+                    <span className="text-xs flex-shrink-0" style={{ color: C.mut, fontVariantNumeric: "tabular-nums" }}>{fmtEUR(o.importe)}</span>
+                  </button>
+                ))}
+              </div>
             </div>
           )}
         </Card>
@@ -1202,8 +1294,8 @@ function ObrasView({ data, onOpen, onNueva, onExport, onImport }) {
 }
 
 /* ============================ AGENDA ============================ */
-function AgendaView({ data, onOpen, togglePendiente }) {
-  const [fResp, setFResp] = useState("todos");
+function AgendaView({ data, onOpen, togglePendiente, quien }) {
+  const [fResp, setFResp] = useState(quien || "todos");
   const hoy = hoyYMD(), maniana = ymdMas(1), semana = ymdMas(7);
   const items = calcularAgenda(data).filter((i) => fResp === "todos" || i.responsable === fResp);
 
@@ -2155,6 +2247,11 @@ function App() {
   const [nuevoTipico, setNuevoTipico] = useState("");
   const [busca, setBusca] = useState("");
   const [toastMsg, setToastMsg] = useState(null);
+  const [quien, setQuienEstado] = useState(() => { try { return localStorage.getItem(KEY_QUIEN) || ""; } catch (e) { return ""; } });
+  const elegirQuien = (q) => {
+    setQuienEstado(q);
+    try { if (q) localStorage.setItem(KEY_QUIEN, q); else localStorage.removeItem(KEY_QUIEN); } catch (e) {}
+  };
   const loadedRef = useRef(false);
   const dataRef = useRef(null);
   const dirtyRef = useRef(false);
@@ -2310,6 +2407,22 @@ function App() {
   }, []);
 
   const avisos = useMemo(() => data ? calcularAvisos(data) : [], [data]);
+  const persona = (data && data.equipo && data.equipo.includes(quien)) ? quien : "";
+
+  // notificación del navegador al abrir, si la persona tiene cosas urgentes
+  const notificadoRef = useRef(false);
+  useEffect(() => {
+    if (notificadoRef.current || !data || !persona) return;
+    notificadoRef.current = true;
+    const urgentes = avisos.filter((a) => (a.para || "") === persona && (a.nivel === "rojo" || a.grupo === "Hoy"));
+    if (!urgentes.length) return;
+    try {
+      if (window.Notification && Notification.permission === "granted") {
+        new Notification("Central de Obras", { body: persona + ": tienes " + urgentes.length + " avisos vencidos o para hoy." });
+      }
+    } catch (e) {}
+  }, [data, avisos, persona]);
+
   const agendaPendientes = useMemo(() => {
     if (!data) return 0;
     const hoy = hoyYMD();
@@ -2471,6 +2584,16 @@ function App() {
     });
   };
 
+  const activarNotificaciones = () => {
+    if (!window.Notification) { toast("Este navegador no permite notificaciones."); return; }
+    if (Notification.permission === "granted") { toast("Ya estaban activadas: al abrir la Central te avisa si tienes pendientes."); return; }
+    Notification.requestPermission().then((p) => {
+      toast(p === "granted"
+        ? "Notificaciones activadas: al abrir la Central te avisará si tienes cosas vencidas o para hoy."
+        : "El navegador no dio permiso para notificar.");
+    });
+  };
+
   const resetAll = () => setConfirmCfg({
     msg: "Esto vacía TODA la Central (obras, diario, equipo y objetivo) y la deja como el primer día. ¿Seguro?",
     onOk: () => { setData(emptyData()); setObjetivoInput(""); },
@@ -2607,7 +2730,10 @@ function App() {
   const detailObra = detailId ? data.obras.find((o) => o.id === detailId) : null;
   const rojos = avisos.filter((a) => a.nivel === "rojo").length;
   const hoyN = avisos.filter((a) => a.grupo === "Hoy").length;
-  const nAvisosCampana = rojos + hoyN;
+  // con persona elegida, la campana cuenta SOLO lo suyo
+  const misAvisos = persona ? avisos.filter((a) => (a.para || "") === persona) : avisos;
+  const rojosCampana = misAvisos.filter((a) => a.nivel === "rojo").length;
+  const nAvisosCampana = rojosCampana + misAvisos.filter((a) => a.grupo === "Hoy").length;
 
   const resultadosBusca = busca.trim().length >= 2
     ? data.obras.filter((o) => `${o.nombre} ${o.direccion} ${o.municipio} ${o.contactoNombre} ${o.admFincas} ${o.notas}`.toLowerCase().includes(busca.toLowerCase())).slice(0, 8)
@@ -2660,11 +2786,18 @@ function App() {
                 </div>
               )}
             </div>
+            {/* quién soy */}
+            <button onClick={() => elegirQuien("")} title="Cambiar de persona"
+              className="hidden sm:inline-flex items-center gap-1.5 pl-1.5 pr-2.5 py-1.5 rounded-lg border hover:bg-neutral-50" style={{ borderColor: C.line }}>
+              {persona ? <Avatar nombre={persona} /> : <Users size={15} style={{ color: C.mut }} />}
+              <span className="text-sm font-semibold" style={{ color: C.ink }}>{persona || "Equipo"}</span>
+            </button>
             {/* campana */}
-            <button onClick={() => setAvisosOpen(true)} className="relative p-2 rounded-lg border hover:bg-neutral-50" style={{ borderColor: C.line }} aria-label="Avisos">
+            <button onClick={() => setAvisosOpen(true)} className="relative p-2 rounded-lg border hover:bg-neutral-50" style={{ borderColor: C.line }}
+              aria-label="Avisos" title={persona ? "Tus avisos" : "Avisos del equipo"}>
               <Bell size={17} style={{ color: C.ink }} />
               {nAvisosCampana > 0 && (
-                <span className={`absolute -top-1.5 -right-1.5 min-w-5 h-5 px-1 rounded-full text-white text-xs font-bold flex items-center justify-center ${rojos > 0 ? "latido" : ""}`}
+                <span className={`absolute -top-1.5 -right-1.5 min-w-5 h-5 px-1 rounded-full text-white text-xs font-bold flex items-center justify-center ${rojosCampana > 0 ? "latido" : ""}`}
                   style={{ background: C.red }}>{nAvisosCampana}</span>
               )}
             </button>
@@ -2724,14 +2857,15 @@ function App() {
       <main className="max-w-7xl mx-auto px-3 sm:px-4 py-5">
         {tab === "panel" && (
           <PanelView data={data} avisos={avisos} onOpen={abrirObra} onNueva={() => setObraModal({})}
-            onOpenAjustes={() => setAjustesOpen(true)} onIrAgenda={() => setTab("agenda")} addApunte={addApunte} toast={toast} />
+            onOpenAjustes={() => setAjustesOpen(true)} onIrAgenda={() => setTab("agenda")} addApunte={addApunte} toast={toast}
+            quien={persona} onCambiarQuien={() => elegirQuien("")} />
         )}
         {tab === "tablero" && (
           <TableroView data={data} onOpen={abrirObra} onNueva={() => setObraModal({})}
             setEstado={setEstado} onPerdida={(id) => { setPerdidaId(id); setPerdidaMotivo(MOTIVOS[0]); }} />
         )}
         {tab === "obras" && <ObrasView data={data} onOpen={abrirObra} onNueva={() => setObraModal({})} onExport={exportCSV} onImport={() => setLoteOpen(true)} />}
-        {tab === "agenda" && <AgendaView data={data} onOpen={abrirObra} togglePendiente={togglePendiente} />}
+        {tab === "agenda" && <AgendaView data={data} onOpen={abrirObra} togglePendiente={togglePendiente} quien={persona} />}
         {tab === "analisis" && <AnalisisView data={data} />}
       </main>
 
@@ -2783,8 +2917,29 @@ function App() {
       )}
 
       {avisosOpen && (
-        <Modal title={`Centro de avisos (${avisos.length})`} onClose={() => setAvisosOpen(false)} wide>
-          <ListaAvisos avisos={avisos} onOpen={abrirObra} />
+        <Modal title="Centro de avisos" onClose={() => setAvisosOpen(false)} wide>
+          <ListaAvisos avisos={avisos} onOpen={abrirObra} quien={persona} />
+        </Modal>
+      )}
+
+      {data.equipo.length > 0 && !quien && (
+        <Modal title="¿Quién eres?" onClose={() => elegirQuien("todos")}>
+          <p className="text-sm" style={{ color: C.txt }}>
+            Para avisarte solo de lo tuyo (tus obras, tus puntos, tus vencimientos), dime quién usa este ordenador.
+            Se queda guardado y se cambia cuando quieras arriba a la derecha.
+          </p>
+          <div className="grid grid-cols-2 gap-2 mt-4">
+            {data.equipo.map((m) => (
+              <button key={m} onClick={() => elegirQuien(m)}
+                className="flex items-center gap-2.5 px-3 py-3 rounded-xl border hover:bg-neutral-50 transition-colors" style={{ borderColor: C.line }}>
+                <Avatar nombre={m} size={9} />
+                <span className="font-bold" style={{ color: C.ink }}>{m}</span>
+              </button>
+            ))}
+          </div>
+          <button onClick={() => elegirQuien("todos")} className="text-xs mt-4 hover:underline" style={{ color: C.mut }}>
+            Solo mirar, sin avisos personales
+          </button>
         </Modal>
       )}
 
@@ -2853,6 +3008,7 @@ function App() {
               <BtnGhost onClick={() => { setAjustesOpen(false); setLoteOpen(true); }} className="w-full justify-center"><Upload size={15} /> Importar obras en lote (carpetas, CSV o lista)</BtnGhost>
               <BtnGhost onClick={descargarHTMLConDatos} className="w-full justify-center"><Download size={15} /> Guardar datos dentro del HTML (para GitHub)</BtnGhost>
               <BtnGhost onClick={cargarDatosPublicados} className="w-full justify-center"><RotateCcw size={15} /> Cargar los datos publicados en este archivo</BtnGhost>
+              <BtnGhost onClick={activarNotificaciones} className="w-full justify-center"><Bell size={15} /> Activar notificaciones del navegador</BtnGhost>
               <BtnGhost onClick={exportCSV} className="w-full justify-center"><Download size={15} /> Exportar obras a CSV (Excel)</BtnGhost>
               <BtnGhost onClick={exportBackup} className="w-full justify-center"><Download size={15} /> Copia de seguridad completa (JSON)</BtnGhost>
               <label className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-sm font-semibold border hover:bg-neutral-50 cursor-pointer"
