@@ -3,6 +3,8 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="robots" content="noindex, nofollow" />
+<meta name="referrer" content="no-referrer" />
 <title>Central de Obras · Proyecton</title>
 <script src="https://cdn.tailwindcss.com"></script>
 <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react/18.3.1/umd/react.production.min.js"></script>
@@ -252,7 +254,22 @@ const KEY = "proyecton-central-v1";
 const KEY_FECHA_PUB = "proyecton-central-fechapub"; // fecha de la última versión publicada aplicada en este navegador
 const KEY_EDITADO = "proyecton-central-editado"; // "1" si hay cambios locales sin publicar
 const KEY_QUIEN = "proyecton-central-quien"; // quién usa este navegador (para avisos personales)
+const KEY_COPIAS = "proyecton-central-copias"; // últimas copias de seguridad automáticas (blindaje)
 const CRM_KEYS = ["proyecton-crm-v2", "proyecton-crm-v1"];
+
+// Blindaje: guarda en este navegador las últimas 7 copias de los datos.
+// Una al día automática y una antes de cada operación delicada (restaurar, vaciar, cargar publicados).
+function guardarCopia(motivo, datos, forzar) {
+  if (!datos) return;
+  try {
+    let lista = [];
+    try { lista = JSON.parse(localStorage.getItem(KEY_COPIAS) || "[]"); } catch (e) { lista = []; }
+    const hoy = new Date().toISOString().slice(0, 10);
+    if (!forzar && lista.some((c) => String(c.fecha).slice(0, 10) === hoy && c.motivo === motivo)) return;
+    lista.unshift({ fecha: new Date().toISOString(), motivo, n: (datos.obras || []).length, datos: JSON.stringify(datos) });
+    localStorage.setItem(KEY_COPIAS, JSON.stringify(lista.slice(0, 7)));
+  } catch (e) { /* sin espacio: la copia no debe romper el guardado normal */ }
+}
 const uid = () => `id_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 const fmtEUR = (v) => new Intl.NumberFormat("es-ES", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(v || 0);
 const fmtK = (v) => (Math.abs(v) >= 1000 ? `${Math.round(v / 1000)}k` : `${v}`);
@@ -360,20 +377,23 @@ function b64ToAb(b64) {
   for (let i = 0; i < s.length; i++) u[i] = s.charCodeAt(i);
   return u.buffer;
 }
-async function claveAES(clave, saltBuf) {
+// El nº de iteraciones viaja en el propio paquete: los archivos antiguos (150k) siguen abriéndose
+// y los nuevos salen endurecidos a 600k, que encarece 4 veces cualquier intento de reventar la clave.
+const ITERACIONES_CIFRADO = 600000;
+async function claveAES(clave, saltBuf, iteraciones) {
   const material = await crypto.subtle.importKey("raw", new TextEncoder().encode(clave), "PBKDF2", false, ["deriveKey"]);
-  return crypto.subtle.deriveKey({ name: "PBKDF2", salt: saltBuf, iterations: 150000, hash: "SHA-256" }, material,
+  return crypto.subtle.deriveKey({ name: "PBKDF2", salt: saltBuf, iterations: iteraciones || 150000, hash: "SHA-256" }, material,
     { name: "AES-GCM", length: 256 }, false, ["encrypt", "decrypt"]);
 }
 async function cifrarJSON(obj, clave) {
   const salt = crypto.getRandomValues(new Uint8Array(16));
   const iv = crypto.getRandomValues(new Uint8Array(12));
-  const k = await claveAES(clave, salt.buffer);
+  const k = await claveAES(clave, salt.buffer, ITERACIONES_CIFRADO);
   const blob = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, k, new TextEncoder().encode(JSON.stringify(obj)));
-  return { cifrado: true, salt: abToB64(salt.buffer), iv: abToB64(iv.buffer), blob: abToB64(blob) };
+  return { cifrado: true, it: ITERACIONES_CIFRADO, salt: abToB64(salt.buffer), iv: abToB64(iv.buffer), blob: abToB64(blob) };
 }
 async function descifrarJSON(p, clave) {
-  const k = await claveAES(clave, b64ToAb(p.salt));
+  const k = await claveAES(clave, b64ToAb(p.salt), p.it || 150000);
   const plano = await crypto.subtle.decrypt({ name: "AES-GCM", iv: new Uint8Array(b64ToAb(p.iv)) }, k, b64ToAb(p.blob));
   return JSON.parse(new TextDecoder().decode(plano));
 }
@@ -2757,6 +2777,7 @@ function App() {
   const [nuevoMiembro, setNuevoMiembro] = useState("");
   const [nuevoTipico, setNuevoTipico] = useState("");
   const [busca, setBusca] = useState("");
+  const [vaciarTxt, setVaciarTxt] = useState(null); // null = cerrado; texto = modal de vaciar abierto
   const [buscaOpen, setBuscaOpen] = useState(false); // buscador en móvil (pantalla completa)
   const buscaRef = useRef(null);
   const [toastMsg, setToastMsg] = useState(null);
@@ -2853,7 +2874,14 @@ function App() {
     }
     dirtyRef.current = true;
     const t = setTimeout(async () => {
-      try { await window.storage.set(KEY, JSON.stringify(data)); dirtyRef.current = false; } catch (e) { console.error("No se pudo guardar", e); }
+      try {
+        await window.storage.set(KEY, JSON.stringify(data));
+        dirtyRef.current = false;
+        guardarCopia("copia automática del día", data, false);
+      } catch (e) {
+        console.error("No se pudo guardar", e);
+        toast("OJO: el último cambio NO se pudo guardar. Haz una copia desde Ajustes por si acaso.");
+      }
     }, 350);
     return () => clearTimeout(t);
   }, [data]);
@@ -2872,6 +2900,7 @@ function App() {
 
   // ---- sincronización con la versión publicada (solo cuando la página se abre por su enlace) ----
   const aplicarVersionPublicada = (payload, datos) => {
+    if (dataRef.current) guardarCopia("antes de cargar la versión publicada", dataRef.current, true);
     aplicandoPubRef.current = true;
     const d = normalizarData(datos);
     setData(d);
@@ -3179,16 +3208,14 @@ function App() {
     });
   };
 
-  const resetAll = () => setConfirmCfg({
-    msg: "Esto vacía TODA la Central (obras, diario, equipo y objetivo) y la deja como el primer día. ¿Seguro?",
-    onOk: () => { setData(emptyData()); setObjetivoInput(""); },
-  });
+  // vaciar TODO exige escribirlo: un clic de más no puede borrar la empresa
+  const resetAll = () => setVaciarTxt("");
 
   // Descarga esta misma página con los datos incrustados, lista para subir a GitHub
   const descargarHTMLConDatos = () => {
     setClaveCfg({
       titulo: "Guardar los datos dentro del HTML",
-      texto: "Se descarga una copia de esta página con todas las obras metidas dentro, lista para subirla a GitHub. Ponle una clave si va a estar en internet (quien abra la página tendrá que escribirla); déjala vacía solo para uso interno.",
+      texto: "Se descarga una copia de esta página con todas las obras metidas dentro, lista para subirla a GitHub. Ponle una clave si va a estar en internet (quien abra la página tendrá que escribirla); déjala vacía solo para uso interno. Consejo: una frase larga blinda mucho más que un número corto.",
       permitirVacia: true, boton: "Descargar HTML",
       onOk: async (clave) => {
         let fuente = null;
@@ -3281,7 +3308,7 @@ function App() {
         if (!d) throw new Error("formato");
         setConfirmCfg({
           msg: `La copia ${origen} contiene ${d.obras.length} obras y ${d.equipo.length} personas. Sustituirá los datos actuales de este navegador. ¿Continuar?`,
-          onOk: () => { setData(d); setObjetivoInput(d.config.objetivoMensual || ""); toast("Copia restaurada"); },
+          onOk: () => { guardarCopia("antes de restaurar una copia", dataRef.current, true); setData(d); setObjetivoInput(d.config.objetivoMensual || ""); toast("Copia restaurada"); },
         });
       } catch (e) {
         setConfirmCfg({ msg: "Ese archivo no es una copia de seguridad válida.", onOk: () => {} });
@@ -3653,12 +3680,68 @@ function App() {
               <p className="text-xs" style={{ color: C.mut }}>
                 También acepta las copias del CRM comercial anterior: las convierte a obras automáticamente. Los datos viven en este navegador — haz una copia de vez en cuando.
               </p>
+
+              <div className="pt-3 border-t" style={{ borderColor: C.line }}>
+                <p className="text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: C.mut }}>Copias de seguridad automáticas (este navegador)</p>
+                {(() => {
+                  let copias = [];
+                  try { copias = JSON.parse(localStorage.getItem(KEY_COPIAS) || "[]"); } catch (e) {}
+                  if (!copias.length) return <p className="text-sm" style={{ color: C.mut }}>Todavía no hay. Se guarda una al día sola, y otra antes de cada operación delicada (restaurar, vaciar, cargar publicados).</p>;
+                  return (
+                    <div className="space-y-1">
+                      {copias.map((c) => (
+                        <div key={c.fecha} className="flex items-center gap-2 px-1">
+                          <span className="text-sm flex-1 min-w-0 truncate" style={{ color: C.ink }}>
+                            {fmtFecha(c.fecha)} · <b>{c.n} obras</b> <span style={{ color: C.mut }}>· {c.motivo}</span>
+                          </span>
+                          <BtnGhost className="!px-2 !py-1 text-xs" onClick={() => setConfirmCfg({
+                            msg: `Se recupera la copia del ${fmtFecha(c.fecha)} (${c.n} obras) y sustituye lo que hay ahora en este navegador. Lo actual se guarda antes en otra copia. ¿Continuar?`,
+                            onOk: () => {
+                              try {
+                                guardarCopia("antes de recuperar otra copia", dataRef.current, true);
+                                const d = normalizarData(JSON.parse(c.datos));
+                                setData(d); setObjetivoInput(d.config.objetivoMensual || "");
+                                toast("Copia del " + fmtFecha(c.fecha) + " recuperada.");
+                              } catch (e) { toast("Esa copia no se pudo leer."); }
+                            },
+                          })}>Recuperar</BtnGhost>
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })()}
+              </div>
+
               <button onClick={() => { setAjustesOpen(false); resetAll(); }}
                 className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-sm font-semibold hover:bg-red-50"
                 style={{ color: C.redDark }}>
                 <RotateCcw size={15} /> Vaciar toda la Central
               </button>
             </div>
+          </div>
+        </Modal>
+      )}
+
+      {vaciarTxt !== null && (
+        <Modal title="Vaciar toda la Central" onClose={() => setVaciarTxt(null)}>
+          <p className="text-sm" style={{ color: C.txt }}>
+            Esto borra TODAS las obras, el diario, el equipo y el objetivo de este navegador.
+            Antes se guarda una copia automática (Ajustes → Copias de seguridad), pero aun así:
+            para confirmar, escribe <b>BORRAR</b> en mayúsculas.
+          </p>
+          <input className={inputCls + " mt-3"} style={inputStyle} placeholder="Escribe BORRAR"
+            value={vaciarTxt} onChange={(e) => setVaciarTxt(e.target.value)} autoFocus />
+          <div className="flex justify-end gap-2 mt-4">
+            <BtnGhost onClick={() => setVaciarTxt(null)}>Cancelar</BtnGhost>
+            <BtnPrimary disabled={vaciarTxt.trim() !== "BORRAR"}
+              onClick={() => {
+                if (vaciarTxt.trim() !== "BORRAR") return;
+                guardarCopia("antes de vaciar la Central", dataRef.current, true);
+                setData(emptyData()); setObjetivoInput(""); setVaciarTxt(null);
+                toast("Central vaciada. La copia previa queda en Ajustes por si te arrepientes.");
+              }}>
+              <Trash2 size={15} /> Vaciar del todo
+            </BtnPrimary>
           </div>
         </Modal>
       )}
@@ -3685,7 +3768,34 @@ function App() {
   );
 }
 
-ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+// Blindaje: si algo casca al pintar, se enseña una pantalla de rescate en vez de quedarse en blanco.
+// Los datos no se tocan: siguen en el navegador y en las copias de Ajustes.
+class ErrorBoundary extends React.Component {
+  constructor(props) { super(props); this.state = { error: null }; }
+  static getDerivedStateFromError(error) { return { error }; }
+  componentDidCatch(error, info) { try { console.error("Error de la Central:", error, info); } catch (e) {} }
+  render() {
+    if (this.state.error) {
+      return (
+        <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "#F4F3F0", padding: 24, fontFamily: "'Segoe UI', system-ui, sans-serif" }}>
+          <div style={{ maxWidth: 460, background: "#fff", border: "1px solid #E6E4E1", borderRadius: 16, padding: 24, textAlign: "center" }}>
+            <p style={{ fontWeight: 800, color: "#17181A", fontSize: 18 }}>La Central ha tropezado con un error</p>
+            <p style={{ color: "#4B4B50", fontSize: 14, marginTop: 8 }}>
+              Tranquilidad: tus datos están a salvo en este navegador y en las copias automáticas de Ajustes.
+              Recarga la página para seguir trabajando.
+            </p>
+            <button onClick={() => window.location.reload()}
+              style={{ marginTop: 16, background: "#A32C24", color: "#fff", border: 0, borderRadius: 10, padding: "10px 18px", fontWeight: 700, cursor: "pointer" }}>
+              Recargar la página
+            </button>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+ReactDOM.createRoot(document.getElementById("root")).render(<ErrorBoundary><App /></ErrorBoundary>);
 
 </script>
 </body>
