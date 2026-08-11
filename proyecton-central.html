@@ -137,6 +137,8 @@ const CircleCheck = makeIcon("CircleCheck");
 const ListChecks = makeIcon("ListChecks");
 const GripVertical = makeIcon("GripVertical");
 const MessageSquare = makeIcon("MessageSquare");
+const MessageCircle = makeIcon("MessageCircle");
+const Copy = makeIcon("Copy");
 
 /* ============================ MARCA ============================ */
 const LOGO = "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBAUEBAYFBQUGBgYHCQ4JCQgICRINDQoOFRIWFhUSFBQXGiEcFxgfGRQUHScdHyIjJSUlFhwpLCgkKyEkJST/2wBDAQYGBgkICREJCREkGBQYJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCT/wAARCABgAFkDASIAAhEBAxEB/8QAHAABAAIDAQEBAAAAAAAAAAAAAAcIAQUGBAMC/8QAPBAAAQMDAQYCBwUGBwAAAAAAAQIDBAAFEQYHEiExQVFhcQgTFBUigZEyQ6Gx0RYjQoKUwSRSYmNyc3T/xAAaAQACAwEBAAAAAAAAAAAAAAAABAIDBQEG/8QAKxEAAgIBAwMBBwUAAAAAAAAAAAECAwQREjEFEyFRFCIyYYGh8BVBYnGx/9oADAMBAAIRAxEAPwC1NKUoAUpXmm3ODbUhc2ZGipPIvOpQD9TQCWvB6aVpv2z01nH7QWr+rR+tDrPTQ56gtX9Uj9a5uRPtz9Dc0rWx9TWOWQI95tzpPRElBP51sUqSsBSSCDyI5V3Ui01yZpSlBwUpSgBSlKANXqbUMPS1klXearDUdGQkHitXJKR4k4FU+1hrW4akuz9xnvlTjiuCQfhQOiU9gOVd/t42he/rt7lgu5gW9ZCik8HXuRPiE8QPnUT2S0TtU32DZrcnMua8GmieSB/Es+AAJ8h40jdPfLauD0nT8dY9Xdny/sj8Oz3YxAkhTCiM7rqgk/Q1hu8JJ4LSrycH61bi26D0Hs60+HJ0W1IaZSPX3C4pQVuK6lSl9T0A8hXNXLXOyV4lpenok5s/eJtTYSfLfCTUvZfmVfrP8SCWnDupJwSQFAg58edbtjUd/sIU9bp8thhIzliTkAeKcjFenXKdJe8mHtIRXIcNxsl6MpBSlDmeackjBB5A4BHjUz7J7TYNRbPoolWe3PuD1kaQpcdBUsgnmcZyUkVCuv3nHUvycpdmN2mqZzWyzbg9c7mzZdQvocEghDEsp3SF9Er8+QPfzqb6qNtZ2cO7NNQtuwy4uyzlFUVxRyplY4lpR7jmD1HiDU+bHtep1rplCJLoVc4IDUkE8Vj+Fz5gcfEGrqrHq4T5M/OxoOtZFPwvk72lKUyZIrjtq+ql6U0hJejL3Zkn/DsEc0qUOKvkMnzxXY1BXpCX9CLpb7fkKTFZU8tJ5ZUf0T+NQsekWMYle+1JkISoplJwHQjJ4qV086kT0c27ZbndTawuJG9aWEMMt/xJ38k4HclKUDzNcnbLJcb8yt+2wXnnGo3tUhLKd5LaM48/l4Hsa8EcmPJ9a2tbKinccQlWEuDpvDrg8RSNb2SW49FlJ5FUlU/Pofba3q+frmaETVl2Q87uxGgo+rjAHJ3R2A5q5n6AadMK6tspSi8occSnGHoySlXmefzrxJt92cviblJVEYZQFNpbKt47h6jHU1tS6lKipoceriufy7UxO+MePJk0dMus+L3V8z4WhVxajuO3VxIecOEMISAGwOvzqX9hu0SLp2e/Z7o8GYU5YW26o/C07jHHsFDAz0IFQxcbiq3pS8Yrr7Wf3jiT9gd93ma/VpuvvRD7rTCxHa+/xhKu/A9utUJWKXc0NRyw3X7KpfX5/wB8Fz9oGkY2u9JTrM7u77qN+O6funhxQofPn4E96rFsr1DM0dqqNLXvISlYjy2T1QThQPkRkeVdRs/203PSkM22ek3GClBDBWr42DjgM9UZ6dOnatfpmyr1XrVlsYPtkgLWtIAygcVKwO/xH51Oc1NqUeSnHonjxsrt8waLUAggEHIPWlYSkJSABgDgKzTp50VW/wBJSzSot/auWCY05gNhfRK0jBT9MH61ZCtDrjSMPW2nZNol4SVjeZdxktOD7Kh/fuCarsjujoM4lyqtUnwQv6LWp2vabzp2U4PalhEqOTzWhI3VJ/lJBx/qNdDtm2URJEGTqWysBmSyC5KYQMJcT1WB0UOZ7jx5wFIRe9m+r0yGgYt1tUjOD9kkcwe6FJOPEGreaJ1nado2mG7lDKSl1PqpUZZyphePibV/Y9Rg1TW1ZHZLk0cqM8a1ZFXwv8+5Ttz4d5SskJGa0SL6EXiUw/IQGwlPqhkAJPUeddjq6yGy366Wd0cGXXGPNOSAfpg1pNK7KbzqxmR7nsbkxUVSUPgLQCknOPtKBwcHjUMeKTfqX9VtnKMdH7rNZc7yyIa22nEOPPD1baUnJJPCpR2L6LN6usG3+q3oscJckHHANpIJz/yI3R3yexr46f8ART1LeJLXvRMWwRUqClub6XXyOyUIJGfEq+Rqbr2/p/YRoJ5FrSDNcSUxw8rfelv4wFrPUJ5nkAOAxkU2/HlmHGO5qMeSDtqS7YztGvUW0R0NRWXglXq+CQ7ujfAHT4t78alL0d9LlEaXqJ9BAWTHjZ+W+ofgPrUJaXsU7VV/jW1pSnZk57LjquPEnK1ny4k1cmx2eLYLREtcJG7HithtHc45k+JOSfOlKI7puZt9Rt7OPHH18v8Aw91KUp08+KUpQBEu3XZerVMEX61Mb9yiI3XmkD4pDQ7d1J6dxkdqgjSV3vOjbobhaJDjK1p9W6lDm7vjoFJIIVjpkVdGubu2zjSV7kLkzrDCceWcqcSkoUo9yUkZNUTp1e6PJo4+fsr7Vi1RVLVl1l325Lus9alyZGC4pQQCSAAOCAByArRtTbhCn+3Wy5zLfIKQlTkZ9TZOPI1amXsF0PLVn2KY0P8AK3LcA/EmsM+j/s/a+1apDv8A2THT+ShVTonrqmOx6lj7VGUX4/PUrcnXetsbqta38j/1q/OtTLly7hI9pnzpU18/eyHVLV9VE1bRrYls+ZwU6ZiqP+444v8ANVbKJsy0XBUFMaXs6SORMVKj+INDx5vlnI9Tx4PWFfn6Ee+jxoVdvgO6onNbr0tPqogUOIa6r/mPAeA8amisIQltIQhISlIwABgAVmmoQUVojIyL5XWOyX7ilKVIpFKUoAUpSgBSlKAFKUoAUpSgBSlKAP/Z";
@@ -257,7 +259,7 @@ const obraVacia = () => ({
   contactoNombre: "", telefono: "", email: "",
   origen: ORIGENES[0], tipos: [], prioridad: "media",
   responsable: "", colaboradores: [], importe: "", cobrado: "",
-  subTipo: "", subImporte: "", subEstado: "no",
+  subTipo: "", subImporte: "", subEstado: "no", subLimite: "",
   estado: "estudio", notas: "",
 });
 
@@ -269,6 +271,7 @@ function normalizarObra(o) {
     responsable: o.responsable || "", colaboradores: Array.isArray(o.colaboradores) ? o.colaboradores.filter(Boolean) : [],
     importe: Number(o.importe) || 0, cobrado: Number(o.cobrado) || 0,
     subTipo: o.subTipo || "", subImporte: Number(o.subImporte) || 0, subEstado: SUB[o.subEstado] ? o.subEstado : "no",
+    subLimite: o.subLimite || "",
     estado: EST[o.estado] ? o.estado : "estudio", estadoDesde: o.estadoDesde || o.creado || new Date().toISOString(),
     historial: Array.isArray(o.historial) && o.historial.length ? o.historial : [{ estado: EST[o.estado] ? o.estado : "estudio", fecha: o.creado || new Date().toISOString() }],
     motivoPerdida: o.motivoPerdida || null, notas: o.notas || "", creado: o.creado || new Date().toISOString(),
@@ -486,6 +489,178 @@ const primeraFechaEstado = (o, estadoId) => {
   const h = (o.historial || []).find((x) => x.estado === estadoId);
   return h ? h.fecha : null;
 };
+// días que faltan (positivo) o que han pasado (negativo) hasta una fecha YMD
+const diasHasta = (ymd) => Math.round((new Date(ymd + "T12:00:00") - new Date(hoyYMD() + "T12:00:00")) / 86400000);
+
+/* ---------- contacto directo: llamar, WhatsApp y email de un clic ---------- */
+const soloDigitos = (s) => String(s || "").split("").filter((c) => c >= "0" && c <= "9").join("");
+// saca un número español de 9 cifras del campo teléfono (o del contacto, si lo lleva pegado)
+const telefonoDeObra = (o) => {
+  for (const campo of [o.telefono, o.contactoNombre, o.admFincas]) {
+    const d = soloDigitos(campo);
+    if (d.length === 9) return d;
+    if (d.length === 11 && d.slice(0, 2) === "34") return d.slice(2);
+  }
+  return "";
+};
+const esMovil = (tel) => tel && (tel[0] === "6" || tel[0] === "7");
+const codigoDeObra = (o) => {
+  const m = String(o.notas || "").match(/M[AO]-[0-9]{2}-[0-9]{1,3}/);
+  return m ? m[0] : "";
+};
+const mensajeSeguimiento = (o) => {
+  const cod = codigoDeObra(o);
+  const envio = o.estado === "presupuesto" ? fmtFecha(o.estadoDesde) : "";
+  return "Buenos días. Le escribo de Revestimientos Proyecton por el presupuesto" +
+    (cod ? " " + cod : "") + " de " + o.nombre +
+    (envio ? ", enviado el " + envio : "") +
+    ". ¿Han podido revisarlo? Quedo pendiente de sus comentarios. Un saludo.";
+};
+
+/* ---------- semáforo de salud: verde / ámbar / rojo calculado solo ---------- */
+function saludObra(o) {
+  const hoy = hoyYMD();
+  const motivos = [];
+  let nivel = 0; // 0 verde · 1 ámbar · 2 rojo
+  const marca = (n, m) => { if (n > nivel) nivel = n; motivos.push(m); };
+  if (!o.archivada && o.estado !== "perdida") {
+    const venc = puntosPend(o).filter((p) => p.fecha && p.fecha < hoy).length
+      + reqsPend(o).filter((r) => r.fechaLimite && r.fechaLimite < hoy).length;
+    if (venc > 0) marca(2, venc + (venc === 1 ? " punto vencido" : " puntos vencidos"));
+    if (o.subEstado === "solicitar" && o.subLimite) {
+      const d = diasHasta(o.subLimite);
+      if (d < 0) marca(2, "plazo de subvención vencido hace " + (-d) + " días");
+      else if (d <= 7) marca(2, "quedan " + d + " días para pedir la subvención");
+      else if (d <= 30) marca(1, "subvención: " + d + " días de plazo");
+    }
+    const sinMov = daysSince(ultimoMovimiento(o));
+    if (["contratada", "ejecucion"].includes(o.estado) && sinMov > 30) marca(2, "obra firmada parada " + sinMov + " días");
+    else if (esActiva(o) && sinMov > 14) marca(1, "sin movimiento " + sinMov + " días");
+    if (esActiva(o) && puntosPend(o).length === 0) marca(1, "sin próximo paso");
+    if (o.estado === "presupuesto" && daysSince(o.estadoDesde) > 30) marca(1, "presupuesto " + daysSince(o.estadoDesde) + " días sin respuesta");
+    if (["contratada", "ejecucion"].includes(o.estado) && !o.importe) marca(1, "sin importe apuntado");
+    if (o.estado === "finalizada" && o.importe > 0 && (o.cobrado || 0) < o.importe) marca(1, "pendiente de cobro");
+  }
+  return { nivel: nivel === 2 ? "rojo" : nivel === 1 ? "ambar" : "verde", motivos };
+}
+function PuntoSalud({ obra, size = 10 }) {
+  const s = saludObra(obra);
+  const color = s.nivel === "rojo" ? C.red : s.nivel === "ambar" ? C.warn : C.ok;
+  return (
+    <span title={s.motivos.length ? s.motivos.join(" · ") : "Al día"}
+      className="inline-block rounded-full flex-shrink-0"
+      style={{ width: size, height: size, background: color }} />
+  );
+}
+const RANGO_SALUD = { rojo: 0, ambar: 1, verde: 2 };
+
+/* ---------- automatismos al cambiar de estado ---------- */
+// cadencia de seguimiento del presupuesto: llamadas a 7, 21 y 45 días
+const puntosSeguimiento = () => ([
+  { id: uid(), texto: "Llamar para preguntar por el presupuesto (1er seguimiento)", fecha: ymdMas(7), responsable: "", hecho: false, auto: "seg" },
+  { id: uid(), texto: "Insistir con llamada o WhatsApp (2º seguimiento)", fecha: ymdMas(21), responsable: "", hecho: false, auto: "seg" },
+  { id: uid(), texto: "Último intento antes de darlo por perdido (3er seguimiento)", fecha: ymdMas(45), responsable: "", hecho: false, auto: "seg" },
+]);
+// al entrar en un estado: se programa la cadencia (si pasa a presupuesto), se cierran
+// los seguimientos automáticos al salir, y se añaden los requerimientos típicos de la fase
+function aplicarAutomatismos(o, estadoNuevo) {
+  let puntos = o.puntos;
+  if (estadoNuevo === "presupuesto" && !puntos.some((p) => p.auto === "seg")) {
+    puntos = [...puntos, ...puntosSeguimiento()];
+  }
+  if (estadoNuevo !== "presupuesto") {
+    puntos = puntos.map((p) => p.auto === "seg" && !p.hecho ? { ...p, hecho: true, fechaHecho: new Date().toISOString() } : p);
+  }
+  const faltan = (REQS_SUGERIDOS[estadoNuevo] || []).filter((s) => !o.requerimientos.some((r) => r.texto === s));
+  const requerimientos = faltan.length
+    ? [...o.requerimientos, ...faltan.map((s) => ({ id: uid(), texto: s, fechaLimite: "", hecho: false, auto: true }))]
+    : o.requerimientos;
+  return { ...o, puntos, requerimientos };
+}
+
+/* ---------- copiar al portapapeles (con reserva para file://) ---------- */
+function copiarTexto(txt) {
+  return new Promise((res) => {
+    const reserva = () => {
+      try {
+        const ta = document.createElement("textarea");
+        ta.value = txt; ta.style.position = "fixed"; ta.style.opacity = "0";
+        document.body.appendChild(ta); ta.focus(); ta.select();
+        const ok = document.execCommand("copy");
+        document.body.removeChild(ta); res(!!ok);
+      } catch (e) { res(false); }
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(txt).then(() => res(true), reserva);
+    } else reserva();
+  });
+}
+
+/* ---------- parte del día y resumen semanal, con formato de WhatsApp ---------- */
+function parteDelDia(data, avisos, persona) {
+  const hoy = hoyYMD();
+  const fechaTxt = new Date().toLocaleDateString("es-ES", { weekday: "long", day: "numeric", month: "long" });
+  const filtra = (lista) => persona ? lista.filter((i) => (i.implicados || []).includes(persona)) : lista;
+  const ag = filtra(calcularAgenda(data));
+  const vencidos = ag.filter((i) => i.fecha && i.fecha < hoy).sort((a, b) => a.fecha.localeCompare(b.fecha));
+  const paraHoy = ag.filter((i) => i.fecha === hoy);
+  const proximos = ag.filter((i) => i.fecha > hoy && i.fecha <= ymdMas(7)).sort((a, b) => a.fecha.localeCompare(b.fecha));
+  const av = persona ? avisos.filter((a) => (a.para || []).includes(persona)) : avisos;
+  const sinMov = av.filter((a) => String(a.id).indexOf("sm_") === 0).length;
+  const sinPaso = av.filter((a) => String(a.id).indexOf("sp_") === 0).length;
+  const esperando = data.obras.filter((o) => !o.archivada && o.estado === "presupuesto")
+    .filter((o) => !persona || o.responsable === persona || (o.colaboradores || []).includes(persona))
+    .sort((a, b) => a.estadoDesde.localeCompare(b.estadoDesde)).slice(0, 3);
+  const linea = (i) => "- " + i.obra + ": " + i.texto
+    + (i.fecha && i.fecha !== hoy ? " (" + fmtDia(i.fecha) + ")" : "")
+    + (!persona && i.responsable ? " [" + i.responsable + "]" : "");
+  const bloque = (titulo, items, max) => !items.length ? "" :
+    "\n*" + titulo + " (" + items.length + ")*\n" + items.slice(0, max).map(linea).join("\n")
+    + (items.length > max ? "\n... y " + (items.length - max) + " más" : "") + "\n";
+  // avisos rojos que no son puntos con fecha (plazos de subvención, obras paradas…)
+  const urgentesExtra = av.filter((a) => a.nivel === "rojo"
+    && String(a.id).indexOf("pv_") !== 0 && String(a.id).indexOf("rv_") !== 0)
+    .map((a) => ({ obra: a.obra, texto: a.texto, fecha: "", responsable: "" }));
+  let t = "*Parte del día · " + (persona || "Proyecton") + "* — " + fechaTxt + "\n";
+  t += bloque("VENCIDO", vencidos, 8);
+  t += bloque("Para hoy", paraHoy, 8);
+  t += bloque("Urgente", urgentesExtra, 6);
+  t += bloque("Próximos 7 días", proximos, 6);
+  if (!vencidos.length && !paraHoy.length && !urgentesExtra.length) t += "\nNada vencido ni para hoy. ✔\n";
+  if (esperando.length) {
+    t += "\n*Presupuestos esperando respuesta*\n" + esperando.map((o) =>
+      "- " + o.nombre + " — " + daysSince(o.estadoDesde) + " días" + (o.importe ? " (" + fmtEUR(o.importe) + ")" : "")).join("\n") + "\n";
+  }
+  if (sinMov || sinPaso) {
+    t += "\nOjo: " + (sinMov ? sinMov + " obras sin movimiento" : "")
+      + (sinMov && sinPaso ? " · " : "") + (sinPaso ? sinPaso + " sin próximo paso" : "") + "\n";
+  }
+  return t.trim();
+}
+function resumenSemanal(data) {
+  const ahora = new Date().toISOString();
+  const desde = new Date(Date.now() - 7 * 86400000).toISOString();
+  const desdePrev = new Date(Date.now() - 14 * 86400000).toISOString();
+  const paso = (o, est, a, b) => (o.historial || []).some((h) => h.estado === est && h.fecha >= a && h.fecha < b);
+  const grupo = (est, a, b) => data.obras.filter((o) => paso(o, est, a, b));
+  const suma = (l) => l.reduce((s, o) => s + (o.importe || 0), 0);
+  const env = grupo("presupuesto", desde, ahora), envPrev = grupo("presupuesto", desdePrev, desde);
+  const con = grupo("contratada", desde, ahora), conPrev = grupo("contratada", desdePrev, desde);
+  const per = grupo("perdida", desde, ahora), perPrev = grupo("perdida", desdePrev, desde);
+  const nuevas = data.obras.filter((o) => o.creado >= desde);
+  const nuevasPrev = data.obras.filter((o) => o.creado >= desdePrev && o.creado < desde);
+  const pipeline = data.obras.filter((o) => !o.archivada && ["estudio", "presupuesto"].includes(o.estado));
+  const rojos = calcularAvisos(data).filter((a) => a.nivel === "rojo").length;
+  const vs = (p) => " (semana anterior: " + p + ")";
+  let t = "*Resumen semanal Proyecton* — últimos 7 días\n\n";
+  t += "- Obras nuevas: *" + nuevas.length + "*" + vs(nuevasPrev.length) + "\n";
+  t += "- Presupuestos enviados: *" + env.length + "*" + (env.length ? " · " + fmtEUR(suma(env)) : "") + vs(envPrev.length) + "\n";
+  t += "- Contratadas: *" + con.length + "*" + (con.length ? " · " + fmtEUR(suma(con)) : "") + vs(conPrev.length) + "\n";
+  t += "- Perdidas: *" + per.length + "*" + vs(perPrev.length) + "\n";
+  t += "\nEn juego ahora: *" + fmtEUR(suma(pipeline)) + "* en " + pipeline.length + " obras (estudio + presupuesto)\n";
+  t += "Avisos vencidos ahora mismo: " + rojos;
+  return t.trim();
+}
 
 // Centro de avisos: cada aviso lleva nivel (rojo > ambar > azul), texto, obra
 // y "para" (la persona a la que le toca: responsable del punto o de la obra)
@@ -505,6 +680,15 @@ function calcularAvisos(data) {
       if (r.fechaLimite && r.fechaLimite < hoy) avisos.push({ id: `rv_${o.id}_${r.id}`, nivel: "rojo", grupo: "Vencido", texto: `Requerimiento: ${r.texto}`, detalle: `desde ${fmtDia(r.fechaLimite)}`, obraId: o.id, obra: o.nombre, para: cuadrilla });
       else if (r.fechaLimite === hoy) avisos.push({ id: `rh_${o.id}_${r.id}`, nivel: "ambar", grupo: "Hoy", texto: `Requerimiento: ${r.texto}`, detalle: "para hoy", obraId: o.id, obra: o.nombre, para: cuadrilla });
     });
+    // plazo de la subvención: avisa con 30 días, aprieta con 7 y grita si venció
+    if (o.subEstado === "solicitar" && o.subLimite) {
+      const d = diasHasta(o.subLimite);
+      const dinero = o.subImporte ? fmtEUR(o.subImporte) + " en juego" : "pon el importe en la ficha";
+      if (d < 0) avisos.push({ id: `sl_${o.id}`, nivel: "rojo", grupo: "Vencido", texto: `Plazo de subvención VENCIDO hace ${-d} día${d === -1 ? "" : "s"}`, detalle: dinero, obraId: o.id, obra: o.nombre, para: cuadrilla });
+      else if (d === 0) avisos.push({ id: `sl_${o.id}`, nivel: "rojo", grupo: "Hoy", texto: "El plazo de la subvención termina HOY", detalle: dinero, obraId: o.id, obra: o.nombre, para: cuadrilla });
+      else if (d <= 7) avisos.push({ id: `sl_${o.id}`, nivel: "rojo", grupo: "Atención", texto: `Quedan ${d} día${d === 1 ? "" : "s"} para solicitar la subvención`, detalle: dinero, obraId: o.id, obra: o.nombre, para: cuadrilla });
+      else if (d <= 30) avisos.push({ id: `sl_${o.id}`, nivel: "ambar", grupo: "Atención", texto: `Subvención: ${d} días de plazo para solicitarla`, detalle: dinero, obraId: o.id, obra: o.nombre, para: cuadrilla });
+    }
     if (esActiva(o)) {
       if (puntosPend(o).length === 0)
         avisos.push({ id: `sp_${o.id}`, nivel: "ambar", grupo: "Atención", texto: "Sin próximo paso definido", detalle: "añade un punto con fecha", obraId: o.id, obra: o.nombre, para: cuadrilla });
@@ -580,7 +764,7 @@ function KPI({ label, value, sub, accent, Icon }) {
         <p className="text-xs uppercase tracking-wider font-semibold" style={{ color: C.mut }}>{label}</p>
         {Icon && <Icon size={16} style={{ color: accent || C.mut }} />}
       </div>
-      <p className="text-2xl font-extrabold mt-1" style={{ color: accent || C.ink }}>{value}</p>
+      <p className="text-xl sm:text-2xl font-extrabold mt-1 break-words" style={{ color: accent || C.ink }}>{value}</p>
       {sub && <p className="text-xs mt-1" style={{ color: C.mut }}>{sub}</p>}
     </Card>
   );
@@ -657,6 +841,7 @@ function Field({ label, children }) {
 }
 const inputCls = "w-full rounded-lg border px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2";
 const inputStyle = { borderColor: C.line };
+const btnContacto = "inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold border hover:bg-neutral-50 transition-colors";
 
 function BtnPrimary({ children, onClick, className = "", disabled }) {
   return (
@@ -917,6 +1102,14 @@ function PanelView({ data, avisos, onOpen, onNueva, onOpenAjustes, onIrAgenda, a
                 </span>
               ))}
             </div>
+            <div className="flex flex-wrap gap-1.5">
+              <BtnGhost onClick={() => copiarTexto(parteDelDia(data, avisos, "")).then((ok) => toast(ok ? "Parte del equipo copiado: pégalo en el WhatsApp del grupo." : "No se pudo copiar."))}>
+                <Copy size={14} /> Parte del día
+              </BtnGhost>
+              <BtnGhost onClick={() => copiarTexto(resumenSemanal(data)).then((ok) => toast(ok ? "Resumen semanal copiado: pégalo en WhatsApp." : "No se pudo copiar."))}>
+                <Copy size={14} /> Resumen semanal
+              </BtnGhost>
+            </div>
           </div>
         </Card>
       )}
@@ -935,6 +1128,10 @@ function PanelView({ data, avisos, onOpen, onNueva, onOpenAjustes, onIrAgenda, a
               </p>
             </div>
             <BtnPrimary onClick={onIrAgenda}><CalendarDays size={15} /> Mi agenda</BtnPrimary>
+            <BtnGhost onClick={() => copiarTexto(parteDelDia(data, avisos, quien)).then((ok) => toast(ok ? "Tu parte del día está copiado: pégalo en WhatsApp." : "No se pudo copiar."))}
+              title="Copia tu día en texto con formato de WhatsApp">
+              <Copy size={14} /> Copiar mi parte
+            </BtnGhost>
             <BtnGhost onClick={onCambiarQuien}>Cambiar</BtnGhost>
           </div>
         </Card>
@@ -1173,7 +1370,7 @@ function TableroView({ data, onOpen, onNueva, setEstado, onPerdida }) {
                         <button className="text-left w-full" onClick={() => onOpen(o.id)}>
                           <div className="flex items-start justify-between gap-1">
                             <p className="text-sm font-bold leading-snug" style={{ color: C.ink }}>{o.nombre}</p>
-                            <PrioFlag prioridad={o.prioridad} />
+                            <span className="flex items-center gap-1 flex-shrink-0 mt-0.5"><PuntoSalud obra={o} size={9} /><PrioFlag prioridad={o.prioridad} /></span>
                           </div>
                           {(o.tipos.length > 0 || o.direccion) && (
                             <p className="text-xs mt-0.5 truncate" style={{ color: C.mut }}>
@@ -1240,6 +1437,7 @@ function ObrasView({ data, onOpen, onNueva, onExport, onImport }) {
   const [fEst, setFEst] = useState("vivas");
   const [fResp, setFResp] = useState("todos");
   const [fTipo, setFTipo] = useState("todos");
+  const [orden, setOrden] = useState("urgentes");
   const hoy = hoyYMD();
 
   const lista = data.obras
@@ -1255,7 +1453,11 @@ function ObrasView({ data, onOpen, onNueva, onExport, onImport }) {
       const s = `${o.nombre} ${o.direccion} ${o.municipio} ${o.contactoNombre} ${o.admFincas} ${o.telefono} ${o.notas}`.toLowerCase();
       return s.includes(q.toLowerCase());
     })
-    .sort((a, b) => b.creado.localeCompare(a.creado));
+    .sort(orden === "urgentes"
+      ? (a, b) => RANGO_SALUD[saludObra(a).nivel] - RANGO_SALUD[saludObra(b).nivel] || b.importe - a.importe
+      : orden === "importe"
+        ? (a, b) => b.importe - a.importe
+        : (a, b) => b.creado.localeCompare(a.creado));
 
   return (
     <div className="space-y-3">
@@ -1278,6 +1480,11 @@ function ObrasView({ data, onOpen, onNueva, onExport, onImport }) {
           <select className={inputCls + " w-auto"} style={inputStyle} value={fTipo} onChange={(e) => setFTipo(e.target.value)}>
             <option value="todos">Todos los tipos</option>
             {TIPOS_OBRA.map((t) => <option key={t}>{t}</option>)}
+          </select>
+          <select className={inputCls + " w-auto"} style={inputStyle} value={orden} onChange={(e) => setOrden(e.target.value)} title="Orden de la lista">
+            <option value="urgentes">Urgentes primero</option>
+            <option value="recientes">Más recientes</option>
+            <option value="importe">Mayor importe</option>
           </select>
           <BtnGhost onClick={onImport} title="Importar obras en lote desde carpetas o una lista"><Upload size={15} /> Importar</BtnGhost>
           <BtnGhost onClick={onExport}><Download size={15} /> CSV</BtnGhost>
@@ -1308,7 +1515,7 @@ function ObrasView({ data, onOpen, onNueva, onExport, onImport }) {
                 return (
                   <tr key={o.id} className="border-t cursor-pointer hover:bg-neutral-50" style={{ borderColor: C.line }} onClick={() => onOpen(o.id)}>
                     <td className="py-2.5 px-3">
-                      <p className="font-bold inline-flex items-center gap-1.5" style={{ color: C.ink }}>{o.nombre} <PrioFlag prioridad={o.prioridad} /></p>
+                      <p className="font-bold inline-flex items-center gap-1.5" style={{ color: C.ink }}><PuntoSalud obra={o} /> {o.nombre} <PrioFlag prioridad={o.prioridad} /></p>
                       <p className="text-xs" style={{ color: C.mut }}>{[o.tipos[0], o.direccion || o.municipio].filter(Boolean).join(" · ") || "—"}</p>
                     </td>
                     <td className="py-2.5 px-3"><EstadoBadge estado={o.estado} conDias desde={o.estadoDesde} /></td>
@@ -1701,7 +1908,10 @@ function FichaObra({ obra, data, avisos, onClose, onEdit, setEstado, onPerdida, 
       {/* cabecera */}
       <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-xl font-extrabold leading-tight" style={{ color: C.ink }}>{obra.nombre}</p>
+          <p className="text-xl font-extrabold leading-tight flex items-start gap-2" style={{ color: C.ink }}>
+            <span className="flex-shrink-0" style={{ marginTop: 7 }}><PuntoSalud obra={obra} size={12} /></span>
+            <span>{obra.nombre}</span>
+          </p>
           <p className="text-sm mt-0.5" style={{ color: C.mut }}>
             {[obra.direccion, obra.municipio].filter(Boolean).join(" · ") || "Sin dirección"}
           </p>
@@ -1750,6 +1960,33 @@ function FichaObra({ obra, data, avisos, onClose, onEdit, setEstado, onPerdida, 
           <p className="text-sm flex items-center gap-2" style={{ color: C.ink }}><Users size={13} style={{ color: C.mut }} /> {obra.contactoNombre || "—"}{obra.admFincas ? ` · ${obra.admFincas}` : ""}</p>
           <p className="text-sm flex items-center gap-2"><Phone size={13} style={{ color: C.mut }} /> {obra.telefono ? <a href={`tel:${obra.telefono}`} className="hover:underline" style={{ color: C.ink }}>{obra.telefono}</a> : <span style={{ color: C.mut }}>—</span>}</p>
           <p className="text-sm flex items-center gap-2 min-w-0"><Mail size={13} style={{ color: C.mut }} /> {obra.email ? <a href={`mailto:${obra.email}`} className="hover:underline truncate" style={{ color: C.ink }}>{obra.email}</a> : <span style={{ color: C.mut }}>—</span>}</p>
+          {(() => {
+            const tel = telefonoDeObra(obra);
+            if (!tel && !obra.email) return null;
+            const cuerpo = encodeURIComponent(mensajeSeguimiento(obra));
+            const asunto = encodeURIComponent(("Presupuesto " + (codigoDeObra(obra) || "")).trim() + " · " + obra.nombre);
+            return (
+              <div className="flex flex-wrap gap-1.5 pt-1.5">
+                {tel && (
+                  <a href={"tel:+34" + tel} className={btnContacto} style={{ borderColor: C.line, color: C.ink }} title="En el móvil marca directamente">
+                    <Phone size={13} /> Llamar
+                  </a>
+                )}
+                {tel && esMovil(tel) && (
+                  <a href={"https://wa.me/34" + tel + "?text=" + cuerpo} target="_blank" rel="noopener noreferrer"
+                    className={btnContacto} style={{ borderColor: C.ok, color: C.ok }} title="Abre WhatsApp con el mensaje de seguimiento ya escrito">
+                    <MessageCircle size={13} /> WhatsApp
+                  </a>
+                )}
+                {obra.email && (
+                  <a href={"mailto:" + obra.email + "?subject=" + asunto + "&body=" + cuerpo}
+                    className={btnContacto} style={{ borderColor: C.line, color: C.ink }} title="Abre el correo con el mensaje de seguimiento ya escrito">
+                    <Mail size={13} /> Email de seguimiento
+                  </a>
+                )}
+              </div>
+            );
+          })()}
           {obra.notas && <p className="text-sm mt-1 rounded-lg px-2.5 py-1.5" style={{ background: C.bone, color: C.txt }}>{obra.notas}</p>}
         </div>
         <div className="rounded-xl border p-3" style={{ borderColor: C.line }}>
@@ -1765,6 +2002,21 @@ function FichaObra({ obra, data, avisos, onClose, onEdit, setEstado, onPerdida, 
               </span>
             )}
           </div>
+          {obra.subEstado === "solicitar" && (
+            <div className="flex items-center gap-2 mt-2 flex-wrap">
+              <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: C.mut }}>Plazo para solicitarla</span>
+              <input type="date" className="text-xs rounded-md border px-1.5 py-1" style={{ borderColor: C.line, color: C.txt }}
+                value={obra.subLimite || ""} onChange={(e) => updateObra(obra.id, { subLimite: e.target.value })} />
+              {obra.subLimite && (() => {
+                const d = diasHasta(obra.subLimite);
+                return (
+                  <Badge tone={d <= 7 ? "red" : d <= 30 ? "warn" : "neutral"}>
+                    {d < 0 ? "vencido hace " + (-d) + "d" : d === 0 ? "termina HOY" : "quedan " + d + "d"}
+                  </Badge>
+                );
+              })()}
+            </div>
+          )}
           {(obra.estado === "ejecucion" || obra.estado === "finalizada") && (
             <div className="mt-3 pt-3 border-t" style={{ borderColor: C.line }}>
               <div className="flex items-center justify-between mb-1">
@@ -1784,6 +2036,13 @@ function FichaObra({ obra, data, avisos, onClose, onEdit, setEstado, onPerdida, 
           <ListChecks size={14} style={{ color: C.red }} /> Puntos a resolver
           {pendientes.length > 0 && <Badge tone="red">{pendientes.length}</Badge>}
         </p>
+        {obra.estado === "presupuesto" && !obra.puntos.some((p) => p.auto === "seg") && (
+          <div className="mb-2">
+            <BtnGhost onClick={() => updateObra(obra.id, { puntos: [...obra.puntos, ...puntosSeguimiento()] })}>
+              <Clock size={14} /> Programar seguimiento (llamadas a 7, 21 y 45 días)
+            </BtnGhost>
+          </div>
+        )}
         <FormPunto equipo={data.equipo} defecto={obra.responsable} tipicos={data.config.puntosTipicos} onAdd={(p) => addPunto(obra.id, p)} />
         <div className="mt-2 space-y-1">
           {pendientes.sort((a, b) => (a.fecha || "9999").localeCompare(b.fecha || "9999")).map((p) => (
@@ -2016,6 +2275,9 @@ function ObraForm({ initial, equipo, onSave, onCancel }) {
         </Field>
         <Field label="Programa">
           <input className={inputCls} style={inputStyle} value={f.subTipo} onChange={set("subTipo")} placeholder="PGE, CAE…" />
+        </Field>
+        <Field label="Plazo para solicitarla">
+          <input type="date" className={inputCls} style={inputStyle} value={f.subLimite || ""} onChange={set("subLimite")} />
         </Field>
       </div>
       <Field label="Prioridad">
@@ -2340,6 +2602,8 @@ function App() {
   const [nuevoMiembro, setNuevoMiembro] = useState("");
   const [nuevoTipico, setNuevoTipico] = useState("");
   const [busca, setBusca] = useState("");
+  const [buscaOpen, setBuscaOpen] = useState(false); // buscador en móvil (pantalla completa)
+  const buscaRef = useRef(null);
   const [toastMsg, setToastMsg] = useState(null);
   const [quien, setQuienEstado] = useState(() => { try { return localStorage.getItem(KEY_QUIEN) || ""; } catch (e) { return ""; } });
   const elegirQuien = (q) => {
@@ -2529,6 +2793,26 @@ function App() {
     return calcularAgenda(data).filter((i) => i.fecha && i.fecha <= hoy).length;
   }, [data]);
 
+  // el título de la pestaña enseña cuántos avisos urgentes tienes: "(3) Central de Obras…"
+  useEffect(() => {
+    const mis = persona ? avisos.filter((a) => (a.para || []).includes(persona)) : avisos;
+    const n = mis.filter((a) => a.nivel === "rojo" || a.grupo === "Hoy").length;
+    document.title = (n > 0 ? "(" + n + ") " : "") + "Central de Obras · Proyecton";
+  }, [avisos, persona]);
+
+  // Ctrl+K (o Cmd+K) abre el buscador desde cualquier pantalla
+  useEffect(() => {
+    const atajo = (e) => {
+      if ((e.ctrlKey || e.metaKey) && String(e.key).toLowerCase() === "k") {
+        e.preventDefault();
+        if (buscaRef.current && buscaRef.current.offsetParent) buscaRef.current.focus();
+        else setBuscaOpen(true);
+      }
+    };
+    window.addEventListener("keydown", atajo);
+    return () => window.removeEventListener("keydown", atajo);
+  }, []);
+
   if (!data) {
     return (
       <div className="min-h-screen flex items-center justify-center p-4" style={{ background: C.bone }}>
@@ -2572,16 +2856,21 @@ function App() {
   const mutateObra = (id, fn) => setData((d) => ({ ...d, obras: d.obras.map((o) => o.id === id ? fn(o) : o) }));
   const updateObra = (id, patch) => mutateObra(id, (o) => ({ ...o, ...patch }));
 
-  const setEstado = (id, estadoId, motivo) => mutateObra(id, (o) => {
-    if (o.estado === estadoId) return o;
-    const now = new Date().toISOString();
-    return {
-      ...o, estado: estadoId, estadoDesde: now,
-      historial: [...o.historial, { estado: estadoId, fecha: now }],
-      motivoPerdida: estadoId === "perdida" ? (motivo || o.motivoPerdida || "Otro") : null,
-      avance: estadoId === "finalizada" ? 100 : o.avance,
-    };
-  });
+  const setEstado = (id, estadoId, motivo) => {
+    const antes = data.obras.find((x) => x.id === id);
+    const programa = antes && antes.estado !== estadoId && estadoId === "presupuesto" && !antes.puntos.some((p) => p.auto === "seg");
+    mutateObra(id, (o) => {
+      if (o.estado === estadoId) return o;
+      const now = new Date().toISOString();
+      return aplicarAutomatismos({
+        ...o, estado: estadoId, estadoDesde: now,
+        historial: [...o.historial, { estado: estadoId, fecha: now }],
+        motivoPerdida: estadoId === "perdida" ? (motivo || o.motivoPerdida || "Otro") : null,
+        avance: estadoId === "finalizada" ? 100 : o.avance,
+      }, estadoId);
+    });
+    if (programa) toast("Seguimiento programado solo: llamadas a 7, 21 y 45 días. Está en la Agenda.");
+  };
 
   const reabrirObra = (id) => {
     const o = data.obras.find((x) => x.id === id);
@@ -2596,18 +2885,20 @@ function App() {
       mutateObra(obraModal.id, (o) => {
         const cambiaEstado = f.estado !== o.estado;
         const now = new Date().toISOString();
-        return {
+        const base = {
           ...o, ...f,
           ejemplo: false, // al editarla pasa a ser una obra real
           estadoDesde: cambiaEstado ? now : o.estadoDesde,
           historial: cambiaEstado ? [...o.historial, { estado: f.estado, fecha: now }] : o.historial,
         };
+        return cambiaEstado ? aplicarAutomatismos(base, f.estado) : base;
       });
       toast("Obra actualizada");
     } else {
       const now = new Date().toISOString();
       const nueva = normalizarObra({ ...f, id: uid(), creado: now, estadoDesde: now, historial: [{ estado: f.estado || "estudio", fecha: now }] });
-      setData((d) => ({ ...d, obras: [nueva, ...d.obras] }));
+      const conAuto = aplicarAutomatismos(nueva, nueva.estado);
+      setData((d) => ({ ...d, obras: [conAuto, ...d.obras] }));
       toast("Obra creada. Añádele su primer punto con fecha.");
       setDetailId(nueva.id);
     }
@@ -2836,11 +3127,12 @@ function App() {
   const rojosCampana = misAvisos.filter((a) => a.nivel === "rojo").length;
   const nAvisosCampana = rojosCampana + misAvisos.filter((a) => a.grupo === "Hoy").length;
 
+  const nq = sinAcentos(busca);
   const resultadosBusca = busca.trim().length >= 2
-    ? data.obras.filter((o) => `${o.nombre} ${o.direccion} ${o.municipio} ${o.contactoNombre} ${o.admFincas} ${o.notas}`.toLowerCase().includes(busca.toLowerCase())).slice(0, 8)
+    ? data.obras.filter((o) => sinAcentos(`${o.nombre} ${o.direccion} ${o.municipio} ${o.contactoNombre} ${o.admFincas} ${o.telefono} ${o.notas}`).includes(nq)).slice(0, 8)
     : [];
 
-  const abrirObra = (id) => { setDetailId(id); setAvisosOpen(false); setBusca(""); };
+  const abrirObra = (id) => { setDetailId(id); setAvisosOpen(false); setBusca(""); setBuscaOpen(false); };
 
   const TABS = [
     { id: "panel", label: "Panel", Icon: LayoutDashboard },
@@ -2859,7 +3151,7 @@ function App() {
         <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0">
             <img src={LOGO} alt="Proyecton" className="w-12 h-12 object-contain flex-shrink-0" />
-            <div className="min-w-0">
+            <div className="min-w-0 hidden sm:block">
               <p className="text-xs tracking-widest font-medium truncate" style={{ color: C.ink, letterSpacing: "0.3em" }}>REVESTIMIENTOS</p>
               <p className="text-xl font-extrabold leading-none -mt-0.5" style={{ color: C.red, letterSpacing: "0.02em" }}>
                 PROYECTON
@@ -2872,8 +3164,13 @@ function App() {
             {/* buscador */}
             <div className="relative hidden md:block">
               <Search size={15} className="absolute left-3 top-2.5" style={{ color: C.mut }} />
-              <input className={inputCls + " pl-8 w-64"} style={inputStyle} placeholder="Buscar obra…"
-                value={busca} onChange={(e) => setBusca(e.target.value)} />
+              <input ref={buscaRef} className={inputCls + " pl-8 w-64"} style={inputStyle} placeholder="Buscar obra…  (Ctrl+K)"
+                title="Atajo: Ctrl+K desde cualquier pantalla"
+                value={busca} onChange={(e) => setBusca(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && resultadosBusca.length > 0) abrirObra(resultadosBusca[0].id);
+                  if (e.key === "Escape") { setBusca(""); e.currentTarget.blur(); }
+                }} />
               {resultadosBusca.length > 0 && (
                 <div className="absolute top-full mt-1 left-0 right-0 bg-white rounded-xl border shadow-lg z-40 overflow-hidden aparecer" style={{ borderColor: C.line }}>
                   {resultadosBusca.map((o) => (
@@ -2887,12 +3184,16 @@ function App() {
                 </div>
               )}
             </div>
+            {/* buscador en móvil */}
+            <button onClick={() => setBuscaOpen(true)} className="p-2 rounded-lg border hover:bg-neutral-50 md:hidden" style={{ borderColor: C.line }} aria-label="Buscar obra">
+              <Search size={17} style={{ color: C.ink }} />
+            </button>
             {/* quién soy */}
             <button onClick={() => elegirQuien("")} title="Cambiar de persona"
-              className="hidden sm:inline-flex items-center gap-1.5 pl-1.5 pr-2.5 py-1.5 rounded-lg border hover:bg-neutral-50"
+              className="inline-flex items-center gap-1.5 pl-1.5 pr-2.5 py-1.5 rounded-lg border hover:bg-neutral-50"
               style={{ borderColor: admin ? C.ink : C.line, background: admin ? C.ink : "#fff" }}>
               {persona ? <Avatar nombre={persona} /> : <Users size={15} style={{ color: admin ? "#fff" : C.mut }} />}
-              <span className="text-sm font-semibold" style={{ color: admin ? "#fff" : C.ink }}>{persona || (admin ? "Admin" : "Equipo")}</span>
+              <span className="text-sm font-semibold hidden sm:inline" style={{ color: admin ? "#fff" : C.ink }}>{persona || (admin ? "Admin" : "Equipo")}</span>
             </button>
             {/* campana */}
             <button onClick={() => setAvisosOpen(true)} className="relative p-2 rounded-lg border hover:bg-neutral-50" style={{ borderColor: C.line }}
@@ -3021,6 +3322,34 @@ function App() {
       {avisosOpen && (
         <Modal title="Centro de avisos" onClose={() => setAvisosOpen(false)} wide>
           <ListaAvisos avisos={avisos} onOpen={abrirObra} quien={persona} />
+        </Modal>
+      )}
+
+      {buscaOpen && (
+        <Modal title="Buscar obra" onClose={() => { setBuscaOpen(false); setBusca(""); }}>
+          <div className="relative">
+            <Search size={16} className="absolute left-3 top-2.5" style={{ color: C.mut }} />
+            <input autoFocus className={inputCls + " pl-9"} style={inputStyle}
+              placeholder="Comunidad, dirección, contacto, código…"
+              value={busca} onChange={(e) => setBusca(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter" && resultadosBusca.length > 0) abrirObra(resultadosBusca[0].id); }} />
+          </div>
+          <div className="mt-2 space-y-0.5">
+            {resultadosBusca.map((o) => (
+              <button key={o.id} onClick={() => abrirObra(o.id)}
+                className="w-full flex items-center gap-2.5 px-2 py-2.5 rounded-lg hover:bg-neutral-50 text-left border-b" style={{ borderColor: C.line }}>
+                <PuntoSalud obra={o} />
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-bold truncate" style={{ color: C.ink }}>{o.nombre}</p>
+                  <p className="text-xs truncate" style={{ color: C.mut }}>{[(EST[o.estado] || {}).label, o.municipio, o.importe ? fmtEUR(o.importe) : ""].filter(Boolean).join(" · ")}</p>
+                </div>
+                <ChevronRight size={15} style={{ color: C.mut }} />
+              </button>
+            ))}
+            {busca.trim().length >= 2 && resultadosBusca.length === 0 && (
+              <p className="text-sm py-3 text-center" style={{ color: C.mut }}>Nada con "{busca}". Prueba con parte del nombre o el código.</p>
+            )}
+          </div>
         </Modal>
       )}
 
