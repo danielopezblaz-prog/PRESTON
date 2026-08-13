@@ -240,6 +240,16 @@ const DEFAULT_PUNTOS_TIPICOS = [
   "Pendiente de firmar el contrato",
 ];
 
+// Línea de producción de presupuestos (César y Dani): espejo de las carpetas de Dropbox
+// 01_Entrada → 02_En proceso → 03_Para revisión → 05_Enviados (ahí el seguimiento pasa a María).
+// La fase vive en obra.fase y solo aplica mientras la obra está en "estudio"; "" = Entrada.
+const FASES_PRESUPUESTO = [
+  { id: "entrada",  label: "Entrada",        desc: "Presupuestos que acaban de llegar, sin empezar",      color: "#8B8B90", tint: "#EFEEEC" },
+  { id: "proceso",  label: "En proceso",     desc: "César o Dani lo están haciendo",                      color: "#2A78D6", tint: "#E7F0FB" },
+  { id: "revision", label: "Para revisión",  desc: "Hecho: repasar antes de enviarlo",                    color: "#C9A227", tint: "#F7F1DC" },
+  { id: "enviado",  label: "Enviado → María", desc: "Entregado a la comunidad: el seguimiento es de María", color: "#B7791F", tint: "#F7F0E1" },
+];
+
 const REQS_SUGERIDOS = {
   estudio:     ["Visita realizada", "Medición", "Fotos del edificio", "Presupuesto redactado"],
   presupuesto: ["Presupuesto entregado", "Presentación en junta", "Resolver dudas del administrador", "Versión 2 del presupuesto"],
@@ -289,7 +299,7 @@ const obraVacia = () => ({
   origen: ORIGENES[0], tipos: [], prioridad: "media",
   responsable: "", colaboradores: [], importe: "", cobrado: "",
   subTipo: "", subImporte: "", subEstado: "no", subLimite: "",
-  estado: "estudio", notas: "",
+  estado: "estudio", fase: "", notas: "",
 });
 
 function normalizarObra(o) {
@@ -302,6 +312,7 @@ function normalizarObra(o) {
     subTipo: o.subTipo || "", subImporte: Number(o.subImporte) || 0, subEstado: SUB[o.subEstado] ? o.subEstado : "no",
     subLimite: o.subLimite || "",
     estado: EST[o.estado] ? o.estado : "estudio", estadoDesde: o.estadoDesde || o.creado || new Date().toISOString(),
+    fase: ["proceso", "revision"].includes(o.fase) ? o.fase : "",
     historial: Array.isArray(o.historial) && o.historial.length ? o.historial : [{ estado: EST[o.estado] ? o.estado : "estudio", fecha: o.creado || new Date().toISOString() }],
     motivoPerdida: o.motivoPerdida || null, notas: o.notas || "", creado: o.creado || new Date().toISOString(),
     avance: Math.max(0, Math.min(100, Number(o.avance) || 0)), archivada: !!o.archivada, ejemplo: !!o.ejemplo,
@@ -1252,12 +1263,36 @@ function ApunteRapido({ data, addApunte, toast }) {
 }
 
 /* ============================ TABLERO (kanban) ============================ */
-function TableroView({ data, onOpen, onNueva, setEstado, onPerdida }) {
+function TableroView({ data, onOpen, onNueva, setEstado, onPerdida, updateObra, quien }) {
   const [dragId, setDragId] = useState(null);
   const [overCol, setOverCol] = useState(null);
   const hoy = hoyYMD();
   const obras = data.obras.filter(enTablero);
   const perdidas = data.obras.filter((o) => !o.archivada && o.estado === "perdida");
+  // César y Dani fabrican los presupuestos: su tablero por defecto es la línea de producción
+  const [modo, setModo] = useState((quien === "César" || quien === "Dani") ? "presupuestos" : "obras");
+  const colFase = (colId) => {
+    if (colId === "enviado") return obras.filter((o) => o.estado === "presupuesto").sort((a, b) => a.estadoDesde.localeCompare(b.estadoDesde));
+    return obras.filter((o) => o.estado === "estudio" && (o.fase || "") === (colId === "entrada" ? "" : colId))
+      .sort((a, b) => (a.prioridad === "alta" ? -1 : 0) - (b.prioridad === "alta" ? -1 : 0) || b.importe - a.importe);
+  };
+  // mover por la línea de producción; al soltarlo en Enviado el seguimiento pasa a María
+  const moverFase = (id, colId) => {
+    const o = data.obras.find((x) => x.id === id);
+    if (!o) return;
+    if (colId === "enviado") {
+      const patch = { fase: "" };
+      if (o.responsable !== "María" && data.equipo.includes("María")) {
+        patch.responsable = "María";
+        patch.colaboradores = (o.colaboradores || []).concat(o.responsable).filter((c, i, a) => c && c !== "María" && a.indexOf(c) === i);
+      }
+      updateObra(id, patch);
+      if (o.estado !== "presupuesto") setEstado(id, "presupuesto");
+    } else {
+      if (o.estado !== "estudio") setEstado(id, "estudio");
+      updateObra(id, { fase: colId === "entrada" ? "" : colId });
+    }
+  };
 
   if (obras.length === 0 && perdidas.length === 0) {
     return (
@@ -1267,13 +1302,102 @@ function TableroView({ data, onOpen, onNueva, setEstado, onPerdida }) {
     );
   }
 
-  const soltar = (estadoId) => {
-    if (dragId) setEstado(dragId, estadoId);
+  const soltar = (colId) => {
+    if (dragId) { if (modo === "presupuestos") moverFase(dragId, colId); else setEstado(dragId, colId); }
     setDragId(null); setOverCol(null);
   };
 
   return (
     <div>
+      <div className="flex items-center gap-1.5 mb-3 flex-wrap">
+        <button onClick={() => setModo("obras")}
+          className="px-3 py-1.5 rounded-full text-xs font-bold border transition-colors"
+          style={modo === "obras" ? { background: C.ink, color: "#fff", borderColor: C.ink } : { background: "#fff", color: C.ink, borderColor: C.line }}>
+          Obras · recorrido completo
+        </button>
+        <button onClick={() => setModo("presupuestos")}
+          className="px-3 py-1.5 rounded-full text-xs font-bold border transition-colors"
+          style={modo === "presupuestos" ? { background: C.ink, color: "#fff", borderColor: C.ink } : { background: "#fff", color: C.ink, borderColor: C.line }}>
+          Presupuestos · César y Dani
+        </button>
+        {modo === "presupuestos" && (
+          <span className="text-xs" style={{ color: C.mut }}>Entrada → En proceso → Para revisión → Enviado (ahí lo coge María)</span>
+        )}
+      </div>
+
+      {modo === "presupuestos" && (
+        <div className="overflow-x-auto pb-2 -mx-1 px-1 snap-x snap-mandatory sm:snap-none">
+          <div className="flex gap-3 min-w-[56rem]">
+            {FASES_PRESUPUESTO.map((f, fi) => {
+              const col = colFase(f.id);
+              const total = col.reduce((s, o) => s + o.importe, 0);
+              const resaltada = overCol === f.id;
+              return (
+                <div key={f.id} className="flex-1 rounded-xl p-2 transition-colors snap-center min-w-[80vw] sm:min-w-[13rem]"
+                  style={{ background: resaltada ? f.tint : "#ECEAE7", outline: resaltada ? `2px dashed ${f.color}` : "none" }}
+                  onDragOver={(ev) => { ev.preventDefault(); if (overCol !== f.id) setOverCol(f.id); }}
+                  onDragLeave={() => overCol === f.id && setOverCol(null)}
+                  onDrop={(ev) => { ev.preventDefault(); soltar(f.id); }}>
+                  <div className="px-1.5 pb-1 flex items-center justify-between">
+                    <span className="text-xs font-extrabold uppercase tracking-wider inline-flex items-center gap-1.5" style={{ color: C.ink }} title={f.desc}>
+                      <span className="w-2.5 h-2.5 rounded-full" style={{ background: f.color }} />{f.label}
+                    </span>
+                    <span className="text-xs font-bold px-1.5 py-0.5 rounded-md text-white" style={{ background: f.color }}>{col.length}</span>
+                  </div>
+                  <p className="px-1.5 pb-2 text-xs font-semibold" style={{ color: C.mut, fontVariantNumeric: "tabular-nums" }}>{fmtEUR(total)}</p>
+                  <div className="space-y-2 min-h-10">
+                    {col.map((o) => (
+                      <div key={o.id} draggable
+                        onDragStart={(ev) => { ev.dataTransfer.setData("text/plain", o.id); ev.dataTransfer.effectAllowed = "move"; setDragId(o.id); }}
+                        onDragEnd={() => { setDragId(null); setOverCol(null); }}
+                        className={`bg-white rounded-lg border p-2.5 shadow-sm cursor-grab active:cursor-grabbing transition-shadow hover:shadow-md ${dragId === o.id ? "arrastrando" : ""}`}
+                        style={{ borderColor: C.line, borderLeftWidth: 3, borderLeftColor: f.color }}>
+                        <button className="text-left w-full" onClick={() => onOpen(o.id)}>
+                          <div className="flex items-start justify-between gap-1">
+                            <p className="text-sm font-bold leading-snug" style={{ color: C.ink }}>{o.nombre}</p>
+                            <span className="flex-shrink-0 mt-0.5"><PuntoSalud obra={o} size={9} /></span>
+                          </div>
+                          <div className="flex items-center justify-between mt-1.5 gap-1">
+                            <span className="text-sm font-extrabold" style={{ color: C.red, fontVariantNumeric: "tabular-nums" }}>{fmtEUR(o.importe)}</span>
+                            <span className="text-xs font-semibold inline-flex items-center gap-1"
+                              style={{ color: daysSince(o.estadoDesde) > (f.id === "enviado" ? 21 : 10) ? C.warn : C.mut }}
+                              title={f.id === "enviado" ? "Días desde el envío" : "Días desde que entró"}>
+                              <Clock size={11} /> {daysSince(o.estadoDesde)}d
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between mt-1.5">
+                            <span className="text-xs truncate" style={{ color: C.mut }}>{codigoDeObra(o) || o.municipio || ""}</span>
+                            {o.responsable && <Avatar nombre={o.responsable} />}
+                          </div>
+                        </button>
+                        <div className="flex items-center justify-between mt-2 pt-2 border-t" style={{ borderColor: C.line }}>
+                          <div className="flex gap-1">
+                            <button title="Fase anterior" disabled={fi === 0} onClick={() => moverFase(o.id, FASES_PRESUPUESTO[fi - 1].id)}
+                              className={`p-1 rounded-md border ${fi === 0 ? "opacity-30" : "hover:bg-neutral-100"}`} style={{ borderColor: C.line }}>
+                              <ChevronLeft size={14} />
+                            </button>
+                            <button title="Fase siguiente" disabled={fi === FASES_PRESUPUESTO.length - 1} onClick={() => moverFase(o.id, FASES_PRESUPUESTO[fi + 1].id)}
+                              className={`p-1 rounded-md border ${fi === FASES_PRESUPUESTO.length - 1 ? "opacity-30" : "hover:bg-neutral-100"}`} style={{ borderColor: C.line }}>
+                              <ChevronRight size={14} />
+                            </button>
+                          </div>
+                          <button title="Marcar como perdida" onClick={() => onPerdida(o.id)}
+                            className="p-1 rounded-md border hover:bg-neutral-100" style={{ borderColor: C.line, color: C.mut }}>
+                            <X size={14} />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                    {col.length === 0 && <p className="text-xs text-center py-4" style={{ color: C.mut }}>{resaltada ? "Suelta aquí" : "Vacío"}</p>}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {modo === "obras" && (
       <div className="overflow-x-auto pb-2 -mx-1 px-1 snap-x snap-mandatory sm:snap-none">
         <div className="flex gap-3 min-w-[68rem]">
           {ESTADOS_TABLERO.map((e, ei) => {
@@ -1360,6 +1484,7 @@ function TableroView({ data, onOpen, onNueva, setEstado, onPerdida }) {
           })}
         </div>
       </div>
+      )}
       {perdidas.length > 0 && (
         <p className="text-xs mt-2 px-1" style={{ color: C.mut }}>
           {perdidas.length} obra{perdidas.length === 1 ? "" : "s"} perdida{perdidas.length === 1 ? "" : "s"} — puedes verlas en la pestaña <b>Obras</b> filtrando por estado.
@@ -3531,7 +3656,8 @@ function App() {
         )}
         {tab === "tablero" && (
           <TableroView data={data} onOpen={abrirObra} onNueva={() => setObraModal({})}
-            setEstado={setEstado} onPerdida={(id) => { setPerdidaId(id); setPerdidaMotivo(MOTIVOS[0]); }} />
+            setEstado={setEstado} onPerdida={(id) => { setPerdidaId(id); setPerdidaMotivo(MOTIVOS[0]); }}
+            updateObra={updateObra} quien={persona} />
         )}
         {tab === "obras" && <ObrasView data={data} onOpen={abrirObra} onNueva={() => setObraModal({})} onExport={exportCSV} onImport={() => setLoteOpen(true)} />}
         {tab === "agenda" && <AgendaView data={data} onOpen={abrirObra} togglePendiente={togglePendiente} quien={persona}
