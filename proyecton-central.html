@@ -277,6 +277,7 @@ const REQS_SUGERIDOS = {
 const KEY = "proyecton-central-v1";
 const KEY_FECHA_PUB = "proyecton-central-fechapub"; // fecha de la última versión publicada aplicada en este navegador
 const KEY_EDITADO = "proyecton-central-editado"; // "1" si hay cambios locales sin publicar
+const KEY_AVISADOS = "proyecton-central-avisados"; // movimientos ya notificados en este navegador
 const KEY_QUIEN = "proyecton-central-quien"; // quién usa este navegador (para avisos personales)
 const KEY_COPIAS = "proyecton-central-copias"; // últimas copias de seguridad automáticas (blindaje)
 const CRM_KEYS = ["proyecton-crm-v2", "proyecton-crm-v1"];
@@ -328,6 +329,7 @@ function normalizarObra(o) {
     estado: EST[o.estado] ? o.estado : "estudio", estadoDesde: o.estadoDesde || o.creado || new Date().toISOString(),
     fase: ["proceso", "revision", "actualizacion", "enviado"].includes(o.fase) ? o.fase : "",
     bandeja: ["pendiente", "reenviado"].includes(o.bandeja) ? o.bandeja : "",
+    bandejaFecha: o.bandejaFecha || "",
     modificacion: (o.modificacion && o.modificacion.texto) ? o.modificacion : null,
     historial: Array.isArray(o.historial) && o.historial.length ? o.historial : [{ estado: EST[o.estado] ? o.estado : "estudio", fecha: o.creado || new Date().toISOString() }],
     motivoPerdida: o.motivoPerdida || null, notas: o.notas || "", creado: o.creado || new Date().toISOString(),
@@ -672,12 +674,20 @@ function calcularAvisos(data) {
     if (o.estado === "estudio" && o.fase === "actualizacion")
       avisos.push({ id: `md_${o.id}`, nivel: "ambar", grupo: "Atención",
         texto: "Modificación del presupuesto pedida" + (o.modificacion && o.modificacion.texto ? ": " + String(o.modificacion.texto).slice(0, 70) : ""),
-        detalle: "en Actualizaciones del tablero", obraId: o.id, obra: o.nombre, para: cuadrilla });
+        detalle: "en Actualizaciones del tablero", obraId: o.id, obra: o.nombre, para: cuadrilla,
+        marca: (o.modificacion && o.modificacion.fecha) || "" });
     // corrección entregada de vuelta: que le salte a María
     if (o.estado === "estudio" && o.fase === "enviado" && o.bandeja === "reenviado")
       avisos.push({ id: `mr_${o.id}`, nivel: "ambar", grupo: "Atención",
         texto: "Presupuesto corregido por César y Dani: listo para reenviar",
-        detalle: "en Actualizaciones recibidas de tu tablero", obraId: o.id, obra: o.nombre, para: cuadrilla });
+        detalle: "en Actualizaciones recibidas de tu tablero", obraId: o.id, obra: o.nombre, para: cuadrilla,
+        marca: o.bandejaFecha || "" });
+    // presupuesto recién entregado a María: pendiente de enviarlo a la comunidad
+    if (o.estado === "estudio" && o.fase === "enviado" && !o.bandeja)
+      avisos.push({ id: `en_${o.id}`, nivel: "ambar", grupo: "Atención",
+        texto: "Presupuesto entregado por César y Dani: pendiente de enviar",
+        detalle: "en Entrada · para enviar del tablero", obraId: o.id, obra: o.nombre, para: cuadrilla,
+        marca: o.bandejaFecha || "" });
     if (esActiva(o)) {
       if (puntosPend(o).length === 0)
         avisos.push({ id: `sp_${o.id}`, nivel: "ambar", grupo: "Atención", texto: "Sin próximo paso definido", detalle: "añade un punto con fecha", obraId: o.id, obra: o.nombre, para: cuadrilla });
@@ -1312,7 +1322,7 @@ function TableroView({ data, onOpen, onNueva, setEstado, onPerdida, updateObra, 
       updateObra(id, { fase: "", bandeja: "" });
       if (o.estado !== "presupuesto") setEstado(id, "presupuesto");
     } else {
-      updateObra(id, { fase: "enviado", bandeja: colId === "entrada" ? "" : colId });
+      updateObra(id, { fase: "enviado", bandeja: colId === "entrada" ? "" : colId, bandejaFecha: new Date().toISOString() });
       if (o.estado !== "estudio") setEstado(id, "estudio");
     }
   };
@@ -1328,7 +1338,7 @@ function TableroView({ data, onOpen, onNueva, setEstado, onPerdida, updateObra, 
     if (colId === "enviado") {
       if (o.estado === "presupuesto") return; // ya estaba enviado de verdad
       // si venía de una modificación, a María le entra por "Actualizaciones recibidas"
-      const patch = { fase: "enviado", bandeja: o.modificacion ? "reenviado" : "", modificacion: null };
+      const patch = { fase: "enviado", bandeja: o.modificacion ? "reenviado" : "", bandejaFecha: new Date().toISOString(), modificacion: null };
       // al reenviar, la petición de modificación queda cumplida
       patch.puntos = (o.puntos || []).map((p) =>
         !p.hecho && /^modificaci/i.test(p.texto) ? { ...p, hecho: true, fechaHecho: new Date().toISOString() } : p);
@@ -3281,7 +3291,9 @@ function App() {
     try { localStorage.setItem(KEY_FECHA_PUB, payload.fecha || ""); localStorage.setItem(KEY_EDITADO, "0"); } catch (e) {}
     setNuevaVersion(null);
     sesionEditadaRef.current = false;
-    toast("Actualizado a la versión publicada del " + fmtFecha(payload.fecha) + ".");
+    toast("Actualizado a la versión publicada del " + fmtFecha(payload.fecha) + ". Recargando…");
+    // recarga para estrenar también el código nuevo (los datos ya quedan guardados en este navegador)
+    setTimeout(() => { try { window.location.reload(); } catch (e) {} }, 1200);
   };
 
   const comprobarPublicados = async () => {
@@ -3299,7 +3311,8 @@ function App() {
       const aplicada = localStorage.getItem(KEY_FECHA_PUB) || "";
       if (payload.fecha <= aplicada) return;
       // hay una versión publicada más nueva que la que tiene este navegador
-      if (!sesionEditadaRef.current) {
+      const modalAbierto = detailId || obraModal || loteOpen || confirmCfg || claveCfg || vaciarTxt || ajustesOpen;
+      if (!sesionEditadaRef.current && !modalAbierto) {
         if (payload.cifrado && claveRef.current) {
           try { aplicarVersionPublicada(payload, await descifrarJSON(payload, claveRef.current)); return; } catch (e) { /* clave distinta */ }
         } else if (!payload.cifrado && payload.datos) {
@@ -3342,6 +3355,29 @@ function App() {
         });
       }
     } catch (e) {}
+  }, [data, avisos, persona, admin]);
+
+  // notificación en vivo de los movimientos de presupuestos (entregas a María, modificaciones y correcciones)
+  useEffect(() => {
+    if (!data || (!persona && !admin)) return;
+    const movs = avisos.filter((a) => /^(md_|mr_|en_)/.test(a.id) && (admin || (a.para || []).includes(persona)));
+    if (!movs.length) return;
+    let vistos = [];
+    try { vistos = JSON.parse(localStorage.getItem(KEY_AVISADOS) || "[]"); } catch (e) {}
+    const firma = (a) => a.id + "|" + (a.marca || "");
+    const setV = new Set(vistos);
+    const nuevos = movs.filter((a) => !setV.has(firma(a)));
+    if (!nuevos.length) return;
+    try {
+      if (window.Notification && Notification.permission === "granted") {
+        new Notification("Central de Obras", {
+          body: nuevos.length === 1
+            ? nuevos[0].obra + ": " + nuevos[0].texto
+            : nuevos.length + " movimientos de presupuestos (entregas o modificaciones)",
+        });
+      }
+    } catch (e) {}
+    try { localStorage.setItem(KEY_AVISADOS, JSON.stringify(vistos.concat(nuevos.map(firma)).slice(-300))); } catch (e) {}
   }, [data, avisos, persona, admin]);
 
   const agendaPendientes = useMemo(() => {
