@@ -2051,9 +2051,28 @@ function FormApunte({ equipo, defecto, onSave }) {
 }
 
 function FichaObra({ obra, data, avisos, onClose, onEdit, setEstado, onPerdida, onReabrir, onDelete, onArchivar,
-  addPunto, togglePunto, delPunto, addReq, toggleReq, delReq, addApunte, delApunte, updateObra }) {
+  addPunto, togglePunto, delPunto, addReq, toggleReq, delReq, addApunte, delApunte, updateObra, quien }) {
   const hoy = hoyYMD();
   const [verHechos, setVerHechos] = useState(false);
+  // corrección directa de cantidades (por si un importe vino mal): clic → editar → Enter
+  const [editImporte, setEditImporte] = useState(false);
+  const [impTxt, setImpTxt] = useState("");
+  const [editSubImp, setEditSubImp] = useState(false);
+  const [subImpTxt, setSubImpTxt] = useState("");
+  const guardarImporte = () => {
+    const v = Math.max(0, Math.round(Number(impTxt) || 0));
+    setEditImporte(false);
+    if (v === obra.importe) return;
+    updateObra(obra.id, { importe: v });
+    addApunte(obra.id, { tipo: "nota", autor: quien || "", texto: "Importe corregido a mano: de " + fmtEUR(obra.importe) + " a " + fmtEUR(v) + "." });
+  };
+  const guardarSubImp = () => {
+    const v = Math.max(0, Math.round(Number(subImpTxt) || 0));
+    setEditSubImp(false);
+    if (v === obra.subImporte) return;
+    updateObra(obra.id, { subImporte: v });
+    addApunte(obra.id, { tipo: "nota", autor: quien || "", texto: "Subvención corregida a mano: de " + fmtEUR(obra.subImporte) + " a " + fmtEUR(v) + "." });
+  };
   const misAvisos = avisos.filter((a) => a.obraId === obra.id);
   const apuntes = [...obra.apuntes].sort((a, b) => b.fecha.localeCompare(a.fecha));
   const sugeridos = (REQS_SUGERIDOS[obra.estado] || []).filter((s) => !obra.requerimientos.some((r) => r.texto === s));
@@ -2085,7 +2104,21 @@ function FichaObra({ obra, data, avisos, onClose, onEdit, setEstado, onPerdida, 
           </div>
         </div>
         <div className="text-right flex-shrink-0">
-          <p className="text-2xl font-extrabold" style={{ color: C.red }}>{fmtEUR(obra.importe)}</p>
+          {editImporte ? (
+            <input type="number" min="0" autoFocus
+              className="text-xl font-extrabold text-right rounded-lg border-2 px-2 py-0.5 w-44"
+              style={{ color: C.red, borderColor: C.red }}
+              value={impTxt} onChange={(e) => setImpTxt(e.target.value)}
+              onBlur={guardarImporte}
+              onKeyDown={(e) => { if (e.key === "Enter") guardarImporte(); if (e.key === "Escape") setEditImporte(false); }} />
+          ) : (
+            <button onClick={() => { setImpTxt(obra.importe || ""); setEditImporte(true); }}
+              className="group inline-flex items-center gap-1.5 rounded-lg px-1.5 -mx-1.5 hover:bg-red-50"
+              title="Pulsa para corregir el importe (queda apuntado en el diario)">
+              <span className="text-2xl font-extrabold" style={{ color: C.red }}>{fmtEUR(obra.importe)}</span>
+              <Pencil size={13} className="opacity-30 group-hover:opacity-100 flex-shrink-0" style={{ color: C.red }} />
+            </button>
+          )}
           {obra.cobrado > 0 && (
             <p className="text-xs font-semibold" style={{ color: C.mut }}>cobrado {fmtEUR(obra.cobrado)} ({pct(obra.importe ? obra.cobrado / obra.importe : 0)})</p>
           )}
@@ -2163,11 +2196,23 @@ function FichaObra({ obra, data, avisos, onClose, onEdit, setEstado, onPerdida, 
                 {obra.subTipo && !TRAMOS_PGE.some((t) => t.v === obra.subTipo) && <option value={obra.subTipo}>{obra.subTipo}</option>}
               </select>
             )}
-            {obra.subEstado !== "no" && (
-              <span className="text-sm font-bold" style={{ color: "#1C5CAB", fontVariantNumeric: "tabular-nums" }}>
-                {obra.subImporte ? fmtEUR(obra.subImporte) : "importe sin definir"}
-              </span>
-            )}
+            {obra.subEstado !== "no" && (editSubImp ? (
+              <input type="number" min="0" autoFocus
+                className="text-sm font-bold rounded-md border-2 px-1.5 py-0.5 w-32"
+                style={{ color: "#1C5CAB", borderColor: "#1C5CAB" }}
+                value={subImpTxt} onChange={(e) => setSubImpTxt(e.target.value)}
+                onBlur={guardarSubImp}
+                onKeyDown={(e) => { if (e.key === "Enter") guardarSubImp(); if (e.key === "Escape") setEditSubImp(false); }} />
+            ) : (
+              <button onClick={() => { setSubImpTxt(obra.subImporte || ""); setEditSubImp(true); }}
+                className="group inline-flex items-center gap-1 rounded-md px-1 -mx-1 hover:bg-neutral-50"
+                title="Pulsa para corregir el importe de la subvención">
+                <span className="text-sm font-bold" style={{ color: "#1C5CAB", fontVariantNumeric: "tabular-nums" }}>
+                  {obra.subImporte ? fmtEUR(obra.subImporte) : "importe sin definir"}
+                </span>
+                <Pencil size={11} className="opacity-30 group-hover:opacity-100 flex-shrink-0" style={{ color: "#1C5CAB" }} />
+              </button>
+            ))}
           </div>
           {obra.subEstado !== "no" && tramoHint(obra.subTipo) && (
             <p className="text-xs mt-1.5" style={{ color: "#1C5CAB" }}>{tramoHint(obra.subTipo)}</p>
@@ -3521,7 +3566,7 @@ function App() {
           })}
           addPunto={addPunto} togglePunto={togglePunto} delPunto={delPunto}
           addReq={addReq} toggleReq={toggleReq} delReq={delReq}
-          addApunte={addApunte} delApunte={delApunte} updateObra={updateObra} />
+          addApunte={addApunte} delApunte={delApunte} updateObra={updateObra} quien={persona || (admin ? "Administrador" : "")} />
       )}
 
       {perdidaId && (
