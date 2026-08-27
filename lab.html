@@ -215,12 +215,13 @@ table.data{width:100%;border-collapse:collapse}
 .eq-fold .eqf{transition:transform .18s cubic-bezier(.2,.7,.2,1)}
 .eqcard:hover .eqf{transform:translateY(-2px) scale(1.05)}
 #equipoView .eq-grid{margin:26px auto 0}
-/* ===== portada: el dodecaedro flota sobre el fondo, sin caja ===== */
-/* el gris del video se funde con la pagina con una mascara radial: solo se ve el objeto */
+/* ===== portada: el dodecaedro RECORTADO sobre fondo blanco, sin caja ===== */
+/* el gris del video se elimina pixel a pixel (eqRecorta): no hay recuadro posible */
+#equipoView{background:#fff}
+@media (prefers-color-scheme:dark){ :root:not([data-theme="light"]) #equipoView{background:var(--bg)} }
+:root[data-theme="dark"] #equipoView{background:var(--bg)}
 .eq-hero{position:relative;max-width:1150px;margin:-14px auto 0;background:transparent;border:0;box-shadow:none;overflow:visible}
-.eq-hero video,.eq-hero .eq-lienzo{display:block;width:100%;height:auto;
-  -webkit-mask-image:radial-gradient(ellipse 70% 68% at 50% 49%,#000 52%,transparent 82%);
-  mask-image:radial-gradient(ellipse 70% 68% at 50% 49%,#000 52%,transparent 82%)}
+.eq-hero video,.eq-hero .eq-lienzo{display:block;width:100%;height:auto}
 /* flotacion propia: minima (3 px), lenta y en vaiven perfecto — el bucle no se nota */
 .eq-float{will-change:transform}
 @media (prefers-reduced-motion:no-preference){ .eq-float{animation:eqFloat 5.5s ease-in-out infinite alternate} }
@@ -3466,13 +3467,19 @@ function eqPos(id){ var p=EQ_SPOTS[id]||[50,50];
  return [(p[0]*12.8-EQ_ZOOM.x0)/EQ_ZOOM.w*100,(p[1]*7.2-EQ_ZOOM.y0)/EQ_ZOOM.h*100]; }
 /* enfoque (mascara de nitidez 3x3) sobre el fotograma ya ampliado: recupera el
    detalle que la compresion del video se comia */
-function eqEnfoca(g){ try{
- var w=1280,h=720,id=g.getImageData(0,0,w,h),s=id.data,out=new Uint8ClampedArray(s),mix=0.5;
- for(var y=1;y<h-1;y++){ var f=y*w;
-  for(var x=1;x<w-1;x++){ var i=(f+x)*4;
-   for(var c=0;c<3;c++){ var v=5*s[i+c]-s[i-4+c]-s[i+4+c]-s[i-w*4+c]-s[i+w*4+c];
-    out[i+c]=s[i+c]+(v-s[i+c])*mix; } } }
- id.data.set(out); g.putImageData(id,0,0); }catch(e){} }
+/* Quita el fondo gris del fotograma dejandolo transparente: lo neutro y claro
+   desaparece, lo neutro medio queda como sombra suave bajo el objeto, y todo lo
+   que tiene color (el dodecaedro y las carpetas) se conserva tal cual. */
+function eqRecorta(g,w,h){ try{
+ var id=g.getImageData(0,0,w,h), d=id.data;
+ for(var i=0;i<d.length;i+=4){ var r=d[i],gg=d[i+1],b=d[i+2];
+  if(Math.abs(r-gg)>=14||Math.abs(gg-b)>=14||Math.abs(r-b)>=14)continue;  /* con color: se queda */
+  var lum=(r+gg+b)/3;
+  if(lum>=200){ d[i+3]=0; }                                   /* fondo claro: fuera */
+  else if(lum>158){ d[i]=d[i+1]=d[i+2]=70;                     /* sombra: gris translucido */
+   d[i+3]=Math.round((200-lum)/42*80); }
+ }
+ g.putImageData(id,0,0); }catch(e){} }
 function renderEquipo(){ var host=document.getElementById('equipoView'); if(!host)return;
  var src=''; try{ var el=document.getElementById('eqAnimSrc'); if(el)src='data:video/mp4;base64,'+el.textContent.replace(/\s+/g,''); }catch(e){}
  var spots=EQUIPO.map(function(e){ var p=eqPos(e.id);
@@ -3482,20 +3489,18 @@ function renderEquipo(){ var host=document.getElementById('equipoView'); if(!hos
    '<i></i>'+esc(e.nom)+'</button>'; }).join('');
  host.innerHTML='<div class="eq-hero"><div class="eq-float">'+
    (src?'<video autoplay muted loop playsinline src="'+src+'" style="opacity:0"></video>':'')+
-   '<canvas class="eq-lienzo" width="1280" height="720" style="display:none"></canvas></div>'+
+   '<canvas class="eq-lienzo" width="900" height="506" style="display:none"></canvas></div>'+
    spots+'</div>'+
   '<div class="eq-chips">'+chips+'</div>';
  host.querySelectorAll('[data-carpeta]').forEach(function(b){ b.onclick=function(){ abrirCarpeta(b.dataset.carpeta); }; });
  var vid=host.querySelector('.eq-hero video'), cv=host.querySelector('.eq-lienzo');
  if(vid&&cv){ var pintado=false;
-  /* se pinta el fotograma de t=1s (el de la calibracion de las pestañas): el video
-     "baila" y el fotograma 0 tiene el objeto unos pixeles mas abajo */
+  /* se pinta el fotograma de t=1s (el calibrado) a la RESOLUCION NATIVA del recorte
+     (sin reescalar, que emborrona) y se le quita el fondo gris con eqRecorta */
   var pinta=function(){ if(pintado||vid.readyState<2)return;
-   try{ var g=cv.getContext('2d'); g.imageSmoothingEnabled=true; g.imageSmoothingQuality='high';
-    try{ g.filter='saturate(1.07) contrast(1.04)'; }catch(e){}
-    g.drawImage(vid,EQ_ZOOM.x0,EQ_ZOOM.y0,EQ_ZOOM.w,EQ_ZOOM.h,0,0,1280,720);
-    try{ g.filter='none'; }catch(e){}
-    eqEnfoca(g); pintado=true;
+   try{ var g=cv.getContext('2d');
+    g.drawImage(vid,EQ_ZOOM.x0,EQ_ZOOM.y0,EQ_ZOOM.w,EQ_ZOOM.h,0,0,EQ_ZOOM.w,EQ_ZOOM.h);
+    eqRecorta(g,EQ_ZOOM.w,EQ_ZOOM.h); pintado=true;
     cv.style.display='block'; vid.style.display='none'; vid.pause(); }catch(e){} };
   vid.addEventListener('seeked',function(){ setTimeout(pinta,40); });
   vid.addEventListener('loadeddata',function(){ try{ vid.currentTime=1; }catch(e){ setTimeout(pinta,60); } });
@@ -6065,7 +6070,7 @@ window.PRESTON={state:function(){return state;},obra:obra,ficha:function(){var o
  pres:{payload:function(){var o=obra();return o?presPayload(o):null;},url:function(){var o=obra();return o?presUrl(o):null;}},
  med:{parcial:parcialLinea,suma:sumaLineas,open:function(id){openDock(id);},close:function(){closeDock();},dock:function(){return {open:dockOpen,id:dockId};}},
  carp:{ir:abrirCarpeta,equipo:EQUIPO,de:carpetaDe,lista:obrasCarpeta,abierta:carpetaAbierta},
- version:'v124b-logo-grande (LAB · copia de pruebas)'};
+ version:'v125-fondo-blanco (LAB · copia de pruebas)'};
 try{var th0=localStorage.getItem('prestonLAB_theme'); if(th0)document.documentElement.setAttribute('data-theme',th0);}catch(e){}
 var _bd=document.getElementById('brandDode'); if(_bd&&typeof PBRAND!=='undefined')_bd.src=PBRAND.dode;
 if(USA_SERVIDOR){ state={v:3,activeId:null,params:defParams(),obras:[]}; } else { state=load(); }
