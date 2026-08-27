@@ -3456,8 +3456,8 @@ document.addEventListener('change',function(ev){ var s=ev.target&&ev.target.clos
 
 /* Portada: la imagen buena del dodecaedro (1792x2400) recortada al objeto. Las
    posiciones de las pestañas van en % del RECORTE. */
-var EQ_IMG={x0:110,y0:400,w:1620,h:1680};
-var EQ_SPOTS={MARIA:[22.6,8.7],DAVID:[64.6,8.5],DANI:[8.9,40.2],TELLO:[72,40.7],CESAR:[40.9,87.1],PACO:[78.5,85.1]};
+var EQ_IMG={x0:64,y0:368,w:1716,h:1672};
+var EQ_SPOTS={MARIA:[24,10.7],DAVID:[63.7,10.5],DANI:[11.1,42.3],TELLO:[70.7,42.8],CESAR:[41.3,89.4],PACO:[76.8,87.4]};
 function eqPos(id){ return EQ_SPOTS[id]||[50,50]; }
 /* Quita el fondo rellenando DESDE LOS BORDES: solo lo neutro conectado al exterior
    desaparece (lo claro) o queda como sombra suave (lo medio). Los blancos DENTRO
@@ -6060,7 +6060,7 @@ window.PRESTON={state:function(){return state;},obra:obra,ficha:function(){var o
  pres:{payload:function(){var o=obra();return o?presPayload(o):null;},url:function(){var o=obra();return o?presUrl(o):null;}},
  med:{parcial:parcialLinea,suma:sumaLineas,open:function(id){openDock(id);},close:function(){closeDock();},dock:function(){return {open:dockOpen,id:dockId};}},
  carp:{ir:abrirCarpeta,equipo:EQUIPO,de:carpetaDe,lista:obrasCarpeta,abierta:carpetaAbierta},
- version:'v126-imagen-buena (LAB · copia de pruebas)'};
+ version:'v126b-sin-cortes (LAB · copia de pruebas)'};
 try{var th0=localStorage.getItem('prestonLAB_theme'); if(th0)document.documentElement.setAttribute('data-theme',th0);}catch(e){}
 var _bd=document.getElementById('brandDode'); if(_bd&&typeof PBRAND!=='undefined')_bd.src=PBRAND.dode;
 if(USA_SERVIDOR){ state={v:3,activeId:null,params:defParams(),obras:[]}; } else { state=load(); }
