@@ -215,19 +215,22 @@ table.data{width:100%;border-collapse:collapse}
 .eq-fold .eqf{transition:transform .18s cubic-bezier(.2,.7,.2,1)}
 .eqcard:hover .eqf{transform:translateY(-2px) scale(1.05)}
 #equipoView .eq-grid{margin:26px auto 0}
-/* ===== portada: la animacion del dodecaedro con las carpetas clicables ===== */
-.eq-hero{position:relative;max-width:860px;margin:6px auto 0;border-radius:var(--r-lg);overflow:hidden;background:#eceae8;border:1px solid var(--line);box-shadow:var(--shadow-md)}
-.eq-hero video{display:block;width:100%;height:auto}
-.eq-spot{position:absolute;transform:translate(-50%,-50%);width:13%;aspect-ratio:1.3;background:transparent;border:0;border-radius:14px;cursor:pointer;padding:0}
-.eq-spot:hover,.eq-spot:focus-visible{outline:none;box-shadow:0 0 0 3px var(--eqc,#fff),0 0 24px 2px color-mix(in srgb,var(--eqc) 55%,transparent);background:color-mix(in srgb,var(--eqc) 12%,transparent)}
-.eq-spot .eq-tip{position:absolute;left:50%;top:-14px;transform:translate(-50%,-100%) scale(.9);opacity:0;pointer-events:none;background:var(--eqc,#333);color:#fff;font-size:12px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;padding:5px 12px;border-radius:999px;white-space:nowrap;transition:.15s;box-shadow:0 4px 12px rgba(0,0,0,.25)}
-.eq-spot:hover .eq-tip,.eq-spot:focus-visible .eq-tip{opacity:1;transform:translate(-50%,-100%) scale(1)}
-.eq-chips{display:flex;gap:9px;justify-content:center;flex-wrap:wrap;max-width:860px;margin:14px auto 0}
+/* ===== portada: el dodecaedro flota sobre el fondo, sin caja ===== */
+/* el gris del video se funde con la pagina con una mascara radial: solo se ve el objeto */
+.eq-hero{position:relative;max-width:1150px;margin:-14px auto 0;background:transparent;border:0;box-shadow:none;overflow:visible}
+.eq-hero video{display:block;width:100%;height:auto;
+  -webkit-mask-image:radial-gradient(ellipse 58% 60% at 50% 48%,#000 46%,transparent 74%);
+  mask-image:radial-gradient(ellipse 58% 60% at 50% 48%,#000 46%,transparent 74%)}
+/* zonas clicables invisibles: nada de recuadros ni al pasar ni al pinchar; solo
+   cambia el cursor y aparece el nombre. El "iman" lo lleva el mousemove del hero. */
+.eq-spot{position:absolute;transform:translate(-50%,-50%);width:16%;aspect-ratio:1.2;background:transparent;border:0;border-radius:0;cursor:pointer;padding:0;pointer-events:none;outline:none}
+.eq-spot:focus,.eq-spot:focus-visible,.eq-spot:active{outline:none;box-shadow:none;background:transparent}
+.eq-spot .eq-tip{position:absolute;left:50%;top:-4px;transform:translate(-50%,-100%) scale(.9);opacity:0;pointer-events:none;background:var(--eqc,#333);color:#fff;font-size:13px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;padding:6px 14px;border-radius:999px;white-space:nowrap;transition:.14s;box-shadow:0 4px 14px rgba(0,0,0,.22)}
+.eq-spot.on .eq-tip,.eq-spot:focus-visible .eq-tip{opacity:1;transform:translate(-50%,-100%) scale(1)}
+.eq-chips{display:flex;gap:9px;justify-content:center;flex-wrap:wrap;max-width:860px;margin:-6px auto 0}
 .eq-chip{font:inherit;font-size:12px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;display:inline-flex;align-items:center;gap:7px;padding:7px 14px;border-radius:999px;border:1px solid var(--line);background:var(--panel);color:var(--ink);cursor:pointer;box-shadow:var(--shadow);transition:transform .15s,box-shadow .15s,border-color .15s}
 .eq-chip i{width:10px;height:10px;border-radius:4px;background:var(--eqc);display:inline-block}
 .eq-chip:hover{transform:translateY(-2px);box-shadow:var(--shadow-md);border-color:var(--eqc)}
-@media (prefers-color-scheme:dark){ :root:not([data-theme="light"]) .eq-hero{background:#1c1a1f} }
-:root[data-theme="dark"] .eq-hero{background:#1c1a1f}
 .cp-head{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px}
 .cp-head .eq-av{width:44px;height:44px;border-radius:13px;font-size:14px}
 .cp-h1{font-size:16px;font-weight:800;letter-spacing:.03em;text-transform:uppercase;line-height:1.1}
@@ -3464,6 +3467,23 @@ function renderEquipo(){ var host=document.getElementById('equipoView'); if(!hos
   '<div class="eq-chips">'+chips+'</div>';
  host.querySelectorAll('[data-carpeta]').forEach(function(b){ b.onclick=function(){ abrirCarpeta(b.dataset.carpeta); }; });
  var v=host.querySelector('video'); if(v)v.play&&v.play().catch(function(){});
+ /* "iman": el raton no tiene que caer exacto en la pestaña — se coge la mas cercana
+    dentro de un rango generoso, sin pintar ningun recuadro (solo cursor + nombre) */
+ var hero=host.querySelector('.eq-hero');
+ if(hero){ var sps=[].slice.call(hero.querySelectorAll('.eq-spot'));
+  var cerca=function(ev){ var r=hero.getBoundingClientRect();
+   var px=ev.clientX-r.left, py=ev.clientY-r.top;
+   var mejor=null, md=1e9;
+   sps.forEach(function(s){ var p=EQ_SPOTS[s.dataset.carpeta]||[50,50];
+    var dx=px-p[0]/100*r.width, dy=py-p[1]/100*r.height;
+    var d=Math.sqrt(dx*dx+dy*dy); if(d<md){ md=d; mejor=s; } });
+   return (md<=r.width*0.085)?mejor:null; };
+  hero.addEventListener('mousemove',function(ev){ var s=cerca(ev);
+   sps.forEach(function(x){ x.classList.toggle('on',x===s); });
+   hero.style.cursor=s?'pointer':'default'; });
+  hero.addEventListener('mouseleave',function(){ sps.forEach(function(x){ x.classList.remove('on'); }); });
+  hero.addEventListener('click',function(ev){ var s=cerca(ev); if(s)abrirCarpeta(s.dataset.carpeta); });
+ }
 }
 
 /* ---- dentro de una carpeta ---- */
@@ -6009,7 +6029,7 @@ window.PRESTON={state:function(){return state;},obra:obra,ficha:function(){var o
  pres:{payload:function(){var o=obra();return o?presPayload(o):null;},url:function(){var o=obra();return o?presUrl(o):null;}},
  med:{parcial:parcialLinea,suma:sumaLineas,open:function(id){openDock(id);},close:function(){closeDock();},dock:function(){return {open:dockOpen,id:dockId};}},
  carp:{ir:abrirCarpeta,equipo:EQUIPO,de:carpetaDe,lista:obrasCarpeta,abierta:carpetaAbierta},
- version:'v121-portada-animada (LAB · copia de pruebas)'};
+ version:'v122-dodecaedro-flotante (LAB · copia de pruebas)'};
 try{var th0=localStorage.getItem('prestonLAB_theme'); if(th0)document.documentElement.setAttribute('data-theme',th0);}catch(e){}
 var _bd=document.getElementById('brandDode'); if(_bd&&typeof PBRAND!=='undefined')_bd.src=PBRAND.dode;
 if(USA_SERVIDOR){ state={v:3,activeId:null,params:defParams(),obras:[]}; } else { state=load(); }
