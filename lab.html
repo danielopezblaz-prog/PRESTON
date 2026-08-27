@@ -219,8 +219,8 @@ table.data{width:100%;border-collapse:collapse}
 /* el gris del video se funde con la pagina con una mascara radial: solo se ve el objeto */
 .eq-hero{position:relative;max-width:1150px;margin:-14px auto 0;background:transparent;border:0;box-shadow:none;overflow:visible}
 .eq-hero video,.eq-hero .eq-lienzo{display:block;width:100%;height:auto;
-  -webkit-mask-image:radial-gradient(ellipse 58% 60% at 50% 48%,#000 46%,transparent 74%);
-  mask-image:radial-gradient(ellipse 58% 60% at 50% 48%,#000 46%,transparent 74%)}
+  -webkit-mask-image:radial-gradient(ellipse 70% 68% at 50% 49%,#000 52%,transparent 82%);
+  mask-image:radial-gradient(ellipse 70% 68% at 50% 49%,#000 52%,transparent 82%)}
 /* flotacion propia: minima (3 px), lenta y en vaiven perfecto — el bucle no se nota */
 .eq-float{will-change:transform}
 @media (prefers-reduced-motion:no-preference){ .eq-float{animation:eqFloat 5.5s ease-in-out infinite alternate} }
@@ -3457,32 +3457,51 @@ document.addEventListener('change',function(ev){ var s=ev.target&&ev.target.clos
    cada pestaña es un boton invisible que abre la carpeta de esa persona (mismo
    comportamiento que las tarjetas de antes). Debajo, una fila de nombres por si
    el video no carga o se navega con teclado. Posiciones en % del video (1280x720). */
-var EQ_SPOTS={MARIA:[43,23],DAVID:[56,23],DANI:[37,49],TELLO:[56,48],CESAR:[46.5,72],PACO:[57.5,72]};
+var EQ_SPOTS={MARIA:[42.6,24.5],DAVID:[55.3,24.1],DANI:[37.5,43.8],TELLO:[57,43.7],CESAR:[47,71.6],PACO:[58.4,70.7]};
+/* ZOOM del fotograma: se recorta el aire alrededor del logo para que el dodecaedro
+   se vea GRANDE. Las posiciones de las pestañas (EQ_SPOTS, en % del video original
+   1280x720) se transforman solas al recorte con eqPos(). */
+var EQ_ZOOM={x0:158,y0:93,w:900,h:506};
+function eqPos(id){ var p=EQ_SPOTS[id]||[50,50];
+ return [(p[0]*12.8-EQ_ZOOM.x0)/EQ_ZOOM.w*100,(p[1]*7.2-EQ_ZOOM.y0)/EQ_ZOOM.h*100]; }
+/* enfoque (mascara de nitidez 3x3) sobre el fotograma ya ampliado: recupera el
+   detalle que la compresion del video se comia */
+function eqEnfoca(g){ try{
+ var w=1280,h=720,id=g.getImageData(0,0,w,h),s=id.data,out=new Uint8ClampedArray(s),mix=0.5;
+ for(var y=1;y<h-1;y++){ var f=y*w;
+  for(var x=1;x<w-1;x++){ var i=(f+x)*4;
+   for(var c=0;c<3;c++){ var v=5*s[i+c]-s[i-4+c]-s[i+4+c]-s[i-w*4+c]-s[i+w*4+c];
+    out[i+c]=s[i+c]+(v-s[i+c])*mix; } } }
+ id.data.set(out); g.putImageData(id,0,0); }catch(e){} }
 function renderEquipo(){ var host=document.getElementById('equipoView'); if(!host)return;
  var src=''; try{ var el=document.getElementById('eqAnimSrc'); if(el)src='data:video/mp4;base64,'+el.textContent.replace(/\s+/g,''); }catch(e){}
- var spots=EQUIPO.map(function(e){ var p=EQ_SPOTS[e.id]||[50,50];
-   return '<button class="eq-spot" data-carpeta="'+e.id+'" style="left:'+p[0]+'%;top:'+p[1]+'%;--eqc:'+e.col+'" title="Carpeta de '+esc(e.nom)+'">'+
+ var spots=EQUIPO.map(function(e){ var p=eqPos(e.id);
+   return '<button class="eq-spot" data-carpeta="'+e.id+'" style="left:'+p[0].toFixed(1)+'%;top:'+p[1].toFixed(1)+'%;--eqc:'+e.col+'" title="Carpeta de '+esc(e.nom)+'">'+
      '<span class="eq-tip">'+esc(e.nom)+'</span></button>'; }).join('');
  var chips=EQUIPO.map(function(e){ return '<button class="eq-chip" data-carpeta="'+e.id+'" style="--eqc:'+e.col+'">'+
    '<i></i>'+esc(e.nom)+'</button>'; }).join('');
- /* CALIDAD y BUCLE: el video generado baila y su bucle da un salto. Se congela el
-    fotograma a resolucion completa en un canvas (nitido, quieto) y la flotacion la
-    pone el CSS: minima, suave y con un bucle perfecto que no se nota. El video queda
-    solo como respaldo hasta que el fotograma esta pintado. */
  host.innerHTML='<div class="eq-hero"><div class="eq-float">'+
-   (src?'<video autoplay muted loop playsinline src="'+src+'"></video>':'')+
+   (src?'<video autoplay muted loop playsinline src="'+src+'" style="opacity:0"></video>':'')+
    '<canvas class="eq-lienzo" width="1280" height="720" style="display:none"></canvas></div>'+
    spots+'</div>'+
   '<div class="eq-chips">'+chips+'</div>';
  host.querySelectorAll('[data-carpeta]').forEach(function(b){ b.onclick=function(){ abrirCarpeta(b.dataset.carpeta); }; });
  var vid=host.querySelector('.eq-hero video'), cv=host.querySelector('.eq-lienzo');
  if(vid&&cv){ var pintado=false;
+  /* se pinta el fotograma de t=1s (el de la calibracion de las pestañas): el video
+     "baila" y el fotograma 0 tiene el objeto unos pixeles mas abajo */
   var pinta=function(){ if(pintado||vid.readyState<2)return;
    try{ var g=cv.getContext('2d'); g.imageSmoothingEnabled=true; g.imageSmoothingQuality='high';
-    g.drawImage(vid,0,0,1280,720); pintado=true;
+    try{ g.filter='saturate(1.07) contrast(1.04)'; }catch(e){}
+    g.drawImage(vid,EQ_ZOOM.x0,EQ_ZOOM.y0,EQ_ZOOM.w,EQ_ZOOM.h,0,0,1280,720);
+    try{ g.filter='none'; }catch(e){}
+    eqEnfoca(g); pintado=true;
     cv.style.display='block'; vid.style.display='none'; vid.pause(); }catch(e){} };
-  vid.addEventListener('loadeddata',function(){ setTimeout(pinta,60); });
-  if(vid.readyState>=2)setTimeout(pinta,60); else vid.play&&vid.play().catch(function(){});
+  vid.addEventListener('seeked',function(){ setTimeout(pinta,40); });
+  vid.addEventListener('loadeddata',function(){ try{ vid.currentTime=1; }catch(e){ setTimeout(pinta,60); } });
+  setTimeout(pinta,2000);                     /* red de seguridad si el seek no llega */
+  if(vid.readyState>=2){ try{ vid.currentTime=1; }catch(e){ setTimeout(pinta,60); } }
+  else vid.play&&vid.play().catch(function(){});
  }
  /* "iman": el raton no tiene que caer exacto en la pestaña — se coge la mas cercana
     dentro de un rango generoso, sin pintar ningun recuadro (solo cursor + nombre) */
@@ -3491,7 +3510,7 @@ function renderEquipo(){ var host=document.getElementById('equipoView'); if(!hos
   var cerca=function(ev){ var r=hero.getBoundingClientRect();
    var px=ev.clientX-r.left, py=ev.clientY-r.top;
    var mejor=null, md=1e9;
-   sps.forEach(function(s){ var p=EQ_SPOTS[s.dataset.carpeta]||[50,50];
+   sps.forEach(function(s){ var p=eqPos(s.dataset.carpeta);
     var dx=px-p[0]/100*r.width, dy=py-p[1]/100*r.height;
     var d=Math.sqrt(dx*dx+dy*dy); if(d<md){ md=d; mejor=s; } });
    return (md<=r.width*0.085)?mejor:null; };
@@ -6046,7 +6065,7 @@ window.PRESTON={state:function(){return state;},obra:obra,ficha:function(){var o
  pres:{payload:function(){var o=obra();return o?presPayload(o):null;},url:function(){var o=obra();return o?presUrl(o):null;}},
  med:{parcial:parcialLinea,suma:sumaLineas,open:function(id){openDock(id);},close:function(){closeDock();},dock:function(){return {open:dockOpen,id:dockId};}},
  carp:{ir:abrirCarpeta,equipo:EQUIPO,de:carpetaDe,lista:obrasCarpeta,abierta:carpetaAbierta},
- version:'v123-fotograma-nitido (LAB · copia de pruebas)'};
+ version:'v124b-logo-grande (LAB · copia de pruebas)'};
 try{var th0=localStorage.getItem('prestonLAB_theme'); if(th0)document.documentElement.setAttribute('data-theme',th0);}catch(e){}
 var _bd=document.getElementById('brandDode'); if(_bd&&typeof PBRAND!=='undefined')_bd.src=PBRAND.dode;
 if(USA_SERVIDOR){ state={v:3,activeId:null,params:defParams(),obras:[]}; } else { state=load(); }
