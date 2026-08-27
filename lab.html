@@ -218,9 +218,13 @@ table.data{width:100%;border-collapse:collapse}
 /* ===== portada: el dodecaedro flota sobre el fondo, sin caja ===== */
 /* el gris del video se funde con la pagina con una mascara radial: solo se ve el objeto */
 .eq-hero{position:relative;max-width:1150px;margin:-14px auto 0;background:transparent;border:0;box-shadow:none;overflow:visible}
-.eq-hero video{display:block;width:100%;height:auto;
+.eq-hero video,.eq-hero .eq-lienzo{display:block;width:100%;height:auto;
   -webkit-mask-image:radial-gradient(ellipse 58% 60% at 50% 48%,#000 46%,transparent 74%);
   mask-image:radial-gradient(ellipse 58% 60% at 50% 48%,#000 46%,transparent 74%)}
+/* flotacion propia: minima (3 px), lenta y en vaiven perfecto — el bucle no se nota */
+.eq-float{will-change:transform}
+@media (prefers-reduced-motion:no-preference){ .eq-float{animation:eqFloat 5.5s ease-in-out infinite alternate} }
+@keyframes eqFloat{from{transform:translateY(-3px)}to{transform:translateY(3px)}}
 /* zonas clicables invisibles: nada de recuadros ni al pasar ni al pinchar; solo
    cambia el cursor y aparece el nombre. El "iman" lo lleva el mousemove del hero. */
 .eq-spot{position:absolute;transform:translate(-50%,-50%);width:16%;aspect-ratio:1.2;background:transparent;border:0;border-radius:0;cursor:pointer;padding:0;pointer-events:none;outline:none}
@@ -3461,12 +3465,25 @@ function renderEquipo(){ var host=document.getElementById('equipoView'); if(!hos
      '<span class="eq-tip">'+esc(e.nom)+'</span></button>'; }).join('');
  var chips=EQUIPO.map(function(e){ return '<button class="eq-chip" data-carpeta="'+e.id+'" style="--eqc:'+e.col+'">'+
    '<i></i>'+esc(e.nom)+'</button>'; }).join('');
- host.innerHTML='<div class="eq-hero">'+
+ /* CALIDAD y BUCLE: el video generado baila y su bucle da un salto. Se congela el
+    fotograma a resolucion completa en un canvas (nitido, quieto) y la flotacion la
+    pone el CSS: minima, suave y con un bucle perfecto que no se nota. El video queda
+    solo como respaldo hasta que el fotograma esta pintado. */
+ host.innerHTML='<div class="eq-hero"><div class="eq-float">'+
    (src?'<video autoplay muted loop playsinline src="'+src+'"></video>':'')+
+   '<canvas class="eq-lienzo" width="1280" height="720" style="display:none"></canvas></div>'+
    spots+'</div>'+
   '<div class="eq-chips">'+chips+'</div>';
  host.querySelectorAll('[data-carpeta]').forEach(function(b){ b.onclick=function(){ abrirCarpeta(b.dataset.carpeta); }; });
- var v=host.querySelector('video'); if(v)v.play&&v.play().catch(function(){});
+ var vid=host.querySelector('.eq-hero video'), cv=host.querySelector('.eq-lienzo');
+ if(vid&&cv){ var pintado=false;
+  var pinta=function(){ if(pintado||vid.readyState<2)return;
+   try{ var g=cv.getContext('2d'); g.imageSmoothingEnabled=true; g.imageSmoothingQuality='high';
+    g.drawImage(vid,0,0,1280,720); pintado=true;
+    cv.style.display='block'; vid.style.display='none'; vid.pause(); }catch(e){} };
+  vid.addEventListener('loadeddata',function(){ setTimeout(pinta,60); });
+  if(vid.readyState>=2)setTimeout(pinta,60); else vid.play&&vid.play().catch(function(){});
+ }
  /* "iman": el raton no tiene que caer exacto en la pestaña — se coge la mas cercana
     dentro de un rango generoso, sin pintar ningun recuadro (solo cursor + nombre) */
  var hero=host.querySelector('.eq-hero');
@@ -6029,7 +6046,7 @@ window.PRESTON={state:function(){return state;},obra:obra,ficha:function(){var o
  pres:{payload:function(){var o=obra();return o?presPayload(o):null;},url:function(){var o=obra();return o?presUrl(o):null;}},
  med:{parcial:parcialLinea,suma:sumaLineas,open:function(id){openDock(id);},close:function(){closeDock();},dock:function(){return {open:dockOpen,id:dockId};}},
  carp:{ir:abrirCarpeta,equipo:EQUIPO,de:carpetaDe,lista:obrasCarpeta,abierta:carpetaAbierta},
- version:'v122-dodecaedro-flotante (LAB · copia de pruebas)'};
+ version:'v123-fotograma-nitido (LAB · copia de pruebas)'};
 try{var th0=localStorage.getItem('prestonLAB_theme'); if(th0)document.documentElement.setAttribute('data-theme',th0);}catch(e){}
 var _bd=document.getElementById('brandDode'); if(_bd&&typeof PBRAND!=='undefined')_bd.src=PBRAND.dode;
 if(USA_SERVIDOR){ state={v:3,activeId:null,params:defParams(),obras:[]}; } else { state=load(); }
