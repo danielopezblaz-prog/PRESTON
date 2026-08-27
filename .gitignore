@@ -1,8 +1,11 @@
-# Repositorio Prestón — se versionan preston.html y la Central de Obras.
+# Repositorio Prestón — se versionan preston.html (el que va a la web),
+# preston-lab.html (copia de pruebas, NO se despliega) y la Central de Obras.
 # Se ignora todo lo demás de la carpeta CLAUDE: otros proyectos, ZIPs,
 # el PDF de informe, assets y la configuración local de .claude.
 /*
 !.gitignore
 !preston.html
+!preston-lab.html
 !proyecton-central.html
 !/fotos-obra
+!lab.html
