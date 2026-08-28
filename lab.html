@@ -1779,9 +1779,9 @@ PBRAND.qr=qrSvg(PBRAND.qrData,PBRAND.qrN);
 (function(){
 "use strict";
 /* ================= utilidades ================= */
-var nf0=new Intl.NumberFormat('es-ES',{maximumFractionDigits:0}),
-    nf1=new Intl.NumberFormat('es-ES',{minimumFractionDigits:1,maximumFractionDigits:1}),
-    nf2=new Intl.NumberFormat('es-ES',{minimumFractionDigits:2,maximumFractionDigits:2});
+var nf0=new Intl.NumberFormat('es-ES',{maximumFractionDigits:0,useGrouping:'always'}),
+    nf1=new Intl.NumberFormat('es-ES',{minimumFractionDigits:1,maximumFractionDigits:1,useGrouping:'always'}),
+    nf2=new Intl.NumberFormat('es-ES',{minimumFractionDigits:2,maximumFractionDigits:2,useGrouping:'always'});
 function m0(n){return nf0.format(Math.round(n||0));}
 function m1(n){return nf1.format(n||0);}
 function m2(n){return nf2.format(n||0);}
@@ -2135,14 +2135,17 @@ function recAgP(o){ return recAgPctDe(o); }
 function importe(p,o){return num(p.cantidad)*num(p.precio)*recF(o);}      /* importe de partida CON el recargo de SU obra */
 function capTotal(c,o){return c.partidas.reduce(function(s,p){return s+importe(p,o);},0);}
 function pemDe(o){return (o.capitulos||[]).reduce(function(s,c){return s+capTotal(c,o);},0);}
-function totalesDe(o){ var pem=pemDe(o),cfg=o.config||{gg:0,bi:0,iva:10};
-  var pemBase=pem/recF(o);                          /* PEM sin el recargo (coste real) */
-  var agente=pemBase*recAgP(o)/100;                 /* honorarios agente rehabilitador de ESTA obra */
+function totalesDe(o){ var pem=r2(pemDe(o)),cfg=o.config||{gg:0,bi:0,iva:10};
+  var pemBase=r2(pem/recF(o));                      /* PEM sin el recargo de adelanto (coste real) */
+  var agente=r2(pemBase*recAgP(o)/100);             /* honorarios agente rehabilitador de ESTA obra */
   /* honorarios técnicos del arquitecto: euros que pone el usuario, con su IVA (21 % por defecto).
      Suman al total del presupuesto (con IVA aparte del 10 % de la obra). */
-  var sv=o.subv||{}; var honTec=num(sv.honTec)||0; var ivaHon=(sv.ivaHon!=null&&sv.ivaHon!=='')?num(sv.ivaHon):21; var honTecConIva=honTec*(1+ivaHon/100);
-  var gg=pem*(cfg.gg||0)/100, bi=pem*(cfg.bi||0)/100, pec=pem+gg+bi+agente, iva=pec*cfg.iva/100;
-  return {pem:pem,pemBase:pemBase,agente:agente,honTec:honTec,ivaHon:ivaHon,honTecConIva:honTecConIva,gg:gg,bi:bi,pec:pec,iva:iva,total:pec+iva+honTecConIva}; }
+  var sv=o.subv||{}; var honTec=num(sv.honTec)||0; var ivaHon=(sv.ivaHon!=null&&sv.ivaHon!=='')?num(sv.ivaHon):21; var honTecConIva=r2(honTec*(1+ivaHon/100));
+  /* TODO redondeado a 2 decimales ANTES de sumar: así lo impreso cuadra al céntimo
+     (antes se sumaba en bruto y se redondeaba al pintar, y salían descuadres de 0,01). */
+  var gg=r2(pem*(cfg.gg||0)/100), bi=r2(pem*(cfg.bi||0)/100), pec=r2(pem+gg+bi+agente), iva=r2(pec*cfg.iva/100);
+  return {pem:pem,pemBase:pemBase,agente:agente,honTec:honTec,ivaHon:ivaHon,honTecConIva:honTecConIva,gg:gg,bi:bi,pec:pec,iva:iva,total:r2(pec+iva+honTecConIva)};
+}
 
 /* medidas presentes en la obra (por etiqueta med de partidas) */
 function medidasDe(o){ var acc={};
@@ -4219,7 +4222,7 @@ function renderEcon(){ var o=obra(); if(!o)return; var cfg=o.config;
  var sv=o.subv||{}; var honTec=num(sv.honTec)||0; var ivaHonL=(sv.ivaHon!=null&&sv.ivaHon!=='')?num(sv.ivaHon):21; var pemForPct=pemDe(o);
  document.getElementById('econ').innerHTML= tog +
   er('Ejecución material (PEM)','sPem','')+((num(cfg.gg)+num(cfg.bi))>0?er('Gastos generales ('+cfg.gg+' %)','sGg','sub')+er('Beneficio industrial ('+cfg.bi+' %)','sBi','sub'):'')+
-  (recAgP()>0?er('Agente rehabilitador ('+recAgP()+' %)','sAgente','sub'):'')+
+  (recAgP()>0?er('Agente rehabilitador ('+recAgP()+' % del PEM sin recargo)','sAgente','sub'):'')+
   er('Ejecución por contrata','sPec','')+er('IVA ('+cfg.iva+' %)','sIva','sub')+
   '<div class="erow sub"><span class="k">Honorarios técnicos<br><small style="color:var(--muted);font-weight:400">arquitecto · IVA '+ivaHonL+' %</small></span><span class="v" style="white-space:nowrap"><input id="econHonPct" class="ci" inputmode="decimal" title="Ponlo como % del PEM (opcional)" placeholder="%" style="width:40px;text-align:right;font:inherit" value="'+loose(pemForPct>0&&honTec>0?r2(honTec/pemForPct*100):'')+'"> % · <input id="econHonTec" class="ci" inputmode="decimal" style="width:80px;text-align:right;font:inherit" value="'+loose(honTec)+'"> €</span></div>'+
   (honTec>0?er('+ IVA honorarios ('+ivaHonL+' %)','sHonIva','sub'):'')+
@@ -6286,7 +6289,7 @@ function dossierHtml(o){ var f=fichaDe(o), t=f.t, opt=f.opt, p=state.params;
    if(!ciego)h+='<tr class="sub"><td class="l" colspan="4">TOTAL C'+esc(c.cod)+' — '+esc(c.res.toUpperCase())+'</td><td>'+m2(capTotal(c,o))+'</td></tr>'; });
  if(!ciego){ h+='<tr class="fin"><td class="l" colspan="4">PRESUPUESTO DE EJECUCIÓN MATERIAL (PEM)</td><td>'+m2(t.pem)+'</td></tr>';
   if(t.gg+t.bi>0)h+='<tr class="fin"><td class="l" colspan="4">Gastos generales ('+o.config.gg+' %) y beneficio industrial ('+o.config.bi+' %)</td><td>'+m2(t.gg+t.bi)+'</td></tr>';
-  if(t.agente>0)h+='<tr class="fin"><td class="l" colspan="4">Honorarios de agente rehabilitador ('+recAgP(o)+' %)</td><td>'+m2(t.agente)+'</td></tr>';
+  if(t.agente>0)h+='<tr class="fin"><td class="l" colspan="4">Honorarios de agente rehabilitador ('+recAgP(o)+' % sobre el PEM sin recargo: '+m2(t.pemBase)+' €)</td><td>'+m2(t.agente)+'</td></tr>';
   h+='<tr class="fin"><td class="l" colspan="4">IVA ('+o.config.iva+' %)</td><td>'+m2(t.iva)+'</td></tr>';
   if(t.honTecConIva>0)h+='<tr class="fin"><td class="l" colspan="4">Honorarios técnicos (arquitecto) + IVA '+t.ivaHon+' %</td><td>'+m2(t.honTecConIva)+'</td></tr>'; }
  h+='</tbody></table>'+
@@ -6322,7 +6325,7 @@ window.PRESTON={state:function(){return state;},obra:obra,ficha:function(){var o
  med:{parcial:parcialLinea,suma:sumaLineas,open:function(id){openDock(id);},close:function(){closeDock();},dock:function(){return {open:dockOpen,id:dockId};}},
  carp:{ir:abrirCarpeta,equipo:EQUIPO,de:carpetaDe,lista:obrasCarpeta,abierta:carpetaAbierta},
  ver:compruebaVersion,
- version:'v137-aviso-version (LAB · copia de pruebas)'};
+ version:'v138-cuadre-formato (LAB · copia de pruebas)'};
 try{var th0=localStorage.getItem('prestonLAB_theme'); if(th0)document.documentElement.setAttribute('data-theme',th0);}catch(e){}
 var _bd=document.getElementById('brandDode'); if(_bd&&typeof PBRAND!=='undefined')_bd.src=PBRAND.dode;
 try{ var _rv=document.getElementById('railVer'); if(_rv)_rv.textContent='Versión '+(PRESTON.version||'').split(' ')[0]; }catch(e){}
