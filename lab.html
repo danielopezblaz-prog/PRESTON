@@ -6470,7 +6470,11 @@ var LAND_CSS=[
 "section{margin-top:34px}",
 ".eyebrow{display:flex;align-items:center;gap:9px;margin:0 0 14px;font-family:'Sora';font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:var(--brand-mid);font-weight:700}",
 ".eyebrow::before{content:\"\";width:22px;height:3px;border-radius:2px;background:linear-gradient(90deg,var(--brand-bright),var(--brand))}",
-".reveal{opacity:0;transform:translateY(22px);transition:opacity .6s ease,transform .6s cubic-bezier(.2,.7,.3,1)}",
+"/* El desvanecido de entrada SOLO se activa si el guion ha podido encenderlo (html.anim).",
+"   Sin esa condicion, cualquier cosa que impidiese revelar las secciones — el guion",
+"   bloqueado, una pestana que el navegador no llega a pintar — dejaba la pagina entera en",
+"   blanco menos la portada. Una pagina de venta no puede depender de un efecto para verse. */",
+"html.anim .reveal{opacity:0;transform:translateY(22px);transition:opacity .6s ease,transform .6s cubic-bezier(.2,.7,.3,1)}",
 ".reveal.in{opacity:1;transform:none}",
 "/* =========================================================================",
 "   SEIS RAZONES",
@@ -6992,9 +6996,15 @@ function paginaLanding(o){
         cerraría el script de Prestón y partiría la aplicación en dos. --- */
  var js=''+
   '(function(){var e=document.querySelectorAll(".reveal");'+
-   'if(!("IntersectionObserver" in window)){e.forEach(function(x){x.classList.add("in")});return}'+
-   'var io=new IntersectionObserver(function(en){en.forEach(function(x){if(x.isIntersecting){x.target.classList.add("in");io.unobserve(x.target)}})},{threshold:.12});'+
-   'e.forEach(function(x){io.observe(x)})})();'+
+   'if(!("IntersectionObserver" in window))return;'+
+   'var h=document.documentElement;h.className+=" anim";'+
+   'var vivo=false;'+
+   'var io=new IntersectionObserver(function(en){vivo=true;en.forEach(function(x){if(x.isIntersecting){x.target.classList.add("in");io.unobserve(x.target)}})},{threshold:.12});'+
+   'e.forEach(function(x){io.observe(x)});'+
+   /* el observador avisa siempre una primera vez, aunque no haya nada a la vista; si a los
+      dos segundos no ha dicho ni mu, es que no va a decirlo (pestaña que el navegador no
+      pinta, por ejemplo) y se quita el efecto para que el contenido se vea */
+   'setTimeout(function(){if(!vivo)h.className=h.className.replace(" anim","")},2000)})();'+
   /* las preguntas: abrir y cerrar */
   '(function(){document.querySelectorAll(".qa>button").forEach(function(b){'+
    'b.addEventListener("click",function(){var d=b.parentNode,a=d.querySelector(".a");'+
@@ -8066,7 +8076,7 @@ window.PRESTON={state:function(){return state;},obra:obra,ficha:function(){var o
  qr:{matriz:qrMatriz,cw:qrCodewords,ec:qrEC,png:qrDataURL,svg:qrSvgDe},
  pub:{url:pubURL,qr:pubQR,pagina:paginaPublica,publica:publicaObra,token:pubDe,auto:autoPublica,hash:pubHash},
  dir:{bonita:dirBonita,muni:muniBonito,parse:parseDireccion},
- version:'v164-landing-adelanto (LAB · copia de pruebas)'};
+ version:'v165-landing-visible (LAB · copia de pruebas)'};
 try{var th0=localStorage.getItem('prestonLAB_theme'); if(th0)document.documentElement.setAttribute('data-theme',th0);}catch(e){}
 var _bd=document.getElementById('brandDode'); if(_bd&&typeof PBRAND!=='undefined')_bd.src=PBRAND.dode;
 try{ var _rv=document.getElementById('railVer'); if(_rv)_rv.textContent='Versión '+(PRESTON.version||'').split(' ')[0]; }catch(e){}
