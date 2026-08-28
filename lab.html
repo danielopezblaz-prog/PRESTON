@@ -93,6 +93,8 @@ button{font-family:inherit}
 .obra-title .o2{font-size:11px;color:var(--chrome-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .bb-right{display:flex;align-items:center;gap:8px;flex-shrink:0}
 .savepill{font-size:10px;letter-spacing:.05em;text-transform:uppercase;color:var(--chrome-fg);border:1px solid var(--chrome-line);border-radius:999px;padding:3px 9px;font-weight:600;display:flex;align-items:center;gap:6px}
+.savepill.mal{background:var(--bad);border-color:var(--bad);color:#fff;animation:none}
+.savepill.mal i{background:#fff}
 .savepill i{width:6px;height:6px;border-radius:50%;background:var(--ok);display:inline-block}
 .iconbtn{width:32px;height:32px;display:grid;place-items:center;border-radius:var(--r-sm);border:1px solid transparent;background:transparent;color:var(--chrome-fg);cursor:pointer}
 .iconbtn:hover{background:var(--chrome-2)}
@@ -1614,6 +1616,7 @@ PBRAND.qr=qrSvg(PBRAND.qrData,PBRAND.qrN);
       <div class="rail-foot">
         Base de precios <b>Madrid 2026</b><br>RD 853/2021 · CAE · IVA 10 %
         <div class="sv"><svg class="g" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M4 12l5 5L20 6"/></svg><span>Autoguardado local</span></div>
+        <div class="sv" id="railVer" style="margin-top:4px;opacity:.8"></div>
       </div>
     </aside>
 
@@ -2002,12 +2005,23 @@ function mergeBdp(saved){ saved.forEach(function(s){ var b=bdpByCod(s.cod); if(b
    para que viajen al servidor con el resto de params */
 function aplicaBdpSpec(p){ if(!p||!p.bdpSpec)return; Object.keys(p.bdpSpec).forEach(function(c){ var b=bdpByCod(c); if(b&&p.bdpSpec[c]!=null)b.spec=p.bdpSpec[c]; }); }
 var saveTimer=null,saveTick=null;
-function save(){ try{ state.bdp=BDP.map(function(b){return {cod:b.cod,pre:b.pre,lo:b.lo,hi:b.hi};});
+/* Guardar NUNCA puede fallar en silencio: si el navegador se queda sin espacio
+   (los presupuestos con muchas mediciones ocupan lo suyo) hay que enterarse en
+   el momento, no al recargar y encontrarse el trabajo perdido. */
+var saveFallo=false;
+function save(){ var ok=true;
+ try{ state.bdp=BDP.map(function(b){return {cod:b.cod,pre:b.pre,lo:b.lo,hi:b.hi};});
   localStorage.setItem(KEY,JSON.stringify(state));
   try{ if(state.activeId)localStorage.setItem('prestonLAB_activo',state.activeId); }catch(_){}
- }catch(e){}
+ }catch(e){ ok=false; }
   if(typeof syncProgramar==='function')syncProgramar();
-  var el=document.getElementById('saveState'); if(el){el.textContent='Guardando…';
+  var el=document.getElementById('saveState');
+  if(!ok){ if(!saveFallo){ saveFallo=true;
+    setTimeout(function(){ toast('No se ha podido guardar: la memoria del navegador está llena. Exporta una copia en Ajustes.'); },260); }
+   if(el){ el.textContent='SIN GUARDAR'; el.parentElement.classList.add('mal'); el.parentElement.title='Los cambios NO se están guardando: la memoria del navegador está llena. Exporta una copia en Ajustes y borra lo que no uses.'; }
+   return; }
+  saveFallo=false;
+  if(el){ el.parentElement.classList.remove('mal'); el.textContent='Guardando…';
    clearTimeout(saveTimer); saveTimer=setTimeout(function(){el.textContent='Guardado';},600);} }
 
 /* ================= sincronización con el servidor =================
@@ -6293,9 +6307,10 @@ window.PRESTON={state:function(){return state;},obra:obra,ficha:function(){var o
  pres:{payload:function(){var o=obra();return o?presPayload(o):null;},url:function(){var o=obra();return o?presUrl(o):null;}},
  med:{parcial:parcialLinea,suma:sumaLineas,open:function(id){openDock(id);},close:function(){closeDock();},dock:function(){return {open:dockOpen,id:dockId};}},
  carp:{ir:abrirCarpeta,equipo:EQUIPO,de:carpetaDe,lista:obrasCarpeta,abierta:carpetaAbierta},
- version:'v135-titulos-legibles (LAB · copia de pruebas)'};
+ version:'v136-guardado-visible (LAB · copia de pruebas)'};
 try{var th0=localStorage.getItem('prestonLAB_theme'); if(th0)document.documentElement.setAttribute('data-theme',th0);}catch(e){}
 var _bd=document.getElementById('brandDode'); if(_bd&&typeof PBRAND!=='undefined')_bd.src=PBRAND.dode;
+try{ var _rv=document.getElementById('railVer'); if(_rv)_rv.textContent='Versión '+(PRESTON.version||'').split(' ')[0]; }catch(e){}
 if(USA_SERVIDOR){ state={v:3,activeId:null,params:defParams(),obras:[]}; } else { state=load(); }
 /* siembra de una sola vez por navegador: los 3 presupuestos del Preston de la web
    (Velez Blanco 46, Dolores Barranco 44 y Rio Manzanares 33) se meten en la
