@@ -7132,8 +7132,8 @@ function renderLand(){ var o=obra(); var host=document.getElementById('landView'
    '<label class="land-campo"><span>Frase de cierre</span><input id="landCie" value="'+esc(L.cierre||'Más confort, menos factura y una vivienda que vale más.')+'"></label>'+
   '</div>'+
   '<div class="land-faq"><div class="land-fh"><b>Preguntas frecuentes</b>'+
-   '<span>'+(propias?'Editadas a mano para esta obra':'Se escriben solas con las cifras de esta obra')+'</span>'+
-   (propias?'<button class="mini" id="landFaqReset">Volver a las automáticas</button>':'')+'</div>'+
+   '<span id="landFaqQuien">'+(propias?'Editadas a mano para esta obra':'Se escriben solas con las cifras de esta obra')+'</span>'+
+   '<button class="mini" id="landFaqReset"'+(propias?'':' hidden')+'>Volver a las automáticas</button></div>'+
    faq.map(function(it,i){ return '<div class="land-qa"><input data-fq="'+i+'" value="'+esc(it.q)+'">'+
      '<textarea data-fa="'+i+'" rows="3">'+esc(it.a)+'</textarea></div>'; }).join('')+
   '</div><iframe class="land-prev" id="landPrev" title="Vista previa de la landing"></iframe></div>';
@@ -7146,7 +7146,11 @@ function renderLand(){ var o=obra(); var host=document.getElementById('landView'
    L.titular=t?t.value:''; L.cierre=ci?ci.value:'';
    var qs=host.querySelectorAll('[data-fq]'), as=host.querySelectorAll('[data-fa]'), n=[];
    for(var i=0;i<qs.length;i++)n.push({q:qs[i].value,a:as[i]?as[i].value:''});
-   L.faq=n; save(); };
+   L.faq=n; save();
+   /* en cuanto se toca una pregunta dejan de ser las automáticas: se dice y aparece la
+      forma de volver atrás, sin repintar la hoja (se perdería el cursor) */
+   var q=document.getElementById('landFaqQuien'); if(q)q.textContent='Editadas a mano para esta obra';
+   var b=document.getElementById('landFaqReset'); if(b)b.hidden=false; };
  host.querySelectorAll('#landTit,#landCie,[data-fq],[data-fa]').forEach(function(e){
    e.addEventListener('change',function(){ apunta(); previa(); }); });
  var br=document.getElementById('landFaqReset');
