@@ -215,29 +215,57 @@ table.data{width:100%;border-collapse:collapse}
 .eq-fold .eqf{transition:transform .18s cubic-bezier(.2,.7,.2,1)}
 .eqcard:hover .eqf{transform:translateY(-2px) scale(1.05)}
 #equipoView .eq-grid{margin:26px auto 0}
-/* ===== portada: el dodecaedro RECORTADO sobre fondo blanco, sin caja ===== */
-/* el gris del video se elimina pixel a pixel (eqRecorta): no hay recuadro posible */
+/* ===== portada: la central del equipo (saludo + dodecaedro + panel) ===== */
 #equipoView{background:#fff}
 @media (prefers-color-scheme:dark){ :root:not([data-theme="light"]) #equipoView{background:var(--bg)} }
 :root[data-theme="dark"] #equipoView{background:var(--bg)}
-.eq-hero{position:relative;max-width:740px;margin:-6px auto 0;background:transparent;border:0;box-shadow:none;overflow:visible}
+.eq-wrap{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:26px;max-width:1240px;margin:0 auto;align-items:start}
+@media (max-width:1080px){ .eq-wrap{grid-template-columns:1fr} }
+.eq-head h1{margin:4px 0 6px;font-size:clamp(22px,3vw,30px);letter-spacing:-.02em;line-height:1.1}
+.eq-head .eq-nom{color:var(--brand)}
+.eq-sub2{margin:0 0 12px;font-size:13px;color:var(--ink-2);max-width:52ch;line-height:1.5}
+.eq-meta{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:4px}
+.eq-mchip{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:700;color:var(--ink-2);border:1px solid var(--line);background:var(--panel);border-radius:999px;padding:6px 12px;box-shadow:var(--shadow)}
+.eq-mchip .g{width:13px;height:13px;color:var(--muted)}
+.eq-quien{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:2px 0 10px;font-size:12.5px;color:var(--ink-2)}
+.eq-cambiar{font-size:10.5px;color:var(--muted);cursor:pointer;border:0;background:none;padding:0;text-decoration:underline;font-family:inherit}
+.eq-cambiar:hover{color:var(--brand)}
+.eq-hero{position:relative;max-width:640px;margin:-8px auto 0;background:transparent;border:0;box-shadow:none;overflow:visible}
 .eq-hero video,.eq-hero .eq-lienzo{display:block;width:100%;height:auto}
 /* flotacion propia: minima (3 px), lenta y en vaiven perfecto — el bucle no se nota */
 .eq-float{will-change:transform}
 @media (prefers-reduced-motion:no-preference){ .eq-float{animation:eqFloat 5.5s ease-in-out infinite alternate} }
 @keyframes eqFloat{from{transform:translateY(-3px)}to{transform:translateY(3px)}}
-/* zonas clicables invisibles: nada de recuadros ni al pasar ni al pinchar; solo
-   cambia el cursor y aparece el nombre. El "iman" lo lleva el mousemove del hero. */
+/* zonas clicables invisibles con el nombre SIEMPRE visible bajo su carpeta;
+   nada de recuadros: el iman del mousemove cambia el cursor y aviva el nombre */
 .eq-spot{position:absolute;transform:translate(-50%,-50%);width:16%;aspect-ratio:1.2;background:transparent;border:0;border-radius:0;cursor:pointer;padding:0;pointer-events:none;outline:none}
 .eq-spot:focus,.eq-spot:focus-visible,.eq-spot:active{outline:none;box-shadow:none;background:transparent}
-.eq-spot .eq-tip{position:absolute;left:50%;top:-4px;transform:translate(-50%,-100%) scale(.9);opacity:0;pointer-events:none;background:var(--eqc,#333);color:#fff;font-size:13px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;padding:6px 14px;border-radius:999px;white-space:nowrap;transition:.14s;box-shadow:0 4px 14px rgba(0,0,0,.22)}
-.eq-spot.on .eq-tip,.eq-spot:focus-visible .eq-tip{opacity:1;transform:translate(-50%,-100%) scale(1)}
-.eq-chips{display:flex;gap:9px;justify-content:center;flex-wrap:wrap;max-width:860px;margin:-6px auto 0}
-.eq-chip{font:inherit;font-size:12px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;display:inline-flex;align-items:center;gap:7px;padding:7px 14px;border-radius:999px;border:1px solid var(--line);background:var(--panel);color:var(--ink);cursor:pointer;box-shadow:var(--shadow);transition:transform .15s,box-shadow .15s,border-color .15s}
-.eq-chip i{width:10px;height:10px;border-radius:4px;background:var(--eqc);display:inline-block}
-.eq-chip:hover{transform:translateY(-2px);box-shadow:var(--shadow-md);border-color:var(--eqc)}
+.eq-lbl{position:absolute;left:50%;top:96%;transform:translateX(-50%);font-size:12.5px;font-weight:800;letter-spacing:.02em;color:var(--ink-2);white-space:nowrap;text-shadow:0 1px 0 rgba(255,255,255,.7);transition:.15s}
+.eq-spot.on .eq-lbl{color:var(--eqc);transform:translateX(-50%) scale(1.12)}
+:root[data-theme="dark"] .eq-lbl{text-shadow:none}
+.eq-chips{display:none}
+/* panel Equipo (derecha) */
+.eq-panel{background:var(--panel);border:1px solid var(--line);border-radius:var(--r-lg);box-shadow:var(--shadow);padding:8px;position:sticky;top:12px}
+.eq-ph{display:flex;align-items:center;gap:8px;font-size:15px;font-weight:800;letter-spacing:-.01em;padding:10px 10px 8px}
+.eq-pn{margin-left:auto;font-size:11px;font-weight:800;color:var(--muted);display:inline-flex;align-items:center;gap:5px}
+.eq-pn .g{width:14px;height:14px}
+.eq-prow{display:flex;align-items:center;gap:11px;width:100%;text-align:left;font:inherit;background:none;border:0;border-top:1px solid var(--line);padding:11px 10px;cursor:pointer;border-radius:8px;transition:background .13s,transform .13s}
+.eq-prow:hover{background:var(--row-hover);transform:translateX(2px)}
+.eq-pav{width:38px;height:38px;border-radius:11px;display:grid;place-items:center;font-size:12px;font-weight:800;letter-spacing:.05em;color:#fff;background:var(--eqc,var(--muted));flex:none}
+.eq-pinfo{display:flex;flex-direction:column;gap:1px;min-width:0;flex:1}
+.eq-pinfo b{font-size:13px}
+.eq-pinfo small{font-size:11px;color:var(--muted)}
+.eq-pcur{font-size:10.5px;font-weight:700;color:var(--brand);flex:none}
+.eq-pgo{color:var(--muted);font-size:16px;flex:none;opacity:.55;transition:.13s}
+.eq-prow:hover .eq-pgo{opacity:1;color:var(--eqc,var(--brand));transform:translateX(2px)}
+@media (prefers-reduced-motion:no-preference){
+ .eq-head{animation:eqIn .3s cubic-bezier(.2,.7,.2,1) backwards}
+ .eq-hero{animation:eqIn .34s cubic-bezier(.2,.7,.2,1) .06s backwards}
+ .eq-panel{animation:eqIn .34s cubic-bezier(.2,.7,.2,1) .12s backwards}
+ .eq-prow{animation:fadeIn .3s ease-out backwards}
+}
 .cp-head{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px}
-.cp-head .eq-av{width:44px;height:44px;border-radius:13px;font-size:14px}
+.cp-head .eq-av{width:44px;height:44px;border-radius:13px;font-size:14px;display:grid;place-items:center;color:#fff;background:var(--eqc,var(--muted));font-weight:800;letter-spacing:.05em;flex:none}
 .cp-h1{font-size:16px;font-weight:800;letter-spacing:.03em;text-transform:uppercase;line-height:1.1}
 .cp-h2{font-size:11px;color:var(--muted);margin-top:2px}
 .cp-tools{display:flex;gap:9px;align-items:center;flex-wrap:wrap;margin-bottom:14px}
@@ -3454,8 +3482,9 @@ document.addEventListener('change',function(ev){ var s=ev.target&&ev.target.clos
  o.autor=(s.value===SIN.id?'':s.value); save(); repintaObras(); renderNav();
  toast('«'+(o.nombre||'Obra')+'» → '+(s.value===SIN.id?'sin carpeta':'carpeta de '+(eqDe(s.value)||SIN).nom)); });
 
-/* Portada: la imagen buena del dodecaedro (1792x2400) recortada al objeto. Las
-   posiciones de las pestañas van en % del RECORTE. */
+/* Portada: la central del equipo. Saludo con el nombre del que entra (en rojo),
+   metricas arriba, el dodecaedro con los nombres bajo cada carpeta y un panel
+   "Equipo" a la derecha con los contadores reales de cada uno. */
 var EQ_IMG={x0:64,y0:368,w:1716,h:1672};
 var EQ_SPOTS={MARIA:[24,10.7],DAVID:[63.7,10.5],DANI:[11.1,42.3],TELLO:[70.7,42.8],CESAR:[41.3,89.4],PACO:[76.8,87.4]};
 function eqPos(id){ return EQ_SPOTS[id]||[50,50]; }
@@ -3479,27 +3508,66 @@ function eqRecorta(g,w,h){ try{
   else { d[i]=d[i+1]=d[i+2]=70; d[i+3]=Math.round(Math.min(1,(228-lum)/52)*85); }
  }
  g.putImageData(id,0,0); }catch(e){} }
+/* quien soy: en el servidor lo dice la sesion; en local/enlace se elige una vez */
+function eqQuien(){
+ if(USA_SERVIDOR&&window.PRESTON_USUARIO){ var n=String(window.PRESTON_USUARIO.nombre||window.PRESTON_USUARIO.usuario||'').trim();
+  if(n){ var slug=comSlug(n); var hit=null;
+   EQUIPO.forEach(function(e){ if(comSlug(e.nom)===slug||slug.indexOf(comSlug(e.nom))===0)hit=e; });
+   if(hit)return hit.id; return '~'+n; } }
+ try{ return localStorage.getItem('prestonLAB_quien')||''; }catch(e){ return ''; } }
+function eqSaludo(){ var h=new Date().getHours(); return h<7?'Buenas noches':(h<14?'Buenos días':(h<21?'Buenas tardes':'Buenas noches')); }
 function renderEquipo(){ var host=document.getElementById('equipoView'); if(!host)return;
  var src=''; try{ var el=document.getElementById('eqImgSrc'); if(el)src='data:image/jpeg;base64,'+el.textContent.replace(/\s+/g,''); }catch(e){}
  var spots=EQUIPO.map(function(e){ var p=eqPos(e.id);
    return '<button class="eq-spot" data-carpeta="'+e.id+'" style="left:'+p[0]+'%;top:'+p[1]+'%;--eqc:'+e.col+'" title="Carpeta de '+esc(e.nom)+'">'+
-     '<span class="eq-tip">'+esc(e.nom)+'</span></button>'; }).join('');
- var chips=EQUIPO.map(function(e){ return '<button class="eq-chip" data-carpeta="'+e.id+'" style="--eqc:'+e.col+'">'+
-   '<i></i>'+esc(e.nom)+'</button>'; }).join('');
- host.innerHTML='<div class="eq-hero"><div class="eq-float">'+
+     '<span class="eq-lbl">'+esc(e.nom)+'</span></button>'; }).join('');
+ /* saludo */
+ var quien=eqQuien(), eYo=quien&&quien.charAt(0)!=='~'?eqDe(quien):null;
+ var nomYo=eYo?eYo.nom:(quien&&quien.charAt(0)==='~'?quien.slice(1):'');
+ var h1=nomYo?(eqSaludo()+', <span class="eq-nom">'+esc(nomYo)+'</span>'):(eqSaludo()+' 👋');
+ var quienHtml=nomYo
+  ?(USA_SERVIDOR?'':'<div class="eq-quien"><button class="eq-cambiar" id="eqCambiar">cambiar de usuario</button></div>')
+  :'<div class="eq-quien">¿Quién eres? '+EQUIPO.map(function(e){
+     return '<button class="eq-mchip" data-quien="'+e.id+'" style="cursor:pointer">'+esc(e.nom)+'</button>'; }).join('')+'</div>';
+ /* metricas de cabecera */
+ var nP=state.obras.length, u=0;
+ state.obras.forEach(function(o){ var f=Math.max(o.fEstado||0,o.creada||0); if(f>u)u=f; });
+ var dU=diasDesde(u), txtU=dU<1?'Actualizado hoy':('Últ. cambio hace '+dU+' d');
+ var ic=function(k){ return g(k,'g'); };
+ var meta='<div class="eq-meta">'+
+  '<span class="eq-mchip">'+ic('obras')+EQUIPO.length+' personas</span>'+
+  '<span class="eq-mchip">'+ic('doc')+nP+' presupuesto'+(nP===1?'':'s')+'</span>'+
+  '<span class="eq-mchip">'+ic('cal')+txtU+'</span></div>';
+ /* panel Equipo con contadores reales */
+ var filas=EQUIPO.map(function(e){ var l=obrasCarpeta(e.id);
+   var enCurso=l.filter(function(o){ return o.estado==='borrador'||o.estado==='enviada'; }).length;
+   return '<button class="eq-prow" data-carpeta="'+e.id+'" style="--eqc:'+e.col+'">'+
+    '<span class="eq-pav">'+e.ini+'</span>'+
+    '<span class="eq-pinfo"><b>'+esc(e.nom)+'</b><small>'+l.length+' presupuesto'+(l.length===1?'':'s')+'</small></span>'+
+    (enCurso?'<span class="eq-pcur">'+enCurso+' en curso</span>':'')+
+    '<span class="eq-pgo">›</span></button>'; }).join('');
+ host.innerHTML='<div class="eq-wrap"><div class="eq-main">'+
+   '<div class="eq-head"><h1>'+h1+'</h1>'+
+   '<p class="eq-sub2">Esta es la central de vuestro equipo. Selecciona una carpeta para ver sus presupuestos.</p>'+
+   meta+quienHtml+'</div>'+
+   '<div class="eq-hero"><div class="eq-float">'+
    '<canvas class="eq-lienzo" width="'+EQ_IMG.w+'" height="'+EQ_IMG.h+'"></canvas></div>'+
-   spots+'</div>'+
-  '<div class="eq-chips">'+chips+'</div>';
+   spots+'</div></div>'+
+  '<aside class="eq-panel"><div class="eq-ph">Equipo<span class="eq-pn">'+g('obras','g')+EQUIPO.length+'</span></div>'+filas+'</aside></div>';
  host.querySelectorAll('[data-carpeta]').forEach(function(b){ b.onclick=function(){ abrirCarpeta(b.dataset.carpeta); }; });
+ host.querySelectorAll('[data-quien]').forEach(function(b){ b.onclick=function(){
+   try{ localStorage.setItem('prestonLAB_quien',b.dataset.quien); }catch(e){} renderEquipo(); }; });
+ var cb=host.querySelector('#eqCambiar');
+ if(cb)cb.onclick=function(){ try{ localStorage.removeItem('prestonLAB_quien'); }catch(e){} renderEquipo(); };
  var cv=host.querySelector('.eq-lienzo');
  if(src&&cv){ var im=new Image();
-  im.onload=function(){ try{ var g=cv.getContext('2d');
-    g.drawImage(im,EQ_IMG.x0,EQ_IMG.y0,EQ_IMG.w,EQ_IMG.h,0,0,EQ_IMG.w,EQ_IMG.h);
-    eqRecorta(g,EQ_IMG.w,EQ_IMG.h); }catch(e){} };
+  im.onload=function(){ try{ var gg=cv.getContext('2d');
+    gg.drawImage(im,EQ_IMG.x0,EQ_IMG.y0,EQ_IMG.w,EQ_IMG.h,0,0,EQ_IMG.w,EQ_IMG.h);
+    eqRecorta(gg,EQ_IMG.w,EQ_IMG.h); }catch(e){} };
   im.src=src;
  }
  /* "iman": el raton no tiene que caer exacto en la pestaña — se coge la mas cercana
-    dentro de un rango generoso, sin pintar ningun recuadro (solo cursor + nombre) */
+    dentro de un rango generoso, sin pintar ningun recuadro */
  var hero=host.querySelector('.eq-hero');
  if(hero){ var sps=[].slice.call(hero.querySelectorAll('.eq-spot'));
   var cerca=function(ev){ var r=hero.getBoundingClientRect();
@@ -6060,7 +6128,7 @@ window.PRESTON={state:function(){return state;},obra:obra,ficha:function(){var o
  pres:{payload:function(){var o=obra();return o?presPayload(o):null;},url:function(){var o=obra();return o?presUrl(o):null;}},
  med:{parcial:parcialLinea,suma:sumaLineas,open:function(id){openDock(id);},close:function(){closeDock();},dock:function(){return {open:dockOpen,id:dockId};}},
  carp:{ir:abrirCarpeta,equipo:EQUIPO,de:carpetaDe,lista:obrasCarpeta,abierta:carpetaAbierta},
- version:'v126b-sin-cortes (LAB · copia de pruebas)'};
+ version:'v127-central-equipo (LAB · copia de pruebas)'};
 try{var th0=localStorage.getItem('prestonLAB_theme'); if(th0)document.documentElement.setAttribute('data-theme',th0);}catch(e){}
 var _bd=document.getElementById('brandDode'); if(_bd&&typeof PBRAND!=='undefined')_bd.src=PBRAND.dode;
 if(USA_SERVIDOR){ state={v:3,activeId:null,params:defParams(),obras:[]}; } else { state=load(); }
