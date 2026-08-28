@@ -220,6 +220,8 @@ table.data{width:100%;border-collapse:collapse}
 @media (prefers-color-scheme:dark){ :root:not([data-theme="light"]) #equipoView{background:var(--bg)} }
 :root[data-theme="dark"] #equipoView{background:var(--bg)}
 .eq-wrap{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:clamp(26px,3vw,48px);align-items:start}
+/* en portatil (hasta ~1680px) la portada se ve como al 80% de zoom: mismo ancho, contenido mas recogido; el monitor grande queda al 100% */
+@media (min-width:1081px) and (max-width:1680px){ .eq-wrap{zoom:.8} }
 @media (max-width:1080px){ .eq-wrap{grid-template-columns:1fr} }
 .eq-head h1{margin:4px 0 6px;font-size:clamp(22px,3vw,30px);letter-spacing:-.02em;line-height:1.1}
 .eq-head .eq-nom{color:var(--brand)}
@@ -6118,7 +6120,7 @@ window.PRESTON={state:function(){return state;},obra:obra,ficha:function(){var o
  pres:{payload:function(){var o=obra();return o?presPayload(o):null;},url:function(){var o=obra();return o?presUrl(o):null;}},
  med:{parcial:parcialLinea,suma:sumaLineas,open:function(id){openDock(id);},close:function(){closeDock();},dock:function(){return {open:dockOpen,id:dockId};}},
  carp:{ir:abrirCarpeta,equipo:EQUIPO,de:carpetaDe,lista:obrasCarpeta,abierta:carpetaAbierta},
- version:'v127c-ancho-fluido (LAB · copia de pruebas)'};
+ version:'v127d-portatil-80 (LAB · copia de pruebas)'};
 try{var th0=localStorage.getItem('prestonLAB_theme'); if(th0)document.documentElement.setAttribute('data-theme',th0);}catch(e){}
 var _bd=document.getElementById('brandDode'); if(_bd&&typeof PBRAND!=='undefined')_bd.src=PBRAND.dode;
 if(USA_SERVIDOR){ state={v:3,activeId:null,params:defParams(),obras:[]}; } else { state=load(); }
