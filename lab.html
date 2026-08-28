@@ -2137,7 +2137,9 @@ function capTotal(c,o){return c.partidas.reduce(function(s,p){return s+importe(p
 function pemDe(o){return (o.capitulos||[]).reduce(function(s,c){return s+capTotal(c,o);},0);}
 function totalesDe(o){ var pem=r2(pemDe(o)),cfg=o.config||{gg:0,bi:0,iva:10};
   var pemBase=r2(pem/recF(o));                      /* PEM sin el recargo de adelanto (coste real) */
-  var agente=r2(pemBase*recAgP(o)/100);             /* honorarios agente rehabilitador de ESTA obra */
+  /* el 8 % del agente va SOBRE el PEM ya recargado (encima del 20 %), no sobre el coste:
+     asi el importe cuadra con el % que se ve al lado del PEM del presupuesto */
+  var agente=r2(pem*recAgP(o)/100);                 /* honorarios agente rehabilitador de ESTA obra */
   /* honorarios técnicos del arquitecto: euros que pone el usuario, con su IVA (21 % por defecto).
      Suman al total del presupuesto (con IVA aparte del 10 % de la obra). */
   var sv=o.subv||{}; var honTec=num(sv.honTec)||0; var ivaHon=(sv.ivaHon!=null&&sv.ivaHon!=='')?num(sv.ivaHon):21; var honTecConIva=r2(honTec*(1+ivaHon/100));
@@ -4222,7 +4224,7 @@ function renderEcon(){ var o=obra(); if(!o)return; var cfg=o.config;
  var sv=o.subv||{}; var honTec=num(sv.honTec)||0; var ivaHonL=(sv.ivaHon!=null&&sv.ivaHon!=='')?num(sv.ivaHon):21; var pemForPct=pemDe(o);
  document.getElementById('econ').innerHTML= tog +
   er('Ejecución material (PEM)','sPem','')+((num(cfg.gg)+num(cfg.bi))>0?er('Gastos generales ('+cfg.gg+' %)','sGg','sub')+er('Beneficio industrial ('+cfg.bi+' %)','sBi','sub'):'')+
-  (recAgP()>0?er('Agente rehabilitador ('+recAgP()+' % del PEM sin recargo)','sAgente','sub'):'')+
+  (recAgP()>0?er('Agente rehabilitador ('+recAgP()+' % del PEM)','sAgente','sub'):'')+
   er('Ejecución por contrata','sPec','')+er('IVA ('+cfg.iva+' %)','sIva','sub')+
   '<div class="erow sub"><span class="k">Honorarios técnicos<br><small style="color:var(--muted);font-weight:400">arquitecto · IVA '+ivaHonL+' %</small></span><span class="v" style="white-space:nowrap"><input id="econHonPct" class="ci" inputmode="decimal" title="Ponlo como % del PEM (opcional)" placeholder="%" style="width:40px;text-align:right;font:inherit" value="'+loose(pemForPct>0&&honTec>0?r2(honTec/pemForPct*100):'')+'"> % · <input id="econHonTec" class="ci" inputmode="decimal" style="width:80px;text-align:right;font:inherit" value="'+loose(honTec)+'"> €</span></div>'+
   (honTec>0?er('+ IVA honorarios ('+ivaHonL+' %)','sHonIva','sub'):'')+
@@ -4554,7 +4556,7 @@ function svShellHtml(o,s){
  h+='<table class="svt"><tbody>'+
   o.capitulos.map(function(c,i){ return '<tr><td>'+esc(c.cod)+' · '+esc(c.res)+'</td><td class="num">'+svEur(capTotal(c))+'</td></tr>'; }).join('')+
   ((t.gg+t.bi)>0?'<tr><td>Gastos generales ('+loose(o.config.gg)+' %) y beneficio industrial ('+loose(o.config.bi)+' %)</td><td class="num">'+svEur(t.gg+t.bi)+'</td></tr>':'')+
-  ((t.agente>0)?'<tr><td>Honorarios de agente rehabilitador ('+loose(recAgP(o))+' % sobre la obra a coste '+svEur(t.pemBase)+')</td><td class="num">'+svEur(t.agente)+'</td></tr>':'')+
+  ((t.agente>0)?'<tr><td>Honorarios de agente rehabilitador ('+loose(recAgP(o))+' % sobre el PEM)</td><td class="num">'+svEur(t.agente)+'</td></tr>':'')+
   '<tr class="subtot"><td>PEM de contrata</td><td class="num">'+svEur(t.pec)+'</td></tr>'+
   '</tbody></table>';
  h+='<div class="sv-sub" style="margin-top:16px">Honorarios, IVA y tasas</div><div class="sv-grid">'+
@@ -4731,7 +4733,7 @@ function svRefresh(){ var o=obra(); if(!o)return; var s=subvDe(o);
   var desglose=(tt.agente>0||recP>0)
    ?('<tr><td>Obra a coste (PEM sin recargo)</td><td class="num">'+svEur(tt.pemBase)+'</td></tr>'+
      (recP>0?'<tr><td>Recargo por adelanto de ayudas ('+loose(recP)+' % repartido en las partidas)</td><td class="num">'+svEur(tt.pem-tt.pemBase)+'</td></tr>':'')+
-     (tt.agente>0?'<tr><td>Honorarios de agente rehabilitador ('+loose(agP)+' % sobre la obra a coste)</td><td class="num">'+svEur(tt.agente)+'</td></tr>':'')+
+     (tt.agente>0?'<tr><td>Honorarios de agente rehabilitador ('+loose(agP)+' % sobre el PEM con recargo)</td><td class="num">'+svEur(tt.agente)+'</td></tr>':'')+
      ((tt.gg+tt.bi)>0?'<tr><td>Gastos generales y beneficio industrial</td><td class="num">'+svEur(tt.gg+tt.bi)+'</td></tr>':''))
    :'';
   eco.innerHTML='<table class="svt"><tbody>'+
@@ -6338,7 +6340,7 @@ window.PRESTON={state:function(){return state;},obra:obra,ficha:function(){var o
  med:{parcial:parcialLinea,suma:sumaLineas,open:function(id){openDock(id);},close:function(){closeDock();},dock:function(){return {open:dockOpen,id:dockId};}},
  carp:{ir:abrirCarpeta,equipo:EQUIPO,de:carpetaDe,lista:obrasCarpeta,abierta:carpetaAbierta},
  ver:compruebaVersion,
- version:'v140-agente-solo-interno (LAB · copia de pruebas)'};
+ version:'v141-agente-sobre-pem (LAB · copia de pruebas)'};
 try{var th0=localStorage.getItem('prestonLAB_theme'); if(th0)document.documentElement.setAttribute('data-theme',th0);}catch(e){}
 var _bd=document.getElementById('brandDode'); if(_bd&&typeof PBRAND!=='undefined')_bd.src=PBRAND.dode;
 try{ var _rv=document.getElementById('railVer'); if(_rv)_rv.textContent='Versión '+(PRESTON.version||'').split(' ')[0]; }catch(e){}
