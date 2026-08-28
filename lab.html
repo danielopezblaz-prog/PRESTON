@@ -6686,7 +6686,12 @@ function landCifras(o){
   entrada:r?r.finEntrada:0,
   dosFases:!!(r&&r.finDosFases), cuota1:r?r.finCuota1Viv:0, cuota2:r?r.finCuota2Viv:0,
   irpf:r?r.irpfDeduccion:f.irpf, irpfPct:r?r.irpfPct:60,
-  adelanto:(presModo(o)==='adelanto'),
+  /* El adelanto lo dice el MOTOR (esAdelanto = la obra lleva recargo), no el modo de la
+     presentación, que se puede forzar a mano. Si se leyera de ahí, una obra con recargo
+     puesta en «informativo» sacaría los precios del adelanto con los textos de que NO
+     adelantamos: las palabras dirían una cosa y las cifras otra. Aquí las dos salen del
+     mismo sitio, así que no pueden desacompasarse. */
+  adelanto:(r?!!r.esAdelanto:(recPctDe(o)>0||recAgPctDe(o)>0)),
   meds:(function(){ var k={}; try{ medidasDe(o).forEach(function(m){k[m.key]=m;}); }catch(e){} return k; })()};
 }
 function landSate(c){ var m=c.meds; return m.sate60||m.sate80||m.sate100||m.sate120||null; }
@@ -6916,7 +6921,9 @@ function paginaLanding(o){
   '</div></section>';
 
  /* --- el proceso, con los pasos que ya calcula la presentación (cambian si adelantamos) --- */
- var pasos=[]; try{ pasos=presCalendario(o); }catch(e){}
+ /* el modo se le pasa a mano por lo mismo: que los pasos cuenten la misma historia que
+    las cifras y que el resto de la página */
+ var pasos=[]; try{ pasos=presCalendario(o,c.adelanto?'adelanto':'info'); }catch(e){}
  if(pasos.length)h+='<section class="reveal" aria-labelledby="proceso-title">'+
   '<p class="eyebrow" id="proceso-title">Nosotros hacemos el papeleo · el proceso en '+m0(pasos.length)+' pasos</p><div class="steps">'+
   pasos.map(function(s,i){ return '<div class="step"><span class="num" aria-hidden="true">'+(i+1)+'</span>'+
@@ -8054,7 +8061,7 @@ window.PRESTON={state:function(){return state;},obra:obra,ficha:function(){var o
  qr:{matriz:qrMatriz,cw:qrCodewords,ec:qrEC,png:qrDataURL,svg:qrSvgDe},
  pub:{url:pubURL,qr:pubQR,pagina:paginaPublica,publica:publicaObra,token:pubDe,auto:autoPublica,hash:pubHash},
  dir:{bonita:dirBonita,muni:muniBonito,parse:parseDireccion},
- version:'v163-landing-de-venta (LAB · copia de pruebas)'};
+ version:'v164-landing-adelanto (LAB · copia de pruebas)'};
 try{var th0=localStorage.getItem('prestonLAB_theme'); if(th0)document.documentElement.setAttribute('data-theme',th0);}catch(e){}
 var _bd=document.getElementById('brandDode'); if(_bd&&typeof PBRAND!=='undefined')_bd.src=PBRAND.dode;
 try{ var _rv=document.getElementById('railVer'); if(_rv)_rv.textContent='Versión '+(PRESTON.version||'').split(' ')[0]; }catch(e){}
