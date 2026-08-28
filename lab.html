@@ -197,6 +197,15 @@ table.data{width:100%;border-collapse:collapse}
 .eq-cnt{position:absolute;left:50%;top:59%;transform:translate(-50%,-50%);font-size:13px;font-weight:800;color:#fff;font-variant-numeric:tabular-nums}
 .sub-id{display:flex;flex-direction:column;gap:2px;min-width:0}
 .cp-sl{color:var(--muted);font-weight:400}
+/* acciones de una subcarpeta: asoman al pasar por encima, sin robarle sitio al nombre */
+.eqcard .cp-acc{position:absolute;right:34px;top:50%;transform:translateY(-50%);display:flex;gap:3px;opacity:0;transition:opacity .15s}
+.eqcard:hover .cp-acc{opacity:1}
+@media (hover:none){ .eqcard .cp-acc{opacity:1} }
+/* rotulillo que separa las carpetas de dentro de los presupuestos de este nivel */
+.cp-gtit{margin:2px 2px 0;font-size:10.5px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+/* cada tramo de la miga de pan lleva a su carpeta */
+.cp-mig{border:0;background:none;padding:0;font:inherit;color:var(--muted);cursor:pointer;text-decoration:underline;text-underline-offset:2px}
+.cp-mig:hover{color:var(--brand)}
 /* ===== dentro de una carpeta ===== */
 /* ===== movimiento suave (se apaga si el sistema pide reducir animaciones) =====
    Al entrar en una carpeta el contenido nuevo ENTRA desde la derecha y al volver
@@ -3899,7 +3908,7 @@ function renderNav(){ var o=obra();
  var _cpK=carpetaAbierta(), _cpE=_cpK?eqDe(_cpK):null;
  /* el estudio se recorre por carpetas; lo general (todas las obras, banco, ajustes) queda abajo */
  document.getElementById('navTop').innerHTML=navA('equipo','Carpetas','folder','')+
-   (_cpE?navA('carpeta',_cpE.nom,'folder',obrasCarpeta(_cpE.id).length):'');
+   (_cpE?navA('carpeta',_cpE.nom,'folder',obrasCarpetaHondo(_cpE.id).length):'');
  /* las hojas de la obra solo se ven cuando ESTAS dentro de un presupuesto, y con
     su nombre de cabecera; al volver a carpetas o a lo general, desaparecen */
  var enObra=!!o&&(view==='presupuesto'||view==='subvenciones'||view==='dossier'||view==='presentacion');
@@ -3943,18 +3952,51 @@ var SIN={id:'SIN',nom:'Sin asignar',ini:'··',col:'#8a817d'};
 var EQ_COLORES=['#6c4bb6','#167c80','#b8365c','#2c6e9b','#2e7d57','#b7791f','#a4553a','#4a5568'];
 function carpetasExtra(){ try{ var c=state.params.carpetas; return Array.isArray(c)?c:[]; }catch(e){ return []; } }
 function equipoTodo(){ return EQUIPO.concat(carpetasExtra()); }
+/* ===== ÁRBOL DE CARPETAS =====
+   Cada carpeta creada puede colgar de otra (e.padre) y esa de otra, sin tope: dentro de
+   la de María puede haber «Torrejón», y dentro «2026», y dentro lo que haga falta. Las
+   seis del equipo son siempre raíz porque tienen su sitio marcado sobre el dodecaedro.
+   Sin padre = raíz. Las carpetas de antes no llevan el campo, así que salen de raíz
+   solas: no hay nada que migrar. */
+function carpetaHijas(id){ id=id||'';
+ return carpetasExtra().filter(function(e){ return (e.padre||'')===id; }); }
+function carpetaRaices(){ return EQUIPO.concat(carpetaHijas('')); }
+/* camino desde la raíz hasta esta carpeta, para la miga de pan. El tope de 12 vueltas es
+   por si un dato estropeado dejara un ciclo: antes una miga corta que colgar el navegador */
+function carpetaRuta(id){ var r=[], vistas={}, n=0;
+ while(id&&!vistas[id]&&n<12){ var e=eqDe(id); if(!e)break; vistas[id]=1; r.unshift(e); id=e.padre||''; n++; }
+ return r; }
+/* todas las que cuelgan de esta, a cualquier profundidad */
+function carpetaHondo(id){ var out=[], n=0;
+ (function baja(k){ if(n++>500)return; carpetaHijas(k).forEach(function(e){ out.push(e); baja(e.id); }); })(id);
+ return out; }
+/* los presupuestos de la carpeta Y los de todo lo que cuelga de ella: si no, una carpeta
+   que solo tiene subcarpetas se vería siempre vacía */
+function obrasCarpetaHondo(k){ var ids={}; ids[k]=1;
+ carpetaHondo(k).forEach(function(e){ ids[e.id]=1; });
+ return state.obras.filter(function(o){ return !!ids[carpetaDe(o)]; }); }
+/* qué impide borrarla; cadena vacía = se puede */
+function carpetaEstorbo(id){
+ var n=obrasCarpetaHondo(id).length, c=carpetaHijas(id).length;
+ if(n)return 'tiene '+n+' presupuesto'+(n===1?'':'s')+' dentro: muévelos antes de borrarla';
+ if(c)return 'tiene '+c+' carpeta'+(c===1?'':'s')+' dentro: bórralas antes';
+ return ''; }
 /* id estable a partir del nombre, sin chocar con las que ya existen */
 function carpetaIdNuevo(nom){
  var base=(comSlug(nom)||'carpeta').toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,12)||'CARPETA';
  var id=base, n=2, usados=equipoTodo().map(function(e){return e.id;}).concat([SIN.id]);
  while(usados.indexOf(id)>=0){ id=base+n; n++; }
  return id; }
-function carpetaCrear(nom){
+function carpetaCrear(nom,padre){
  nom=String(nom||'').trim(); if(!nom)return null;
  var extra=carpetasExtra();
+ /* la hija hereda el color de su madre: dentro de la carpeta de María todo se ve de
+    María. Solo las de raíz estrenan color de la lista. */
+ var mama=padre?eqDe(padre):null;
  var e={id:carpetaIdNuevo(nom), nom:nom,
    ini:nom.replace(/[^A-Za-zÁÉÍÓÚÑáéíóúñ]/g,'').slice(0,2).toUpperCase()||'··',
-   col:EQ_COLORES[extra.length%EQ_COLORES.length]};
+   col:mama?mama.col:EQ_COLORES[extra.length%EQ_COLORES.length],
+   padre:(padre||'')};
  extra.push(e); state.params.carpetas=extra; save(); return e; }
 function carpetaRenombrar(id,nom){
  nom=String(nom||'').trim(); if(!nom)return false;
@@ -4002,12 +4044,18 @@ function cpPaso(dir,fn){ var h=document.getElementById('carpetaView');
  if(h){ h.classList.remove('atras'); void h.offsetWidth; if(dir==='atras')h.classList.add('atras'); }
  if(fn)fn();
  var sc=h&&h.closest('.scroller'); if(sc)sc.scrollTop=0; }
-function abrirCarpeta(k){ UI2.carpeta=k; saveUI2(); cpQ=''; cpSub=''; cpCom='';
- var h=document.getElementById('carpetaView'); if(h)h.classList.remove('atras');
+function abrirCarpeta(k,dir){ UI2.carpeta=k; saveUI2(); cpQ=''; cpSub=''; cpCom='';
+ var h=document.getElementById('carpetaView');
+ /* al subir de nivel el contenido entra desde la izquierda, como al retroceder dentro
+    de la propia carpeta; hay que forzar un reflujo o el navegador no relanza la animación */
+ if(h){ h.classList.remove('atras'); void h.offsetWidth; if(dir==='atras')h.classList.add('atras'); }
  go('carpeta'); }
 function totalCarpeta(l){ var t=0; l.forEach(function(o){ t+=totalesDe(o).total; }); return t; }
 function cpTitulo(){ var e=eqDe(carpetaAbierta())||SIN; var l=obrasCarpeta(e.id);
- var t=(e.id===SIN.id?'Sin repartir':'Carpeta de '+e.nom);
+ /* si está anidada, el título es el camino: «María › Torrejón › 2026» */
+ var rt=carpetaRuta(e.id);
+ var t=(e.id===SIN.id?'Sin repartir'
+   :(rt.length>1?rt.map(function(x){return x.nom;}).join(' › '):'Carpeta de '+e.nom));
  var s=l.length+' presupuesto'+(l.length===1?'':'s')+' · '+eur0(totalCarpeta(l))+' c/IVA';
  if(cpSub){ var sec=secDe(cpSub); if(sec){ var r=cpDeEstado(l,sec.k); s=sec.t+' · '+r.length+' presupuesto'+(r.length===1?'':'s'); } }
  if(cpSub&&cpCom){ var g2=comDe(e.id,cpCom); if(g2.length)s=comNombre(g2)+' · '+g2.length+' versión'+(g2.length===1?'':'es'); }
@@ -4139,14 +4187,19 @@ function renderEquipo(){ var host=document.getElementById('equipoView'); if(!hos
      return '<button class="eq-mchip" data-quien="'+e.id+'" style="cursor:pointer">'+esc(e.nom)+'</button>'; }).join('')+'</div>';
  /* panel Equipo con contadores reales */
  var propias=carpetasExtra();
- var filas=equipoTodo().map(function(e){ var l=obrasCarpeta(e.id);
+ /* El panel enseña solo las carpetas de RAÍZ: las de dentro se ven al entrar, como en
+    cualquier carpetero. El contador, en cambio, cuenta hondo — si no, una carpeta que
+    reparte todo su trabajo en subcarpetas aparecería siempre vacía. */
+ var filas=carpetaRaices().map(function(e){ var l=obrasCarpetaHondo(e.id);
    var enCurso=l.filter(function(o){ return o.estado==='borrador'||o.estado==='enviada'; }).length;
+   var dentro=carpetaHijas(e.id).length;
    /* las creadas por el usuario llevan lápiz y papelera; las seis del equipo no */
    var mia=propias.some(function(x){ return x.id===e.id; });
    return '<div class="eq-prow-wrap" style="position:relative">'+
     '<button class="eq-prow" data-carpeta="'+e.id+'" style="--eqc:'+e.col+'">'+
     '<span class="eq-pav">'+esc(e.ini)+'</span>'+
-    '<span class="eq-pinfo"><b>'+esc(e.nom)+'</b><small>'+l.length+' presupuesto'+(l.length===1?'':'s')+'</small></span>'+
+    '<span class="eq-pinfo"><b>'+esc(e.nom)+'</b><small>'+l.length+' presupuesto'+(l.length===1?'':'s')+
+      (dentro?' · '+dentro+' carpeta'+(dentro===1?'':'s'):'')+'</small></span>'+
     (enCurso?'<span class="eq-pcur">'+enCurso+' en curso</span>':'')+
     '<span class="eq-pgo">›</span></button>'+
     (mia?'<span class="eq-acc">'+
@@ -4160,7 +4213,7 @@ function renderEquipo(){ var host=document.getElementById('equipoView'); if(!hos
    '<div class="eq-hero"><div class="eq-float">'+
    '<canvas class="eq-lienzo" width="'+EQ_IMG.w+'" height="'+EQ_IMG.h+'"></canvas></div>'+
    spots+'</div></div>'+
-  '<aside class="eq-panel"><div class="eq-ph">Equipo<span class="eq-pn">'+g('obras','g')+equipoTodo().length+'</span></div>'+filas+'</aside></div>';
+  '<aside class="eq-panel"><div class="eq-ph">Equipo<span class="eq-pn">'+g('obras','g')+carpetaRaices().length+'</span></div>'+filas+'</aside></div>';
  host.querySelectorAll('[data-carpeta]').forEach(function(b){ b.onclick=function(){ abrirCarpeta(b.dataset.carpeta); }; });
  var bn=document.getElementById('eqNueva');
  if(bn)bn.onclick=function(){ pedirTexto('Nueva carpeta','¿Cómo se llama?','','Crear',function(nom){
@@ -4170,8 +4223,8 @@ function renderEquipo(){ var host=document.getElementById('equipoView'); if(!hos
    pedirTexto('Cambiar el nombre','Nombre de la carpeta',act?act.nom:'','Guardar',function(nom){
      if(carpetaRenombrar(id,nom)){ renderEquipo(); toast('Carpeta renombrada'); } }); }; });
  host.querySelectorAll('[data-borrar]').forEach(function(b){ b.onclick=function(ev){ ev.stopPropagation();
-   var id=b.dataset.borrar, e=eqDe(id), dentro=obrasCarpeta(id).length;
-   if(dentro){ toast('«'+(e?e.nom:'')+'» tiene '+dentro+' presupuesto'+(dentro===1?'':'s')+' dentro: muévelos antes de borrarla'); return; }
+   var id=b.dataset.borrar, e=eqDe(id), pega=carpetaEstorbo(id);
+   if(pega){ toast('«'+(e?e.nom:'')+'» '+pega); return; }
    confirmar('¿Borrar la carpeta «'+(e?e.nom:'')+'»? Está vacía, así que no se pierde ningún presupuesto.',
      function(){ carpetaBorrar(id); renderEquipo(); toast('Carpeta borrada'); },'Borrar'); }; });
  host.querySelectorAll('[data-quien]').forEach(function(b){ b.onclick=function(){
@@ -4208,7 +4261,15 @@ function renderEquipo(){ var host=document.getElementById('equipoView'); if(!hos
 
 /* ---- dentro de una carpeta ---- */
 function cpMvOpts(actual){ var h='<option value="">Mover a…</option>';
- equipoTodo().concat([SIN]).forEach(function(e){ if(e.id!==actual)h+='<option value="'+e.id+'">'+esc(e.nom)+'</option>'; });
+ /* el árbol entero con sangría, para que se vea de quién cuelga cada una. La carpeta
+    donde ya está no sale, pero sus hijas sí: mover hacia dentro es lo normal. */
+ (function baja(padre,nivel){
+   (padre?carpetaHijas(padre):carpetaRaices()).forEach(function(e){
+     if(e.id!==actual)h+='<option value="'+e.id+'">'+
+       new Array(nivel+1).join('   ')+(nivel?'└ ':'')+esc(e.nom)+'</option>';
+     baja(e.id,nivel+1); });
+ })('',0);
+ if(actual!==SIN.id)h+='<option value="'+SIN.id+'">'+esc(SIN.nom)+'</option>';
  return h; }
 /* Dentro de una carpeta se navega como en el Dropbox, sin listas de golpe:
    subcarpetas de estado (Por hacer / Enviados / Contratados / Perdidos), dentro
@@ -4242,11 +4303,25 @@ function renderCarpeta(){ var host=document.getElementById('carpetaView'); if(!h
  var todas=obrasCarpeta(k), sec=cpSub?secDe(cpSub):null;
  if(sec&&cpCom&&!comDe(k,cpCom).length)cpCom='';       /* la comunidad se quedo vacia */
  var com=(sec&&cpCom)?comDe(k,cpCom):null;
- var miga=esc(e.nom)+(sec?' <span class="cp-sl">›</span> '+sec.t:'')+(com?' <span class="cp-sl">›</span> '+esc(comNombre(com)):'');
+ /* la miga enseña el camino entero desde la raíz y cada tramo lleva a su carpeta:
+    Carpetas › María › Torrejón › 2026 › Enviados › Comunidad */
+ var ruta=carpetaRuta(k);
+ var miga=(ruta.length>1
+   ? ruta.slice(0,-1).map(function(x){ return '<button class="cp-mig" data-ir="'+x.id+'">'+esc(x.nom)+'</button> <span class="cp-sl">›</span> '; }).join('')
+   : '')+esc(e.nom)+
+   (sec?' <span class="cp-sl">›</span> '+sec.t:'')+(com?' <span class="cp-sl">›</span> '+esc(comNombre(com)):'');
  var sub2=com?(com.length+' versión'+(com.length===1?'':'es')+' de la comunidad')
    :sec?(cpDeEstado(todas,sec.k).length+' presupuesto'+(cpDeEstado(todas,sec.k).length===1?'':'s')+' · '+eur0(totalCarpeta(cpDeEstado(todas,sec.k)))+' c/IVA')
-   :(todas.length+' presupuesto'+(todas.length===1?'':'s')+' · '+eur0(totalCarpeta(todas))+' c/IVA');
- var cab='<div class="cp-head"><button class="mini acc" id="cpBack">'+g('back','')+(com?sec.t:(sec?'Carpeta de '+esc(e.nom):'Carpetas'))+'</button>'+
+   /* con subcarpetas hay que decir qué hay AQUÍ y qué hay repartido dentro, o el número
+      de arriba parece que se ha comido presupuestos */
+   :(function(){ var hondo=obrasCarpetaHondo(k), dentro=hondo.length-todas.length;
+       return todas.length+' presupuesto'+(todas.length===1?'':'s')+' aquí · '+eur0(totalCarpeta(todas))+' c/IVA'+
+         (dentro>0?' · '+dentro+' más en las carpetas de dentro':''); })();
+ /* el botón de volver sube UN escalón: dentro de una subcarpeta lleva a su madre, no
+    de golpe a la portada */
+ var madre=(ruta.length>1)?ruta[ruta.length-2]:null;
+ var atrasTxt=com?sec.t:(sec?('Carpeta de '+esc(e.nom)):(madre?esc(madre.nom):'Carpetas'));
+ var cab='<div class="cp-head"><button class="mini acc" id="cpBack">'+g('back','')+atrasTxt+'</button>'+
    '<span class="eq-av" style="--eqc:'+e.col+'">'+e.ini+'</span>'+
    '<div><div class="cp-h1">'+miga+'</div><div class="cp-h2">'+sub2+'</div></div></div>';
  /* Botonera de crear: el principal destacado y los otros cuatro como fichas con
@@ -4273,7 +4348,23 @@ function renderCarpeta(){ var host=document.getElementById('carpetaView'); if(!h
       '<span class="eq-fold">'+folderSvg('eqf')+'<span class="eq-cnt">'+nc+'</span></span>'+
       '<span class="sub-id"><span class="eq-nm">'+s.t+'</span>'+
       '<span class="eq-sub">'+(rows.length?(nc+' comunidad'+(nc===1?'':'es')+' · '+eur0(totalCarpeta(rows))):'vacío')+'</span></span></div>'; }).join('');
-  host.innerHTML=cab+tools+'<div class="eq-grid">'+subs+'</div>';
+  /* Las carpetas de dentro van ARRIBA, como en cualquier carpetero: primero por dónde se
+     baja y luego lo que hay en este nivel. Cuentan hondo, con todo lo que cuelgue. */
+  var hijas=carpetaHijas(k);
+  var carps=hijas.map(function(hj){ var lh=obrasCarpetaHondo(hj.id), nietas=carpetaHijas(hj.id).length;
+    return '<div class="eqcard sub carp" data-carp="'+hj.id+'" style="--eqc:'+hj.col+'">'+
+      '<span class="eq-fold">'+folderSvg('eqf')+'<span class="eq-cnt">'+lh.length+'</span></span>'+
+      '<span class="sub-id"><span class="eq-nm">'+esc(hj.nom)+'</span>'+
+      '<span class="eq-sub">'+(lh.length?(lh.length+' presupuesto'+(lh.length===1?'':'s')+' · '+eur0(totalCarpeta(lh))):'vacía')+
+        (nietas?' · '+nietas+' carpeta'+(nietas===1?'':'s'):'')+'</span></span>'+
+      '<span class="cp-acc">'+
+       '<button class="eq-mini" data-renombrar="'+hj.id+'" title="Cambiar el nombre">✎</button>'+
+       '<button class="eq-mini" data-borrar="'+hj.id+'" title="Borrar la carpeta">🗑</button></span>'+
+      '</div>'; }).join('');
+  var bloqueCarp=(carps?'<div class="cp-gtit">Carpetas dentro de '+esc(e.nom)+'</div>':'')+carps+
+    '<button class="eq-nueva" id="cpNuevaCarp">+ Nueva carpeta'+(carps?'':' dentro de '+esc(e.nom))+'</button>'+
+    (carps?'<div class="cp-gtit" style="margin-top:12px">Presupuestos de esta carpeta</div>':'');
+  host.innerHTML=cab+tools+'<div class="eq-grid">'+bloqueCarp+subs+'</div>';
  }else if(!com){                             /* --- 2) carpetas por comunidad --- */
   var lista=cpDeEstado(todas,sec.k), q=(cpQ||'').toLowerCase();
   var coms=comunidadesDe(lista).filter(function(c2){ var todasCom=comDe(k,c2.k);
@@ -4312,7 +4403,25 @@ function renderCarpeta(){ var host=document.getElementById('carpetaView'); if(!h
  if(back)back.onclick=function(){
    if(cpCom){ cpPaso('atras',function(){ cpCom=''; renderCarpeta(); }); }
    else if(cpSub){ cpPaso('atras',function(){ cpSub=''; cpQ=''; renderCarpeta(); }); }
+   else if(madre)abrirCarpeta(madre.id,'atras');   /* sube un escalón, no hasta la portada */
    else go('equipo'); };
+ /* la miga: cada tramo lleva a su carpeta */
+ host.querySelectorAll('[data-ir]').forEach(function(b){ b.onclick=function(ev){ ev.stopPropagation();
+   abrirCarpeta(b.dataset.ir,'atras'); }; });
+ /* entrar en una subcarpeta */
+ host.querySelectorAll('[data-carp]').forEach(function(c){ c.onclick=function(){ abrirCarpeta(c.dataset.carp); }; });
+ var bnc=host.querySelector('#cpNuevaCarp');
+ if(bnc)bnc.onclick=function(){ pedirTexto('Nueva carpeta','¿Cómo se llama? Se creará dentro de «'+e.nom+'»','','Crear',
+   function(nom){ var nueva=carpetaCrear(nom,k); if(!nueva)return; renderCarpeta(); toast('Carpeta «'+nueva.nom+'» creada dentro de «'+e.nom+'»'); }); };
+ host.querySelectorAll('[data-renombrar]').forEach(function(b){ b.onclick=function(ev){ ev.stopPropagation();
+   var id=b.dataset.renombrar, act=eqDe(id);
+   pedirTexto('Cambiar el nombre','Nombre de la carpeta',act?act.nom:'','Guardar',function(nom){
+     if(carpetaRenombrar(id,nom)){ renderCarpeta(); toast('Carpeta renombrada'); } }); }; });
+ host.querySelectorAll('[data-borrar]').forEach(function(b){ b.onclick=function(ev){ ev.stopPropagation();
+   var id=b.dataset.borrar, ee=eqDe(id), pega=carpetaEstorbo(id);
+   if(pega){ toast('«'+(ee?ee.nom:'')+'» '+pega); return; }
+   confirmar('¿Borrar la carpeta «'+(ee?ee.nom:'')+'»? Está vacía, así que no se pierde ningún presupuesto.',
+     function(){ carpetaBorrar(id); renderCarpeta(); toast('Carpeta borrada'); },'Borrar'); }; });
  host.querySelectorAll('[data-sub]').forEach(function(c){ c.onclick=function(){
    cpPaso('entra',function(){ cpSub=c.dataset.sub; cpCom=''; cpQ=''; renderCarpeta(); }); }; });
  host.querySelectorAll('.cp-row.com').forEach(function(c){ c.onclick=function(){
@@ -8088,7 +8197,7 @@ window.PRESTON={state:function(){return state;},obra:obra,ficha:function(){var o
  qr:{matriz:qrMatriz,cw:qrCodewords,ec:qrEC,png:qrDataURL,svg:qrSvgDe},
  pub:{url:pubURL,qr:pubQR,pagina:paginaPublica,publica:publicaObra,token:pubDe,auto:autoPublica,hash:pubHash},
  dir:{bonita:dirBonita,muni:muniBonito,parse:parseDireccion},
- version:'v166-sin-landing (LAB · copia de pruebas)'};
+ version:'v167-carpetas-anidadas (LAB · copia de pruebas)'};
 try{var th0=localStorage.getItem('prestonLAB_theme'); if(th0)document.documentElement.setAttribute('data-theme',th0);}catch(e){}
 var _bd=document.getElementById('brandDode'); if(_bd&&typeof PBRAND!=='undefined')_bd.src=PBRAND.dode;
 try{ var _rv=document.getElementById('railVer'); if(_rv)_rv.textContent='Versión '+(PRESTON.version||'').split(' ')[0]; }catch(e){}
