@@ -6953,7 +6953,9 @@ function paginaLanding(o){
   '<a class="cbtn" href="'+esc(mailto)+'" target="_blank" rel="noopener"><span class="ic" style="background:linear-gradient(150deg,#b01b1b,#7e0808)" aria-hidden="true">'+
    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg></span>'+
    '<span>Escríbenos por email<span class="sub">'+esc(mail)+'</span></span><span class="arr" aria-hidden="true">›</span></a>'+
-  '<a class="cbtn" href="tel:'+esc(telLimpio)+'"><span class="ic" style="background:linear-gradient(150deg,#9e1414,#7e0808)" aria-hidden="true">'+
+  /* la pagina se sirve en un origen aislado (v.php la manda con sandbox), y ahi la
+     navegacion en la MISMA pestaña esta cortada: sin target el telefono no haria nada */
+  '<a class="cbtn" href="tel:'+esc(telLimpio)+'" target="_blank" rel="noopener"><span class="ic" style="background:linear-gradient(150deg,#9e1414,#7e0808)" aria-hidden="true">'+
    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z"/></svg></span>'+
    '<span>Llámanos por teléfono<span class="sub">'+esc(tel)+'</span></span><span class="arr" aria-hidden="true">›</span></a>'+
   '</div></section>'+
@@ -8037,7 +8039,8 @@ window.PRESTON={state:function(){return state;},obra:obra,ficha:function(){var o
  subv:{calc:function(){var o=obra();return o?subvCalcular(o):null;},de:function(){var o=obra();return o?subvDe(o):null;},eco:function(){var o=obra();return o?subvEconomia(o,subvDe(o)):null;},ver:svVerInforme,volver:svVolverEdicion},
  bc3:{parse:parseBC3,obra:obraDesdeBC3},
  pdf:{parse:parsePresupuestoPDF,obra:obraDesdePDF,importar:importarPDFPreston},
- pres:{payload:function(){var o=obra();return o?presPayload(o):null;},url:function(){var o=obra();return o?presUrl(o):null;}},
+ pres:{payload:function(){var o=obra();return o?presPayload(o):null;},url:function(){var o=obra();return o?presUrl(o):null;},
+  doc:function(){var o=obra();return o?presDoc(o):null;}},
  land:{html:function(){var o=obra();return o?paginaLanding(o):null;},cifras:function(){var o=obra();return o?landCifras(o):null;},
   faq:function(){var o=obra();return o?landFaq(o,landCifras(o)):null;},razones:function(){var o=obra();return o?landRazones(o,landCifras(o)):null;},
   url:function(){var o=obra();return o?landURL(o):null;},publica:function(cb){var o=obra();if(o)publicaLanding(o,cb);}},
@@ -8047,7 +8050,7 @@ window.PRESTON={state:function(){return state;},obra:obra,ficha:function(){var o
  qr:{matriz:qrMatriz,cw:qrCodewords,ec:qrEC,png:qrDataURL,svg:qrSvgDe},
  pub:{url:pubURL,qr:pubQR,pagina:paginaPublica,publica:publicaObra,token:pubDe,auto:autoPublica,hash:pubHash},
  dir:{bonita:dirBonita,muni:muniBonito,parse:parseDireccion},
- version:'v162-landing-de-venta (LAB · copia de pruebas)'};
+ version:'v163-landing-de-venta (LAB · copia de pruebas)'};
 try{var th0=localStorage.getItem('prestonLAB_theme'); if(th0)document.documentElement.setAttribute('data-theme',th0);}catch(e){}
 var _bd=document.getElementById('brandDode'); if(_bd&&typeof PBRAND!=='undefined')_bd.src=PBRAND.dode;
 try{ var _rv=document.getElementById('railVer'); if(_rv)_rv.textContent='Versión '+(PRESTON.version||'').split(' ')[0]; }catch(e){}
