@@ -2443,7 +2443,7 @@ function subvDe(o){
    ivaHon:21,tasasPct:0,tasasBonif:0,honTec:0,honAgente:0,   /* las tasas parten SIEMPRE de 0 % */
    costeAcc:svAccAuto(o).coste,nivelAcc:'general',accMayor:'no',pctAccEstatal:70,pctAccCam:75,topeAccCam:10000,
    vuln:'no',vulnViv:0,caePct:6,cae:0,caeInc:true,
-   zc:'D3',supEnvolvente:0,tasasInc:false,   /* D3 = Madrid capital (CTE, Anejo B) */
+   zc:'D3',supEnvolvente:0,tasasInc:false,caeModo:'pct',   /* D3 = Madrid capital (CTE, Anejo B) */
    finInc:true,finDosFases:true,finMesesSubv:24,finEntrada:0,finPlazo:120,finInteres:5,finBase:'resto',
    numLocales:(num(o.locales)>0?1:0),supLocales:num(o.locales)||0,supTotal:0,supViv:0,distrito:'',
    actuaciones:svActuacionesAuto(o)};
@@ -2592,12 +2592,17 @@ function subvCalcular(o){
  /* C) CAE: 6 % de la ACTUACIÓN ENERGÉTICA (baseEnergia), NO del total — igual que la calculadora
     online. Los CAE salen del ahorro de kWh (SATE, cubierta, forjado…); el ascensor no ahorra
     energía → no cuenta. Manual si se indica en s.cae. */
- /* CAE por la ficha del MITECO (kWh de ahorro anual x precio de mercado), no por un
-    porcentaje del presupuesto. El % viejo se queda solo como respaldo para las obras
-    en las que no hay ninguna medida con superficie (importadas de PDF, por ejemplo). */
+ /* CAE. Por defecto se estima como % del presupuesto, que es el criterio comercial de
+    la casa y lo que se puede decir en fase de oferta sin certificado energético.
+    caeRD36() calcula EN PARALELO lo que sale por la ficha del MITECO (kWh reales) para
+    poder contrastar si ese % se sostiene en esta obra concreta; y se puede poner como
+    modo principal con s.caeModo='ficha'. */
  var caeF=caeRD36(o,s);
  var caePct=(s.caePct!=null&&s.caePct!==''?num(s.caePct):((C.cae&&C.cae.pct!=null)?C.cae.pct*100:6));
- var caeAuto=(caeF.kwh>0)?caeF.neto:baseEnergia*(caePct/100);
+ var caePorPct=baseEnergia*(caePct/100);
+ var caeAuto=(s.caeModo==='ficha'&&caeF.kwh>0)?caeF.neto:caePorPct;
+ /* a cuánto equivale la ficha en % — es lo que permite calibrar el criterio */
+ caeF.pctEquiv=(baseEnergia>0&&caeF.kwh>0)?r2(caeF.neto/baseEnergia*100):0;
  var caeImporte=(num(s.cae)>0?num(s.cae):caeAuto);
  var caeTotal=s.caeInc?caeImporte:0;
 
@@ -4813,18 +4818,37 @@ function svSyncNums(){ var o=obra(); if(!o)return; var s=subvDe(o);
 /* bloque CAE de la pantalla de trabajo: enseña de dónde sale cada kWh para poder
    defenderlo delante del verificador (y para cazar una superficie mal puesta). */
 function svCaeBloque(o,s){ var f=caeRD36(o,s);
+ var r=null; try{ r=subvCalcular(o); }catch(e){}
+ var base=r?r.baseEnergia:0, pct=(s.caePct!=null&&s.caePct!==''?num(s.caePct):6);
+ var porPct=base*(pct/100);
+ var equiv=(base>0&&f.kwh>0)?r2(f.neto/base*100):0;
+ var esFicha=(s.caeModo==='ficha');
  var opts=['A3','A4','B3','B4','C1','C2','C3','C4','D1','D2','D3','E1'].map(function(z){
    return '<option value="'+z+'"'+(f.zc===z?' selected':'')+'>'+z+' — G '+CAE_G[z]+'</option>'; }).join('');
  var filas=f.elems.map(function(e){
    return '<tr><td>'+esc(e.n)+'</td><td class="num">'+loose(r2(e.sup))+' m²</td><td class="num">'+loose(e.ui)+'</td><td class="num">'+loose(e.uf)+'</td><td class="num">'+loose(e.dU)+'</td></tr>'; }).join('');
  return '<div id="svCae">'+
-  '<div class="sv-sub" style="margin-top:16px">Certificados de Ahorro Energético (CAE) <span class="sv-hint">— RD 36/2023 · ficha '+f.ficha+' del catálogo MITECO</span></div>'+
+  '<div class="sv-sub" style="margin-top:16px">Certificados de Ahorro Energético (CAE)</div>'+
   '<div class="sv-grid">'+
+   '<div class="sv-field"><label>Cómo se estima</label><select class="sv-in" data-sv="caeModo">'+
+     '<option value="pct"'+(!esFicha?' selected':'')+'>% del presupuesto (nuestro criterio)</option>'+
+     '<option value="ficha"'+(esFicha?' selected':'')+'>Ficha del MITECO (kWh reales)</option></select>'+
+    '<span class="sv-hint">El % es lo que se puede decir en oferta, sin certificado energético todavía.</span></div>'+
+   '<div class="sv-field"><label>CAE (% del presupuesto)</label><input class="sv-in" data-sv="caePct" inputmode="decimal" value="'+esc(loose(s.caePct))+'">'+
+    '<span class="sv-hint">'+svEur(base)+' × '+loose(pct)+' % = <b>'+svEur(porPct)+'</b>'+(base>0&&r&&r.accCoste>0?' (base sin la parte de accesibilidad, que no ahorra energía)':'')+'</span></div>'+
+  '</div>'+
+  /* contraste: a cuánto equivale el % frente a lo que dice la ficha oficial */
+  (f.kwh>0?'<div class="avisobox" style="margin-top:10px"><div><b>Contraste con la ficha oficial.</b> Por la ficha '+f.ficha+' salen <b>'+svEur(f.neto)+'</b>, que sobre esta obra es un <b>'+loose(equiv)+' %</b>. '+
+    (Math.abs(equiv-pct)<=1?'Vuestro '+loose(pct)+' % encaja.':(equiv>pct?'Os estáis quedando cortos: la ficha da '+loose(r2(equiv-pct))+' puntos más.':'Ojo, la ficha da '+loose(r2(pct-equiv))+' puntos menos que vuestro '+loose(pct)+' %.'))+'</div></div>':'')+
+  '<div class="sv-grid" style="margin-top:10px">'+
    '<div class="sv-field"><label>Zona climática (CTE)</label><select class="sv-in" data-sv="zc">'+opts+'</select>'+
     '<span class="sv-hint">Madrid capital es <b>D3</b>. G sale del Anexo II de la ficha, en miles de horas·K/año.</span></div>'+
    '<div class="sv-field"><label>Superficie total de la envolvente térmica (m²)</label><input class="sv-in" data-sv="supEnvolvente" inputmode="decimal" value="'+esc(s.supEnvolvente?loose(s.supEnvolvente):'')+'">'+
     '<span class="sv-hint">'+(f.envEstimada?'<b>Estimada en '+loose(f.supEnv)+' m²</b> (fachada + cubierta + suelo). Ponla del proyecto: cambia el resultado.':'Del proyecto.')+'</span></div>'+
   '</div>'+
+  '<div class="sv-hint" style="margin-top:6px">Un CAE = 1 kWh de energía final ahorrada al año (RD 36/2023). '+
+   (f.ficha==='RES010'?'<b>RES010</b>: se toca más del 25 % de la envolvente → AE = (Ki − Kf) × S × G, con K global de toda la envolvente.'
+                      :'<b>RES020</b>: se toca el 25 % o menos → AE = Σ (Ui − Uf) × Sj × G, elemento a elemento.')+'</div>'+
   (f.elems.length
    ?'<table class="svt" style="margin-top:8px"><thead><tr><th>Elemento</th><th class="num">Superficie</th><th class="num">U antes</th><th class="num">U después</th><th class="num">ΔU</th></tr></thead><tbody>'+filas+
      '<tr class="total"><td>Superficie rehabilitada</td><td class="num">'+loose(f.supRehab)+' m²</td><td class="num" colspan="3">'+loose(f.pctEnv)+' % de la envolvente → ficha <b>'+f.ficha+'</b></td></tr>'+
@@ -5137,7 +5161,14 @@ function svInformeInner(o,pal){
   (r.recorteGrants>0?svRow('Ajuste tope energía','− '+svEur(r.recorteGrants),'No superan la base de energía ('+svEur(r.baseEnergia)+')'):'')+
   svRow('Energía aplicable',svEur(r.grantsCapados),'mín('+svEur(r.grantsBrutos)+';'+svEur(r.baseEnergia)+')')+
   (hayAcc?svRow(r.incluyeRehab?'Plan Rehabilita · Línea Accesible (ascensor)':'Plan Estatal · Accesibilidad',svEur(r.accCapados),r.incluyeRehab?'Ascensor '+svEur(r.acc_cam)+', capado a '+svEur(r.accCoste)+' (coste accesibilidad)':svEur(r.acc_est)+' ('+svPctF(num(s.pctAccEstatal)/100)+' del coste de accesibilidad '+svEur(r.accCoste)+')'):'')+
-  svRow('CAE ('+loose(r.caePct)+'% de la actuación energética)',svEur(r.caeTotal),s.caeInc?(num(s.cae)>0?'Importe manual = '+svEur(r.caeTotal):svEur(r.baseEnergia)+' (base energía) × '+loose(r.caePct)+'% = '+svEur(r.caeTotal)):'No incluido')+
+  /* la etiqueta tiene que decir la base DE VERDAD: cuando no hay partida de
+     accesibilidad, la "base energía" es el coste subvencionable entero. */
+  svRow('CAE · Certificados de Ahorro Energético'+(s.caeModo==='ficha'&&r.caeF&&r.caeF.kwh>0?' ('+loose(Math.round(r.caeF.kwh))+' kWh/año · ficha '+r.caeF.ficha+')':''),
+    svEur(r.caeTotal),
+    s.caeInc?(num(s.cae)>0?'Importe manual = '+svEur(r.caeTotal)
+      :(s.caeModo==='ficha'&&r.caeF&&r.caeF.kwh>0
+        ? loose(Math.round(r.caeF.kwh))+' kWh × '+loose(r.caeF.eur)+' €/kWh − '+loose(r.caeF.fee)+' % de gestión = '+svEur(r.caeTotal)
+        : svEur(r.baseEnergia)+(r.accCoste>0?' (coste subvencionable sin accesibilidad)':' (coste subvencionable)')+' × '+loose(r.caePct)+' % = '+svEur(r.caeTotal))):'No incluido')+
   '<tr class="total"><td>AYUDA TOTAL ESTIMADA (orientativa)</td><td class="num">'+svEur(r.obtenibleReal)+'</td></tr>'+
   svRow('% ayuda sobre PEM',svPctF(r.pctSobrePEM),svEur(r.obtenibleReal)+' / '+svEur(r.e.pem))+
   '<tr class="total"><td>RESTO A PAGAR POR LOS VECINOS</td><td class="num">'+svEur(r.restoVecinos)+'</td></tr>'+
@@ -6473,7 +6504,7 @@ window.PRESTON={state:function(){return state;},obra:obra,ficha:function(){var o
  med:{parcial:parcialLinea,suma:sumaLineas,open:function(id){openDock(id);},close:function(){closeDock();},dock:function(){return {open:dockOpen,id:dockId};}},
  carp:{ir:abrirCarpeta,equipo:EQUIPO,de:carpetaDe,lista:obrasCarpeta,abierta:carpetaAbierta},
  ver:compruebaVersion,
- version:'v145-cae-ficha-miteco (LAB · copia de pruebas)'};
+ version:'v146-cae-pct-con-contraste (LAB · copia de pruebas)'};
 try{var th0=localStorage.getItem('prestonLAB_theme'); if(th0)document.documentElement.setAttribute('data-theme',th0);}catch(e){}
 var _bd=document.getElementById('brandDode'); if(_bd&&typeof PBRAND!=='undefined')_bd.src=PBRAND.dode;
 try{ var _rv=document.getElementById('railVer'); if(_rv)_rv.textContent='Versión '+(PRESTON.version||'').split(' ')[0]; }catch(e){}
