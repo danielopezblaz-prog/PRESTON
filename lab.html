@@ -1890,7 +1890,7 @@ var TRAMOS=[
 var KEY='prestonLAB';   /* COPIA DE PRUEBAS: datos propios, no toca los del Prestón normal */
 var state; /* se inicializa al final, cuando todas las tablas están definidas */
 function defParams(){return {caeEur:0.13,caeFee:15,tin:6,meses:60,gg:13,bi:6,iva:10,validez:60,irpf:true,
- recPct:19,recAgentePct:8,
+ recPct:19,recAgentePct:8,ivaAgentePct:21,
  cif:'', dirEmp:'C/ Oviedo 6 · Leganés (Madrid)', tel:'91 693 15 40', email:'info@proyecton.es', web:'www.proyecton.es',
  lema:'EXPERIENCIA · RESPONSABILIDAD · COMPROMISO',
  cond:'Forma de pago: según calendario de certificaciones acordado con la comunidad. El presente presupuesto no incluye licencias, tasas municipales ni honorarios técnicos salvo indicación expresa en partidas. Cualquier trabajo no contemplado se presupuestará y aprobará por escrito antes de su ejecución.',
@@ -2139,6 +2139,11 @@ function recPctDe(o){ o=o||obra(); if(o&&o.recPct!=null&&o.recPct!=='')return nu
 function recAgPctDe(o){ o=o||obra(); if(o&&o.recAgentePct!=null&&o.recAgentePct!=='')return num(o.recAgentePct); try{ return num(state.params.recAgentePct)||0; }catch(e){ return 0; } }
 function recF(o){ return 1+recPctDe(o)/100; }
 function recAgP(o){ return recAgPctDe(o); }
+/* IVA de los honorarios de agente: es un SERVICIO profesional, no ejecución de obra,
+   así que va al 21 % y no al 10 % de la rehabilitación. Configurable por obra
+   (o.ivaAgentePct) por si alguna se factura dentro del contrato de obra. */
+function ivaAgPctDe(o){ o=o||obra(); if(o&&o.ivaAgentePct!=null&&o.ivaAgentePct!=='')return num(o.ivaAgentePct);
+  try{ var v=state.params.ivaAgentePct; return (v!=null&&v!=='')?num(v):21; }catch(e){ return 21; } }
 function importe(p,o){return num(p.cantidad)*num(p.precio)*recF(o);}      /* importe de partida CON el recargo de SU obra */
 function capTotal(c,o){return c.partidas.reduce(function(s,p){return s+importe(p,o);},0);}
 function pemDe(o){return (o.capitulos||[]).reduce(function(s,c){return s+capTotal(c,o);},0);}
@@ -2148,13 +2153,16 @@ function totalesDe(o){ var pem=r2(pemDe(o)),cfg=o.config||{gg:0,bi:0,iva:10};
      coeficiente total sobre el coste = 1,19 x 1,08 = 1,2852 (28,52 % de margen).
      asi el importe cuadra con el % que se ve al lado del PEM del presupuesto */
   var agente=r2(pem*recAgP(o)/100);                 /* honorarios agente rehabilitador de ESTA obra */
+  /* van FUERA del PEM de contrata y con su IVA propio (21 %), igual que los del arquitecto:
+     el 10 % reducido es para la ejecución de obra, no para la gestión. */
+  var ivaAg=ivaAgPctDe(o), agenteConIva=r2(agente*(1+ivaAg/100));
   /* honorarios técnicos del arquitecto: euros que pone el usuario, con su IVA (21 % por defecto).
      Suman al total del presupuesto (con IVA aparte del 10 % de la obra). */
   var sv=o.subv||{}; var honTec=num(sv.honTec)||0; var ivaHon=(sv.ivaHon!=null&&sv.ivaHon!=='')?num(sv.ivaHon):21; var honTecConIva=r2(honTec*(1+ivaHon/100));
   /* TODO redondeado a 2 decimales ANTES de sumar: así lo impreso cuadra al céntimo
      (antes se sumaba en bruto y se redondeaba al pintar, y salían descuadres de 0,01). */
-  var gg=r2(pem*(cfg.gg||0)/100), bi=r2(pem*(cfg.bi||0)/100), pec=r2(pem+gg+bi+agente), iva=r2(pec*cfg.iva/100);
-  return {pem:pem,pemBase:pemBase,agente:agente,honTec:honTec,ivaHon:ivaHon,honTecConIva:honTecConIva,gg:gg,bi:bi,pec:pec,iva:iva,total:r2(pec+iva+honTecConIva)};
+  var gg=r2(pem*(cfg.gg||0)/100), bi=r2(pem*(cfg.bi||0)/100), pec=r2(pem+gg+bi), iva=r2(pec*cfg.iva/100);
+  return {pem:pem,pemBase:pemBase,agente:agente,ivaAg:ivaAg,agenteConIva:agenteConIva,honTec:honTec,ivaHon:ivaHon,honTecConIva:honTecConIva,gg:gg,bi:bi,pec:pec,iva:iva,total:r2(pec+iva+agenteConIva+honTecConIva)};
 }
 
 /* medidas presentes en la obra (por etiqueta med de partidas) */
@@ -2458,7 +2466,9 @@ function subvEconomia(o,s){ var t=totalesDe(o);
  var pem=t.pec, ivaObraPct=(o.config&&o.config.iva!=null)?o.config.iva:10, ivaObraEur=t.iva;
  var honTec=num(s.honTec),honAgente=num(s.honAgente),ivaHon=num(s.ivaHon);
  var honTecConIva=honTec*(1+ivaHon/100), honAgenteConIva=honAgente*(1+ivaHon/100);
- var costeSubvencionable=pem+ivaObraEur+honTecConIva+honAgenteConIva;
+ /* los honorarios del agente (con su 21 %) también son coste subvencionable: son
+    gestión de la actuación, igual que los honorarios técnicos. */
+ var costeSubvencionable=pem+ivaObraEur+t.agenteConIva+honTecConIva+honAgenteConIva;
  var tasasBonif=num(s.tasasBonif)||0;
  var tasasBruta=pem*num(s.tasasPct)/100;
  var tasasEur=tasasBruta*(1-tasasBonif/100);
@@ -4229,11 +4239,12 @@ function renderEcon(){ var o=obra(); if(!o)return; var cfg=o.config;
  var rp=recPctDe(o), ra=recAgPctDe(o), adON=(rp>0||ra>0);
  var adCss='width:100%;display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 10px;margin:0 0 8px;border-radius:8px;font:inherit;font-size:12px;font-weight:600;cursor:pointer;border:1px solid '+(adON?'var(--brand)':'var(--line)')+';background:'+(adON?'var(--brand-tint)':'var(--panel)')+';color:'+(adON?'var(--brand)':'var(--ink-2)')+';';
  var tog='<button type="button" id="btnAdelanto" title="Recargo por adelanto de ayudas de ESTA obra. Púlsalo para activar o desactivar." style="'+adCss+'"><span>Adelanto de ayudas'+(adON?' (+'+rp+' % + '+ra+' %)':'')+'</span><span style="padding:2px 9px;border-radius:999px;font-size:10.5px;font-weight:700;background:'+(adON?'var(--brand)':'var(--bg-sunken)')+';color:'+(adON?'#fff':'var(--muted)')+'">'+(adON?'ACTIVO':'OFF')+'</span></button>';
- var sv=o.subv||{}; var honTec=num(sv.honTec)||0; var ivaHonL=(sv.ivaHon!=null&&sv.ivaHon!=='')?num(sv.ivaHon):21; var pemForPct=pemDe(o);
+ var sv=o.subv||{}; var honTec=num(sv.honTec)||0; var ivaHonL=(sv.ivaHon!=null&&sv.ivaHon!=='')?num(sv.ivaHon):21; var pemForPct=pemDe(o); var ivaAgL=ivaAgPctDe(o);
  document.getElementById('econ').innerHTML= tog +
   er('Ejecución material (PEM)','sPem','')+((num(cfg.gg)+num(cfg.bi))>0?er('Gastos generales ('+cfg.gg+' %)','sGg','sub')+er('Beneficio industrial ('+cfg.bi+' %)','sBi','sub'):'')+
-  (recAgP()>0?er('Agente rehabilitador ('+recAgP()+' % del PEM)','sAgente','sub'):'')+
   er('Ejecución por contrata','sPec','')+er('IVA ('+cfg.iva+' %)','sIva','sub')+
+  /* el agente va DESPUÉS del IVA de la obra porque lleva el suyo propio, al 21 % */
+  (recAgP(o)>0?er('Agente rehabilitador ('+recAgP(o)+' % del PEM)','sAgente','sub')+er('+ IVA agente ('+ivaAgL+' %)','sAgIva','sub'):'')+
   '<div class="erow sub"><span class="k">Honorarios técnicos<br><small style="color:var(--muted);font-weight:400">arquitecto · IVA '+ivaHonL+' %</small></span><span class="v" style="white-space:nowrap"><input id="econHonPct" class="ci" inputmode="decimal" title="Ponlo como % del PEM (opcional)" placeholder="%" style="width:40px;text-align:right;font:inherit" value="'+loose(pemForPct>0&&honTec>0?r2(honTec/pemForPct*100):'')+'"> % · <input id="econHonTec" class="ci" inputmode="decimal" style="width:80px;text-align:right;font:inherit" value="'+loose(honTec)+'"> €</span></div>'+
   (honTec>0?er('+ IVA honorarios ('+ivaHonL+' %)','sHonIva','sub'):'')+
   '<div class="erow total"><span class="k">Total presupuesto</span><span class="v" id="sTot">—</span></div>';
@@ -4244,7 +4255,7 @@ function renderEcon(){ var o=obra(); if(!o)return; var cfg=o.config;
  var ht=document.getElementById('econHonTec'); if(ht)ht.addEventListener('change',function(){ var oo=obra(); if(!oo)return; subvDe(oo); oo.subv.honTec=num(ht.value); save(); renderEcon(); refreshDerived(); toast('Honorarios técnicos: '+eur0(num(ht.value))+' + '+ivaHonL+' % IVA'); });
  var hp=document.getElementById('econHonPct'); if(hp)hp.addEventListener('change',function(){ var oo=obra(); if(!oo)return; subvDe(oo); var pem=pemDe(oo); oo.subv.honTec=r2(pem*num(hp.value)/100); save(); renderEcon(); refreshDerived(); toast('Honorarios técnicos: '+loose(num(hp.value))+' % del PEM = '+eur0(oo.subv.honTec)+' + '+ivaHonL+' % IVA'); });
  function er(k,id,cls){return '<div class="erow '+(cls||'')+'"><span class="k">'+k+'</span><span class="v" id="'+id+'">—</span></div>';} }
-function renderEconVals(t){ setTxt('sPem',eur(t.pem)); setTxt('sGg',eur(t.gg)); setTxt('sBi',eur(t.bi)); setTxt('sAgente',eur(t.agente)); setTxt('sHonIva',eur(t.honTecConIva)); setTxt('sPec',eur(t.pec)); setTxt('sIva',eur(t.iva)); setTxt('sTot',eur(t.total)); }
+function renderEconVals(t){ setTxt('sPem',eur(t.pem)); setTxt('sGg',eur(t.gg)); setTxt('sBi',eur(t.bi)); setTxt('sAgente',eur(t.agente)); setTxt('sAgIva',eur(r2(t.agenteConIva-t.agente))); setTxt('sHonIva',eur(t.honTecConIva)); setTxt('sPec',eur(t.pec)); setTxt('sIva',eur(t.iva)); setTxt('sTot',eur(t.total)); }
 function renderSubvMini(){ var o=obra(); if(!o)return; var host=document.getElementById('subvMini'); if(!host)return;
  var r=null; try{ if(pemDe(o)>0)r=subvCalcular(o); }catch(e){}
  if(!r){ host.innerHTML='<p class="empty">Añade partidas para estimar las ayudas.</p>'; return; }
@@ -4564,8 +4575,9 @@ function svShellHtml(o,s){
  h+='<table class="svt"><tbody>'+
   o.capitulos.map(function(c,i){ return '<tr><td>'+esc(c.cod)+' · '+esc(c.res)+'</td><td class="num">'+svEur(capTotal(c))+'</td></tr>'; }).join('')+
   ((t.gg+t.bi)>0?'<tr><td>Gastos generales ('+loose(o.config.gg)+' %) y beneficio industrial ('+loose(o.config.bi)+' %)</td><td class="num">'+svEur(t.gg+t.bi)+'</td></tr>':'')+
-  ((t.agente>0)?'<tr><td>Honorarios de agente rehabilitador ('+loose(recAgP(o))+' % sobre el PEM)</td><td class="num">'+svEur(t.agente)+'</td></tr>':'')+
   '<tr class="subtot"><td>PEM de contrata</td><td class="num">'+svEur(t.pec)+'</td></tr>'+
+  /* pantalla de trabajo: el % del agente se ve aquí, nunca en los papeles del cliente */
+  ((t.agente>0)?'<tr><td>Honorarios de agente rehabilitador ('+loose(recAgP(o))+' % sobre el PEM) + IVA '+loose(t.ivaAg)+' %</td><td class="num">'+svEur(t.agenteConIva)+'</td></tr>':'')+
   '</tbody></table>';
  h+='<div class="sv-sub" style="margin-top:16px">Honorarios, IVA y tasas</div><div class="sv-grid">'+
   '<div class="sv-field"><label>IVA de la obra (%)</label><input class="sv-in" data-sv="ivaObra" inputmode="decimal" value="'+loose(o.config.iva)+'"><span class="sv-hint">Habitual en rehabilitación: 10 %. (Es el IVA de la obra.)</span></div>'+
@@ -4734,20 +4746,20 @@ function svRefresh(){ var o=obra(); if(!o)return; var s=subvDe(o);
  var eco=document.getElementById('svEco');
  if(eco){ var e=subvEconomia(o,s);
   var accCoste=Math.min(num(s.costeAcc)||0,e.costeSubvencionable);
-  /* Si la obra lleva adelanto, el PEM de contrata incluye DENTRO el recargo repartido
-     en las partidas y los honorarios del agente. Se desglosa para que se vea de donde
-     sale cada euro y sobre que base va cada porcentaje. */
+  /* PANTALLA INTERNA: aquí SÍ se ve el recargo, el % del agente y sus bases. No se
+     imprime (está fuera de .sv-page), así que nada de esto llega a la comunidad.
+     El recargo va repartido DENTRO de las partidas; el agente va aparte, al 21 %. */
   var recP=recPctDe(o), agP=recAgP(o), tt=e.t;
   var desglose=(tt.agente>0||recP>0)
    ?('<tr><td>Obra a coste (PEM sin recargo)</td><td class="num">'+svEur(tt.pemBase)+'</td></tr>'+
      (recP>0?'<tr><td>Recargo por adelanto de ayudas ('+loose(recP)+' % repartido en las partidas)</td><td class="num">'+svEur(tt.pem-tt.pemBase)+'</td></tr>':'')+
-     (tt.agente>0?'<tr><td>Honorarios de agente rehabilitador ('+loose(agP)+' % sobre el PEM con recargo)</td><td class="num">'+svEur(tt.agente)+'</td></tr>':'')+
      ((tt.gg+tt.bi)>0?'<tr><td>Gastos generales y beneficio industrial</td><td class="num">'+svEur(tt.gg+tt.bi)+'</td></tr>':''))
    :'';
   eco.innerHTML='<table class="svt"><tbody>'+
    desglose+
-   '<tr'+(desglose?' class="total"':'')+'><td>PEM de contrata'+(tt.agente>0?' (obra + recargo + agente + GG/BI)':' (partidas + GG + BI)')+'</td><td class="num">'+svEur(e.pem)+'</td></tr>'+
+   '<tr'+(desglose?' class="total"':'')+'><td>PEM de contrata'+(recP>0?' (obra + recargo + GG/BI)':' (partidas + GG + BI)')+'</td><td class="num">'+svEur(e.pem)+'</td></tr>'+
    '<tr><td>IVA de la obra ('+loose(e.ivaObraPct)+' %)</td><td class="num">'+svEur(e.ivaObraEur)+'</td></tr>'+
+   (tt.agente>0?'<tr><td>Honorarios de agente rehabilitador ('+loose(agP)+' % sobre el PEM con recargo) + IVA '+loose(tt.ivaAg)+' %</td><td class="num">'+svEur(tt.agenteConIva)+'</td></tr>':'')+
    '<tr><td>Honorarios técnicos + IVA ('+loose(e.ivaHon)+' %)</td><td class="num">'+svEur(e.honTecConIva)+'</td></tr>'+
    (e.honAgente>0?'<tr><td>Honorarios agente rehabilitador (aparte) + IVA</td><td class="num">'+svEur(e.honAgenteConIva)+'</td></tr>':'')+
    '<tr class="total"><td>COSTE SUBVENCIONABLE</td><td class="num">'+svEur(e.costeSubvencionable)+'</td></tr>'+
@@ -4981,9 +4993,11 @@ function svInformeInner(o,pal){
   '<table class="svt"><thead><tr><th>Concepto</th><th class="num">Importe</th></tr></thead><tbody>'+
   o.capitulos.map(function(c){return '<tr><td>'+esc(c.cod)+' · '+esc(c.res)+'</td><td class="num">'+svEur(capTotal(c))+'</td></tr>';}).join('')+
   ((r.e.t.gg+r.e.t.bi)>0?'<tr><td>Gastos generales ('+loose(o.config.gg)+' %) y beneficio industrial ('+loose(o.config.bi)+' %)</td><td class="num">'+svEur(r.e.t.gg+r.e.t.bi)+'</td></tr>':'')+
-  ((r.e.t.agente>0)?'<tr><td>Honorarios de agente rehabilitador</td><td class="num">'+svEur(r.e.t.agente)+'</td></tr>':'')+
   '<tr class="subtot"><td>PEM de contrata</td><td class="num">'+svEur(r.e.pem)+'</td></tr>'+
   svRow('IVA obra ('+loose(r.e.ivaObraPct)+' %)',svEur(r.e.ivaObraEur),svEur(r.e.pem)+' × '+loose(r.e.ivaObraPct)+'%')+
+  /* PAPEL DEL CLIENTE: importe y su IVA, NUNCA el % ni la base de cálculo (dato de empresa).
+     Va en <tr> plano y no en svRow porque svRow enseñaría la fórmula. */
+  ((r.e.t.agente>0)?'<tr><td>Honorarios de agente rehabilitador + IVA '+loose(r.e.t.ivaAg)+' %</td><td class="num">'+svEur(r.e.t.agenteConIva)+'</td></tr>':'')+
   svRow('Honorarios téc. + IVA',svEur(r.e.honTecConIva),svEur(r.e.honTec)+' + IVA '+loose(r.e.ivaHon)+'%')+
   (r.e.honAgente>0?svRow('Agente rehabilitador + IVA',svEur(r.e.honAgenteConIva),svEur(r.e.honAgente)+' + IVA'):'')+
   '<tr class="total"><td>COSTE SUBVENCIONABLE</td><td class="num">'+svEur(r.e.costeSubvencionable)+'</td></tr>'+
@@ -5623,6 +5637,7 @@ function renderAjustes(){ var host=document.getElementById('cfgView'); var p=sta
   af('TIN financiación','tin',p.tin,'%')+af('Plazo financiación','meses',p.meses,'meses')+
   af('Validez de oferta','validez',p.validez,'días')+
   af('Recargo adelanto por defecto (partidas)','recPct',p.recPct,'%')+af('Honorarios agente por defecto','recAgentePct',p.recAgentePct,'%')+
+  af('IVA de los honorarios de agente','ivaAgentePct',(p.ivaAgentePct!=null&&p.ivaAgentePct!==''?p.ivaAgentePct:21),'%')+
   '<div class="fr"><label>Deducción IRPF en ficha</label><div class="ib"><select data-p="irpf"><option value="1"'+(p.irpf?' selected':'')+'>Mostrar</option><option value=""'+(!p.irpf?' selected':'')+'>Ocultar</option></select></div></div>'+
  '</div></div>';
  h+='<div class="panelbox"><div class="ph"><h2>Empresa (dossier de venta)</h2></div><div class="frm">'+
@@ -5640,7 +5655,8 @@ function renderAjustes(){ var host=document.getElementById('cfgView'); var p=sta
   af2('Viviendas','viviendas',o.viviendas,'uds')+af2('Locales','locales',o.locales,'m²')+af2('Plantas','plantas',o.plantas,'uds')+
   af2('Gastos generales','gg',o.config.gg,'%')+af2('Beneficio industrial','bi',o.config.bi,'%')+af2('IVA','iva',o.config.iva,'%')+
   af2('Adelanto · recargo en partidas','recPct',(o.recPct!=null&&o.recPct!==''?o.recPct:p.recPct),'%')+af2('Adelanto · honorarios agente','recAgentePct',(o.recAgentePct!=null&&o.recAgentePct!==''?o.recAgentePct:p.recAgentePct),'%')+
-  '<div class="fr wide"><label>&nbsp;</label><div class="ib"><span class="hint">Si en ESTA obra NO adelantáis las ayudas, pon los dos a 0. Por defecto heredan el valor global (Parámetros de cálculo).</span></div></div>'+
+  af2('IVA de los honorarios de agente','ivaAgentePct',ivaAgPctDe(o),'%')+
+  '<div class="fr wide"><label>&nbsp;</label><div class="ib"><span class="hint">Si en ESTA obra NO adelantáis las ayudas, pon los dos primeros a 0. Por defecto heredan el valor global (Parámetros de cálculo). El IVA del agente es 21 % porque es un servicio, no ejecución de obra: bájalo a 10 % solo si esa gestión se factura dentro del contrato de obra.</span></div></div>'+
  '</div></div>'; }
  h+='<div class="panelbox" style="grid-column:1/-1"><div class="ph"><h2>Datos</h2></div><div style="padding:14px;display:flex;gap:10px;flex-wrap:wrap">'+
   '<button class="mini" data-action="exportJson">Exportar copia de seguridad (JSON)</button>'+
@@ -5656,7 +5672,7 @@ function renderAjustes(){ var host=document.getElementById('cfgView'); var p=sta
  var fq=document.getElementById('fotoQuitar'); if(fq)fq.onclick=function(){ state.params.fotoPortada=null; save(); renderAjustes(); toast('Se usará la foto estándar'); };
  host.querySelectorAll('[data-o]').forEach(function(el){ el.addEventListener('change',function(){ var oo=obra(); if(!oo)return;
    var k=el.dataset.o; if(k==='gg'||k==='bi'||k==='iva')oo.config[k]=num(el.value);
-   else if(k==='viviendas'||k==='locales'||k==='plantas'||k==='recPct'||k==='recAgentePct')oo[k]=num(el.value);
+   else if(k==='viviendas'||k==='locales'||k==='plantas'||k==='recPct'||k==='recAgentePct'||k==='ivaAgentePct')oo[k]=num(el.value);
    else oo[k]=el.value; save(); toast('Obra actualizada'); }); });
  var imp=document.getElementById('importFile'); if(imp)imp.addEventListener('change',function(){ var f=imp.files[0]; if(!f)return;
    var r=new FileReader(); r.onload=function(){ try{ var st=JSON.parse(r.result); if(!st.obras)throw 0;
@@ -6312,8 +6328,9 @@ function dossierHtml(o){ var f=fichaDe(o), t=f.t, opt=f.opt, p=state.params;
    if(!ciego)h+='<tr class="sub"><td class="l" colspan="4">TOTAL C'+esc(c.cod)+' — '+esc(c.res.toUpperCase())+'</td><td>'+m2(capTotal(c,o))+'</td></tr>'; });
  if(!ciego){ h+='<tr class="fin"><td class="l" colspan="4">PRESUPUESTO DE EJECUCIÓN MATERIAL (PEM)</td><td>'+m2(t.pem)+'</td></tr>';
   if(t.gg+t.bi>0)h+='<tr class="fin"><td class="l" colspan="4">Gastos generales ('+o.config.gg+' %) y beneficio industrial ('+o.config.bi+' %)</td><td>'+m2(t.gg+t.bi)+'</td></tr>';
-  if(t.agente>0)h+='<tr class="fin"><td class="l" colspan="4">Honorarios de agente rehabilitador</td><td>'+m2(t.agente)+'</td></tr>';
   h+='<tr class="fin"><td class="l" colspan="4">IVA ('+o.config.iva+' %)</td><td>'+m2(t.iva)+'</td></tr>';
+  /* PAPEL DEL CLIENTE: el importe con su IVA, sin el % ni la base (dato de empresa) */
+  if(t.agente>0)h+='<tr class="fin"><td class="l" colspan="4">Honorarios de agente rehabilitador + IVA '+t.ivaAg+' %</td><td>'+m2(t.agenteConIva)+'</td></tr>';
   if(t.honTecConIva>0)h+='<tr class="fin"><td class="l" colspan="4">Honorarios técnicos (arquitecto) + IVA '+t.ivaHon+' %</td><td>'+m2(t.honTecConIva)+'</td></tr>'; }
  h+='</tbody></table>'+
   (ciego?'':'<div class="dk-total dk-black"><span class="tl">TOTAL PRESUPUESTO (IVA INCLUIDO)</span><span class="tv">'+eur(t.total)+'</span></div>')+
@@ -6348,7 +6365,7 @@ window.PRESTON={state:function(){return state;},obra:obra,ficha:function(){var o
  med:{parcial:parcialLinea,suma:sumaLineas,open:function(id){openDock(id);},close:function(){closeDock();},dock:function(){return {open:dockOpen,id:dockId};}},
  carp:{ir:abrirCarpeta,equipo:EQUIPO,de:carpetaDe,lista:obrasCarpeta,abierta:carpetaAbierta},
  ver:compruebaVersion,
- version:'v142-recargo-19 (LAB · copia de pruebas)'};
+ version:'v143-agente-iva-21 (LAB · copia de pruebas)'};
 try{var th0=localStorage.getItem('prestonLAB_theme'); if(th0)document.documentElement.setAttribute('data-theme',th0);}catch(e){}
 var _bd=document.getElementById('brandDode'); if(_bd&&typeof PBRAND!=='undefined')_bd.src=PBRAND.dode;
 try{ var _rv=document.getElementById('railVer'); if(_rv)_rv.textContent='Versión '+(PRESTON.version||'').split(' ')[0]; }catch(e){}
