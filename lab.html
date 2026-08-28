@@ -196,11 +196,16 @@ table.data{width:100%;border-collapse:collapse}
 .sub-id{display:flex;flex-direction:column;gap:2px;min-width:0}
 .cp-sl{color:var(--muted);font-weight:400}
 /* ===== dentro de una carpeta ===== */
-/* ===== movimiento suave (se apaga si el sistema pide reducir animaciones) ===== */
+/* ===== movimiento suave (se apaga si el sistema pide reducir animaciones) =====
+   Al entrar en una carpeta el contenido nuevo ENTRA desde la derecha y al volver
+   desde la izquierda, escalonado. El fundido va en el scroller (solo opacity: un
+   transform ahi romperia los sticky de la hoja de subvenciones). */
 @keyframes eqIn{from{opacity:0;transform:translateY(9px)}to{opacity:1;transform:translateY(0)}}
 @keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes navIn{from{opacity:0;transform:translate3d(20px,0,0)}to{opacity:1;transform:none}}
+@keyframes navOut{from{opacity:0;transform:translate3d(-20px,0,0)}to{opacity:1;transform:none}}
 @media (prefers-reduced-motion:no-preference){
- .view.active>.scroller{animation:fadeIn .18s ease-out}
+ .view.active>.scroller{animation:fadeIn .16s ease-out}
  .eq-grid .eqcard{animation:eqIn .28s cubic-bezier(.2,.7,.2,1) backwards}
  .eq-grid .eqcard:nth-child(1){animation-delay:.03s}
  .eq-grid .eqcard:nth-child(2){animation-delay:.07s}
@@ -208,9 +213,34 @@ table.data{width:100%;border-collapse:collapse}
  .eq-grid .eqcard:nth-child(4){animation-delay:.15s}
  .eq-grid .eqcard:nth-child(5){animation-delay:.19s}
  .eq-grid .eqcard:nth-child(6){animation-delay:.23s}
- .cp-head,.cp-tools{animation:fadeIn .2s ease-out}
- .cp-sec{animation:eqIn .26s cubic-bezier(.2,.7,.2,1) backwards}
  .obras-grid .ocard{animation:fadeIn .22s ease-out backwards}
+ /* dentro de la carpeta: cabecera, herramientas y cada bloque entran en cascada */
+ #carpetaView .cp-head,#carpetaView .cp-tools,#carpetaView .eq-grid>*,
+ #carpetaView .cp-sec,#carpetaView .obras-grid>*{
+   animation:navIn .3s cubic-bezier(.2,.7,.2,1) backwards;will-change:transform,opacity}
+ #carpetaView.atras .cp-head,#carpetaView.atras .cp-tools,#carpetaView.atras .eq-grid>*,
+ #carpetaView.atras .cp-sec,#carpetaView.atras .obras-grid>*{animation-name:navOut}
+ #carpetaView .cp-head{animation-duration:.24s}
+ #carpetaView .cp-tools{animation-delay:.04s}
+ #carpetaView .eq-grid>*:nth-child(1),#carpetaView .obras-grid>*:nth-child(1),#carpetaView .cp-sec:nth-child(1){animation-delay:.06s}
+ #carpetaView .eq-grid>*:nth-child(2),#carpetaView .obras-grid>*:nth-child(2){animation-delay:.1s}
+ #carpetaView .eq-grid>*:nth-child(3),#carpetaView .obras-grid>*:nth-child(3){animation-delay:.14s}
+ #carpetaView .eq-grid>*:nth-child(4),#carpetaView .obras-grid>*:nth-child(4){animation-delay:.18s}
+ #carpetaView .eq-grid>*:nth-child(n+5),#carpetaView .obras-grid>*:nth-child(n+5){animation-delay:.22s}
+ /* las filas de dentro de una subcarpeta caen una detras de otra */
+ #carpetaView .cp-body>.cp-row{animation:navIn .26s cubic-bezier(.2,.7,.2,1) backwards}
+ #carpetaView.atras .cp-body>.cp-row{animation-name:navOut}
+ #carpetaView .cp-body>.cp-row:nth-child(1){animation-delay:.08s}
+ #carpetaView .cp-body>.cp-row:nth-child(2){animation-delay:.12s}
+ #carpetaView .cp-body>.cp-row:nth-child(3){animation-delay:.15s}
+ #carpetaView .cp-body>.cp-row:nth-child(4){animation-delay:.18s}
+ #carpetaView .cp-body>.cp-row:nth-child(n+5){animation-delay:.2s}
+}
+/* respuesta al pulsar: la ficha se hunde un pelin — sensacion de "entra" */
+.eqcard,.cp-row,.eq-prow,.ocard{transition:transform .13s cubic-bezier(.2,.7,.2,1),box-shadow .15s,border-color .15s,background .13s}
+.eqcard:active,.cp-row.com:active,.eq-prow:active,.ocard:active{transform:scale(.985)}
+.eq-spot{transition:transform .12s cubic-bezier(.2,.7,.2,1)}
+.eq-hero.pulsa{transition:transform .16s cubic-bezier(.2,.7,.2,1),opacity .16s;transform:scale(1.03);opacity:.85}
 }
 .eq-fold .eqf{transition:transform .18s cubic-bezier(.2,.7,.2,1)}
 .eqcard:hover .eqf{transform:translateY(-2px) scale(1.05)}
@@ -3461,7 +3491,16 @@ function obrasCarpeta(k){ return state.obras.filter(function(o){ return carpetaD
 function carpetaAbierta(){ var k=UI2.carpeta; return (k&&eqDe(k))?k:''; }
 /* lo que se cree estando dentro de una carpeta se queda en esa carpeta */
 function asignaCarpeta(o){ var k=carpetaAbierta(); if(o&&k&&k!==SIN.id)o.autor=k; return o; }
-function abrirCarpeta(k){ UI2.carpeta=k; saveUI2(); cpQ=''; cpSub=''; cpCom=''; go('carpeta'); }
+/* sentido de la navegacion: al entrar el contenido llega desde la derecha y al
+   volver desde la izquierda. cpPaso() reinicia la animacion en cada nivel (hay
+   que forzar un reflow para que el navegador la vuelva a lanzar). */
+function cpPaso(dir,fn){ var h=document.getElementById('carpetaView');
+ if(h){ h.classList.remove('atras'); void h.offsetWidth; if(dir==='atras')h.classList.add('atras'); }
+ if(fn)fn();
+ var sc=h&&h.closest('.scroller'); if(sc)sc.scrollTop=0; }
+function abrirCarpeta(k){ UI2.carpeta=k; saveUI2(); cpQ=''; cpSub=''; cpCom='';
+ var h=document.getElementById('carpetaView'); if(h)h.classList.remove('atras');
+ go('carpeta'); }
 function totalCarpeta(l){ var t=0; l.forEach(function(o){ t+=totalesDe(o).total; }); return t; }
 function cpTitulo(){ var e=eqDe(carpetaAbierta())||SIN; var l=obrasCarpeta(e.id);
  var t=(e.id===SIN.id?'Sin repartir':'Carpeta de '+e.nom);
@@ -3667,9 +3706,14 @@ function renderCarpeta(){ var host=document.getElementById('carpetaView'); if(!h
  }
 
  var back=host.querySelector('#cpBack');
- if(back)back.onclick=function(){ if(cpCom){ cpCom=''; renderCarpeta(); } else if(cpSub){ cpSub=''; cpQ=''; renderCarpeta(); } else go('equipo'); };
- host.querySelectorAll('[data-sub]').forEach(function(c){ c.onclick=function(){ cpSub=c.dataset.sub; cpCom=''; cpQ=''; renderCarpeta(); }; });
- host.querySelectorAll('.cp-row.com').forEach(function(c){ c.onclick=function(){ cpCom=c.dataset.com; renderCarpeta(); }; });
+ if(back)back.onclick=function(){
+   if(cpCom){ cpPaso('atras',function(){ cpCom=''; renderCarpeta(); }); }
+   else if(cpSub){ cpPaso('atras',function(){ cpSub=''; cpQ=''; renderCarpeta(); }); }
+   else go('equipo'); };
+ host.querySelectorAll('[data-sub]').forEach(function(c){ c.onclick=function(){
+   cpPaso('entra',function(){ cpSub=c.dataset.sub; cpCom=''; cpQ=''; renderCarpeta(); }); }; });
+ host.querySelectorAll('.cp-row.com').forEach(function(c){ c.onclick=function(){
+   cpPaso('entra',function(){ cpCom=c.dataset.com; renderCarpeta(); }); }; });
  host.querySelectorAll('[data-cp]').forEach(function(b){ b.onclick=function(){ var a=b.dataset.cp;
    if(a==='wizard'){ wizStep=1; wizData=null; go('asistente'); }
    else if(a==='clon'){ abrePickClon(); }
@@ -6120,7 +6164,7 @@ window.PRESTON={state:function(){return state;},obra:obra,ficha:function(){var o
  pres:{payload:function(){var o=obra();return o?presPayload(o):null;},url:function(){var o=obra();return o?presUrl(o):null;}},
  med:{parcial:parcialLinea,suma:sumaLineas,open:function(id){openDock(id);},close:function(){closeDock();},dock:function(){return {open:dockOpen,id:dockId};}},
  carp:{ir:abrirCarpeta,equipo:EQUIPO,de:carpetaDe,lista:obrasCarpeta,abierta:carpetaAbierta},
- version:'v129-sin-animacion-abrir (LAB · copia de pruebas)'};
+ version:'v130-fluidez (LAB · copia de pruebas)'};
 try{var th0=localStorage.getItem('prestonLAB_theme'); if(th0)document.documentElement.setAttribute('data-theme',th0);}catch(e){}
 var _bd=document.getElementById('brandDode'); if(_bd&&typeof PBRAND!=='undefined')_bd.src=PBRAND.dode;
 if(USA_SERVIDOR){ state={v:3,activeId:null,params:defParams(),obras:[]}; } else { state=load(); }
