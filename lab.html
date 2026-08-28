@@ -3902,10 +3902,10 @@ function renderNav(){ var o=obra();
    (_cpE?navA('carpeta',_cpE.nom,'folder',obrasCarpeta(_cpE.id).length):'');
  /* las hojas de la obra solo se ven cuando ESTAS dentro de un presupuesto, y con
     su nombre de cabecera; al volver a carpetas o a lo general, desaparecen */
- var enObra=!!o&&(view==='presupuesto'||view==='subvenciones'||view==='dossier'||view==='presentacion'||view==='landing');
+ var enObra=!!o&&(view==='presupuesto'||view==='subvenciones'||view==='dossier'||view==='presentacion');
  var roh=document.getElementById('railObraHead');
  roh.style.display=enObra?'':'none'; if(enObra)roh.textContent=nombreBase(o.nombre||'Obra activa');
- document.getElementById('navObra').innerHTML=!enObra?'':(navA('presupuesto','Presupuesto','tree','')+navA('subvenciones','Subvención y CAE','subv','')+navA('dossier','Dossier de venta','doc','')+navA('presentacion','Presentación','sheet','')+navA('landing','Landing de venta','obras',''));
+ document.getElementById('navObra').innerHTML=!enObra?'':(navA('presupuesto','Presupuesto','tree','')+navA('subvenciones','Subvención y CAE','subv','')+navA('dossier','Dossier de venta','doc','')+navA('presentacion','Presentación','sheet',''));
  document.getElementById('navGen').innerHTML=navA('obras','Todas las obras','obras',state.obras.length)+navA('biblioteca','Base de precios','book','')+navA('ajustes','Ajustes','cfg','');
  function navA(v,label,ic,badge){ return '<a href="#" data-v="'+v+'" class="'+(view===v?'active':'')+'">'+g(ic)+'<span>'+label+'</span>'+(badge!==''?'<span class="badge num">'+badge+'</span>':'')+'</a>'; }
  document.querySelectorAll('.nav a').forEach(function(a){ a.onclick=function(e){e.preventDefault();go(a.dataset.v);}; });
@@ -3921,7 +3921,7 @@ function go(v){ view=v; reindex(); if(v==='equipo'||v==='obras'){ UI2.carpeta=nu
  if(v==='carpeta'){ var _cpT=cpTitulo(); setTxt('topTitle',_cpT[0]); setTxt('topSub',_cpT[1]); renderCarpeta(); }
  if(v==='obras')renderObras(); if(v==='asistente')renderWiz();
  if(v==='presupuesto'){renderEditor();} if(v==='subvenciones')renderSubv();
- if(v==='dossier')renderDossier(); if(v==='presentacion')renderPres(); if(v==='landing')renderLand();
+ if(v==='dossier')renderDossier(); if(v==='presentacion')renderPres();
  if(v==='biblioteca')renderBdp(); if(v==='ajustes')renderAjustes();
 }
 
@@ -6652,8 +6652,22 @@ var LAND_CSS=[
 ""
 ].join('\n');
 
-/* ================= LANDING DE VENTA =================
-   La tercera salida de «Terminar», además del dossier y la presentación: una página web
+/* ================= LANDING DE VENTA — APARCADA (2026-08-28) =================
+   RETIRADA DE LA INTERFAZ a petición del usuario («lo vamos a quitar de momento»). El
+   generador se queda aquí entero y probado, pero NO se puede llegar a él: no hay tarjeta
+   en Terminar, ni entrada en el menú de la obra, ni en la paleta de comandos, y go() ya
+   no la pinta. Sin puerta de entrada no se ejecuta nada de esto.
+   PARA VOLVER A ABRIRLA hay que devolver estas cuatro cosas:
+     1. la tarjeta data-terminar="landing" de abrePickTerminar()
+     2. 'landing' en el enObra de renderNav() y su navA(...) en navObra
+     3. if(v==='landing')renderLand(); en go()
+     4. la fila ['landing',...] de la paleta y su nombre en la lista de vistas de obra
+   La sección <section data-view="landing"> del HTML y estos ayudantes se dejan puestos,
+   así que reabrirla es solo eso. Lo publicado se comprobó en vivo: la página se ve entera,
+   el PDF abre con el presupuesto y cuadra al céntimo, y los textos cambian según se
+   adelanten las ayudas o no.
+   ---------------------------------------------------------------------------
+   Lo que hacía: la tercera salida de «Terminar», además del dossier y la presentación: una página web
    de propuesta para la comunidad, con el vídeo de empresa, el PDF, la presentación y las
    preguntas frecuentes. Se genera SOLA con los datos de la obra — mismas cifras que el
    dossier, porque salen del mismo motor (subvCalcular).
@@ -7781,9 +7795,7 @@ function abrePickTerminar(){
   '<button class="pick-row big" data-terminar="dossier"><span class="pk-main"><b>Dossier de venta</b>'+
     '<small>Documento A4 con presupuesto, subvención y financiación — para descargar en PDF y enviar.</small></span><span class="pk-go">→</span></button>'+
   '<button class="pick-row big" data-terminar="presentacion"><span class="pk-main"><b>Presentación para la comunidad</b>'+
-    '<small>Deck visual con las ayudas por adelantado — para enseñar en la junta de vecinos.</small></span><span class="pk-go">→</span></button>'+
-  '<button class="pick-row big" data-terminar="landing"><span class="pk-main"><b>Landing de venta</b>'+
-    '<small>Página web con el vídeo, el PDF, la presentación y las preguntas de siempre — para mandarle el enlace a la comunidad.</small></span><span class="pk-go">→</span></button>');
+    '<small>Deck visual con las ayudas por adelantado — para enseñar en la junta de vecinos.</small></span><span class="pk-go">→</span></button>');
 }
 /* delegación de clics dentro del modal de elección */
 document.getElementById('pickBody').addEventListener('click',function(e){
@@ -7932,8 +7944,8 @@ function palBuild(q){ q=(q||'').trim().toLowerCase(); var o=obra(); var items=[]
    add('Acciones','Renumerar códigos','según el orden actual','tree',function(){go('presupuesto');var b=document.querySelector('[data-action="renum"]');if(b)b.click();}); }
  add('Acciones','Cambiar tema claro/oscuro','','cfg',function(){document.getElementById('themeBtn').click();});
  add('Acciones','Exportar copia de seguridad (JSON)','','sheet',function(){go('ajustes');setTimeout(function(){var b=document.querySelector('[data-action="exportJson"]');if(b)b.click();},80);});
- [['obras','Obras','obras'],['presupuesto','Presupuesto','tree'],['subvenciones','Subvención y CAE','subv'],['dossier','Dossier de venta','doc'],['presentacion','Presentación','sheet'],['landing','Landing de venta','obras'],['biblioteca','Base de precios','book'],['ajustes','Ajustes','cfg']].forEach(function(v){
-   if(!o&&['presupuesto','subvenciones','dossier','presentacion','landing'].indexOf(v[0])>=0)return;
+ [['obras','Obras','obras'],['presupuesto','Presupuesto','tree'],['subvenciones','Subvención y CAE','subv'],['dossier','Dossier de venta','doc'],['presentacion','Presentación','sheet'],['biblioteca','Base de precios','book'],['ajustes','Ajustes','cfg']].forEach(function(v){
+   if(!o&&['presupuesto','subvenciones','dossier','presentacion'].indexOf(v[0])>=0)return;
    add('Ir a',v[1],'',v[2],function(){go(v[0]);}); });
  state.obras.forEach(function(ob){ if(ob.id!==state.activeId)add('Abrir obra',ob.nombre||'Sin nombre',ob.dir||'','obras',function(){abrirObra(ob.id);}); });
  if(o&&q){ o.capitulos.forEach(function(c){ add('Capítulos',c.cod+' · '+c.res,eur0(capTotal(c)),'tree',function(){gotoRow(c.id,null);});
@@ -8076,7 +8088,7 @@ window.PRESTON={state:function(){return state;},obra:obra,ficha:function(){var o
  qr:{matriz:qrMatriz,cw:qrCodewords,ec:qrEC,png:qrDataURL,svg:qrSvgDe},
  pub:{url:pubURL,qr:pubQR,pagina:paginaPublica,publica:publicaObra,token:pubDe,auto:autoPublica,hash:pubHash},
  dir:{bonita:dirBonita,muni:muniBonito,parse:parseDireccion},
- version:'v165-landing-visible (LAB · copia de pruebas)'};
+ version:'v166-sin-landing (LAB · copia de pruebas)'};
 try{var th0=localStorage.getItem('prestonLAB_theme'); if(th0)document.documentElement.setAttribute('data-theme',th0);}catch(e){}
 var _bd=document.getElementById('brandDode'); if(_bd&&typeof PBRAND!=='undefined')_bd.src=PBRAND.dode;
 try{ var _rv=document.getElementById('railVer'); if(_rv)_rv.textContent='Versión '+(PRESTON.version||'').split(' ')[0]; }catch(e){}
