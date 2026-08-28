@@ -2567,12 +2567,20 @@ function qrMatriz(txt){
  for(var k=0;k<8;k++){
   var t=m.map(function(f){return f.slice();});
   for(var y=0;y<n;y++)for(var x=0;x<n;x++)if(!res[y][x]&&mask(k,y,x))t[y][x]^=1;
-  /* información de formato de ESTA máscara */
-  var f=QR_FMT[k];
-  for(var i=0;i<15;i++){ var bit=+f[14-i];
-   if(i<6)t[8][i]=bit; else if(i===6)t[8][7]=bit; else if(i===7)t[8][8]=bit;
-   else if(i===8)t[7][8]=bit; else t[14-i][8]=bit;
-   if(i<8)t[n-1-i][8]=bit; else t[8][n-15+i]=bit; }
+  /* información de formato de ESTA máscara. El ORDEN es el que leen los
+     decodificadores reales (zxing y compañía): f[0] es el bit MÁS significativo.
+     Copia 1, alrededor del localizador superior izquierdo — fila 8 de izquierda a
+     derecha (saltando la columna 6, que es de sincronismo) y luego columna 8 de
+     abajo hacia arriba: */
+  var f=QR_FMT[k], i;
+  for(i=0;i<6;i++)t[8][i]=+f[i];
+  t[8][7]=+f[6]; t[8][8]=+f[7]; t[7][8]=+f[8];
+  for(i=9;i<15;i++)t[14-i][8]=+f[i];
+  /* copia 2, partida entre el localizador inferior izquierdo (columna 8, 7 bits de
+     abajo hacia arriba) y el superior derecho (fila 8, 8 bits hacia la derecha).
+     OJO: la vertical son SIETE bits — el octavo hueco es el módulo oscuro fijo. */
+  for(i=0;i<7;i++)t[n-1-i][8]=+f[i];
+  for(i=7;i<15;i++)t[8][n-15+i]=+f[i];
   t[n-8][8]=1;
   var p=qrPenal(t,n);
   if(p<mejorP){ mejorP=p; mejor=t; } }
@@ -6845,7 +6853,7 @@ window.PRESTON={state:function(){return state;},obra:obra,ficha:function(){var o
  ver:compruebaVersion,
  qr:{matriz:qrMatriz,cw:qrCodewords,ec:qrEC,png:qrDataURL,svg:qrSvgDe},
  pub:{url:pubURL,qr:pubQR,pagina:paginaPublica,publica:publicaObra,token:pubDe,auto:autoPublica,hash:pubHash},
- version:'v154-livehead-motor-real (LAB · copia de pruebas)'};
+ version:'v155-qr-formato-arreglado (LAB · copia de pruebas)'};
 try{var th0=localStorage.getItem('prestonLAB_theme'); if(th0)document.documentElement.setAttribute('data-theme',th0);}catch(e){}
 var _bd=document.getElementById('brandDode'); if(_bd&&typeof PBRAND!=='undefined')_bd.src=PBRAND.dode;
 try{ var _rv=document.getElementById('railVer'); if(_rv)_rv.textContent='Versión '+(PRESTON.version||'').split(' ')[0]; }catch(e){}
