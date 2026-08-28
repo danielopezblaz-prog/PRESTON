@@ -2757,6 +2757,11 @@ function subvCalcular(o){
  var caeImporte=(num(s.cae)>0?num(s.cae):caeAuto);
  var caeTotal=s.caeInc?caeImporte:0;
 
+ /* «Sin ayudas»: se ponen a cero DESPUÉS de calcularlas, no antes, para que el resto
+    del informe (bases, topes, tramos) siga cuadrando y se puedan recuperar sin más
+    que volver a cambiar la plantilla. */
+ var sinAyudas=(s.modo==='ninguna');
+ if(sinAyudas){ grantsCapados=0; accCapados=0; caeTotal=0; }
  var ayudasGrants=grantsCapados+accCapados;
  var ayudasTotales=ayudasGrants+caeTotal;
  var obtenibleReal=Math.min(ayudasTotales,costeTotal);
@@ -2833,7 +2838,7 @@ function subvCalcular(o){
   est_porPct:est_porPct,est_topeViv:est_topeViv,est_locales:est_locales,est_topeTotal:est_topeTotal,estatalTotal:estatalTotal,
   reh_porPct:reh_porPct,reh_topeViv:reh_topeViv,rehabTotal:rehabTotal,grantsBrutos:grantsBrutos,grantsCapados:grantsCapados,recorteGrants:recorteGrants,
   accCoste:accCoste,nivel:nivel,acc_est:acc_est,acc_cam:acc_cam,accBrutos:accBrutos,accCapados:accCapados,recorteAcc:recorteAcc,
-  caeTotal:caeTotal,caePct:caePct,caeImporte:caeImporte,caeF:caeF,ayudasGrants:ayudasGrants,ayudasTotales:ayudasTotales,
+  caeTotal:caeTotal,caePct:caePct,caeImporte:caeImporte,caeF:caeF,sinAyudas:sinAyudas,ayudasGrants:ayudasGrants,ayudasTotales:ayudasTotales,
   obtenibleReal:obtenibleReal,recorteFinal:recorteFinal,costeTotal:costeTotal,costeReal:costeTotal,esAdelanto:esAdelanto,
   topeEstatalViv:topeEstatalViv,topeRehabViv:topeRehabViv,topeAccViv:topeAccViv,
   irpfPct:IR.pct,irpfDeduccion:irpfDeduccion,irpfAnios:irpfAnios,irpfAnual:irpfAnual,netoTrasIrpf:netoTrasIrpf,
@@ -4814,9 +4819,14 @@ function svShellHtml(o,s){
  h+='<section class="sv-card" data-sec="1"><h2 class="sv-head"><span class="n">2</span> 📍 Clasificación urbanística y ahorro energético</h2><div class="sv-body">';
  h+='<div class="sv-modo"><div class="sv-sub" style="margin-top:0">Plantilla de subvenciones <span class="sv-hint">— elige qué planes incluir</span></div>'+
   '<div class="sv-modo-tabs">'+
-  '<button type="button" class="modo-btn'+(s.modo!=='estatal'?' on':'')+'" data-svmodo="completo">🏛️ Estatal + Rehabilita Madrid</button>'+
+  '<button type="button" class="modo-btn'+(s.modo==='completo'||!s.modo?' on':'')+'" data-svmodo="completo">🏛️ Estatal + Rehabilita Madrid</button>'+
   '<button type="button" class="modo-btn'+(s.modo==='estatal'?' on':'')+'" data-svmodo="estatal">🇪🇸 Solo Plan Estatal</button>'+
-  '</div><span class="sv-hint" id="svModoHint"></span></div>';
+  /* tercera opción: quitar las ayudas y presupuestar a pelo (comunidad que no
+     entra en convocatoria, o que solo quiere ver el coste sin contar con nada) */
+  '<button type="button" class="modo-btn'+(s.modo==='ninguna'?' on':'')+'" data-svmodo="ninguna">🚫 Sin ayudas</button>'+
+  '</div><span class="sv-hint" id="svModoHint">'+
+   (s.modo==='ninguna'?'<b style="color:var(--svg)">Las ayudas están quitadas.</b> El presupuesto se presenta sin subvención ni CAE: la comunidad ve el coste íntegro. Vuelve a pulsar otra plantilla para recuperarlas.':'')+
+  '</span></div>';
  h+='<div class="sv-sub" style="margin-top:0">Detección automática de zona (geoportal de Madrid)</div>'+
   '<div class="geo-row"><button type="button" class="sv-btn pri sm" id="svDetectar">📍 Detectar zona desde la dirección</button>'+
   '<span class="chip-zona" id="svZonaChip">Sin detectar</span>'+
@@ -5118,7 +5128,8 @@ function svRefresh(){ var o=obra(); if(!o)return; var s=subvDe(o);
  var fill=document.getElementById('svStepFill'); if(fill)fill.style.width=Math.round(done/SV_STEPS.length*100)+'%';
  /* hint del modo */
  var mh=document.getElementById('svModoHint');
- if(mh)mh.textContent=(s.modo!=='estatal')?'Incluye Plan Estatal + Plan Rehabilita Madrid (según zona ZETU/ZIRE) y la accesibilidad municipal (Línea Accesible al 75 %/40 %).':'Solo Plan Estatal: la accesibilidad se calcula al 70–80 % estatal (Art. 99.2); no se cuenta el Plan Rehabilita Madrid.';
+ if(mh&&s.modo==='ninguna'){ mh.innerHTML='<b style="color:var(--svg)">Ayudas quitadas.</b> El presupuesto se presenta sin subvención ni CAE: la comunidad ve el coste íntegro. Los cálculos se conservan — vuelve a pulsar otra plantilla y reaparecen tal cual estaban.'; }
+ else if(mh)mh.textContent=(s.modo!=='estatal')?'Incluye Plan Estatal + Plan Rehabilita Madrid (según zona ZETU/ZIRE) y la accesibilidad municipal (Línea Accesible al 75 %/40 %).':'Solo Plan Estatal: la accesibilidad se calcula al 70–80 % estatal (Art. 99.2); no se cuenta el Plan Rehabilita Madrid.';
  /* badge de cobertura */
  var badge=document.getElementById('svCob');
  if(badge){ var r=null; try{ if(pemDe(o)>0&&num(o.viviendas)>=1)r=subvCalcular(o); }catch(_){}
@@ -5286,14 +5297,17 @@ function svInformeInner(o,pal){
 
  /* viabilidad: siempre en verde, texto adaptado a la cobertura real */
  var pctCob=Math.round(r.pctSobreCoste*100),semTxt,semSub;
- if(r.pctSobreCoste>=0.80){semTxt='VIABILIDAD ALTA';semSub='La subvención cubre la mayor parte del coste (≈ '+pctCob+' %).';}
+ /* con las ayudas quitadas, el papel del cliente no puede hablar de subvenciones:
+    ni semáforo de cobertura, ni avisos de convocatoria. Solo el coste. */
+ if(r.sinAyudas){ semTxt='PRESUPUESTO SIN AYUDAS'; semSub='Este documento recoge el coste íntegro de la actuación, sin contar con subvenciones ni certificados de ahorro energético.'; avisos=''; }
+ else if(r.pctSobreCoste>=0.80){semTxt='VIABILIDAD ALTA';semSub='La subvención cubre la mayor parte del coste (≈ '+pctCob+' %).';}
  else if(r.pctSobreCoste>=0.60){semTxt='VIABILIDAD ALTA';semSub='La subvención cubre una gran parte del coste (≈ '+pctCob+' %).';}
  else if(r.pctSobreCoste>=0.45){semTxt='VIABILIDAD BUENA';semSub='La subvención cubre una parte muy importante del coste (≈ '+pctCob+' %).';}
  else {semTxt='SUBVENCIÓN RELEVANTE';semSub='La subvención reduce notablemente la inversión de la comunidad (≈ '+pctCob+' % del coste).';}
 
  var h='<div class="doc-head">'+
   '<img class="lg" src="'+PBRAND.logo+'" alt="Revestimientos Proyecton">'+
-  '<div><h2>Informe de Subvenciones a la Rehabilitación</h2></div>'+
+  '<div><h2>'+(r.sinAyudas?'Presupuesto de Rehabilitación':'Informe de Subvenciones a la Rehabilitación')+'</h2></div>'+
   '<div class="who"><b>Revestimientos Proyecton SLU</b>'+(p.cif?'CIF '+esc(p.cif)+' · ':'')+esc(p.dirEmp||'Leganés (Madrid)')+'<br>'+esc(p.email||'info@proyecton.es')+' · '+esc(p.tel||'')+'</div></div>';
  h+='<p class="doc-sub"><b>'+esc(o.dir||o.nombre||'(sin dirección)')+'</b> · '+esc(o.muni||'Madrid')+(s.distrito?' ('+esc(s.distrito)+')':'')+' · '+m0(r.numViv)+' viviendas · '+hoy()+'</p>';
  h+='<div class="meta-edif">'+
@@ -5307,6 +5321,15 @@ function svInformeInner(o,pal){
   (r.incluyeRehab?'<div><span>% Rehabilita</span><b>'+svPctF(r.reh_pct)+'</b></div>':'<div><span>% Accesibilidad</span><b>'+(hayAcc?svPctF(num(s.pctAccEstatal)/100):'—')+'</b></div>')+
   '</div>';
  h+='<p class="doc-sub"><span style="color:#5b6770">Actuaciones:</span> '+esc(actTxt)+'</p>';
+ /* sin ayudas: solo los dos datos que existen — lo que cuesta y lo que toca a cada
+    vivienda. Nada de "ayuda estimada 0,00 €" ni donut de cobertura. */
+ if(r.sinAyudas){
+  h+='<div class="kpis">'+
+   '<div class="kpi coste"><div class="lbl">🏗️ Coste total comunidad</div><div class="val">'+svEur(r.costeReal)+'</div><div class="sml">PEM contrata '+svEur(r.e.pem)+'</div></div>'+
+   '<div class="kpi resto"><div class="lbl">👥 Por vivienda</div><div class="val">'+svEur(r.restoPorViv)+'</div><div class="sml">'+m0(r.numViv)+' viviendas</div></div>'+
+   '</div>'+
+   '<div class="hero"><div class="semaforo verde"><span class="dot"></span><div>'+semTxt+'<small>'+semSub+'</small></div></div></div>';
+ } else {
  h+='<div class="kpis">'+
   '<div class="kpi coste"><div class="lbl">🏗️ Coste total comunidad</div><div class="val">'+svEur(r.costeReal)+'</div><div class="sml">PEM contrata '+svEur(r.e.pem)+'</div></div>'+
   '<div class="kpi subv"><div class="lbl">💶 Ayuda estimada</div><div class="val">'+svEur(r.obtenibleReal)+'</div><div class="sml">≈ '+svPctF(r.pctSobreCoste)+' del coste (orientativo)</div></div>'+
@@ -5328,6 +5351,7 @@ function svInformeInner(o,pal){
   '<span><i style="background:'+pal.oro+'"></i>CAE · '+svEur(r.caeTotal)+'</span>'+
   '<span><i style="background:'+pal.resto+'"></i>Vecinos · '+svEur(r.restoVecinos)+'</span>'+
   '</div>';
+ }   /* fin del bloque de KPIs y reparto que solo tiene sentido con ayudas */
  /* tablas A/B + desglose */
  h+='<div class="grid-2"><div>'+
   '<div class="sv-sub">Desglose del presupuesto</div>'+
@@ -5350,6 +5374,11 @@ function svInformeInner(o,pal){
     (r.e.tasasBonif>0?' − '+loose(r.e.tasasBonif)+' % de bonificación = <b>'+svEur(r.e.tasasEur)+'</b>':'')+
     '<br><i>No incluidas en el total: las liquida directamente el Ayuntamiento.</i></td><td class="num">'+svEur(r.e.tasasEur)+'</td></tr>':'')+
   '</tbody></table></div><div>'+
+  /* con las ayudas quitadas no se enseñan las tablas A/B ni la de accesibilidad:
+     el cliente vería columnas de subvención a cero, que confunde más que informa */
+  (r.sinAyudas
+   ?'<div class="sv-sub">Ayudas</div><div class="avisobox"><span class="ic">ℹ️</span><div>Este presupuesto se presenta <b>sin ayudas</b>: no se ha considerado ninguna subvención ni la venta de certificados de ahorro energético. El importe que figura es el <b>coste íntegro</b> para la comunidad.</div></div>'
+   :(''+
   '<div class="sv-sub">A) Plan Estatal · Eficiencia energética (Anexo II / Art. 99.3)</div>'+
   '<table class="svt"><thead><tr><th>Concepto</th><th class="num">Importe</th></tr></thead><tbody>'+
   svRow('Subvención ('+svPctF(r.pctEst)+' del coste)',svEur(r.est_porPct),svEur(r.baseEnergia)+' (base energía) × '+svPctF(r.pctEst))+
@@ -5364,9 +5393,17 @@ function svInformeInner(o,pal){
     svRow('Subvención ('+svPctF(r.reh_pct)+' del coste)',svEur(r.reh_porPct),svEur(r.baseEnergia)+' (base energía) × '+svPctF(r.reh_pct))+
     svRow('Tope ('+svEur(num(r.s.topeVivRehab))+'/viv)',svEur(r.reh_topeViv),m0(r.numViv)+' × '+svEur(num(r.s.topeVivRehab)))+
     '<tr class="total"><td>TOTAL REHABILITA</td><td class="num">'+svEur(r.rehabTotal)+'</td></tr></tbody></table>')):'')+
-  accHTML+
+  accHTML))+
   '</div></div>';
- /* C) resumen */
+ /* C) resumen — sin ayudas basta con el coste y lo que sale por vivienda */
+ if(r.sinAyudas){
+  h+='<div class="sv-sub">Resumen económico</div>'+
+   '<table class="svt"><thead><tr><th>Concepto</th><th class="num">Importe</th></tr></thead><tbody>'+
+   '<tr><td>Coste total de la actuación</td><td class="num">'+svEur(r.costeReal)+'</td></tr>'+
+   '<tr class="total"><td>A PAGAR POR LA COMUNIDAD</td><td class="num">'+svEur(r.restoVecinos)+'</td></tr>'+
+   '<tr><td>Por vivienda ('+m0(r.numViv)+')</td><td class="num">'+svEur(r.restoPorViv)+'</td></tr>'+
+   '</tbody></table>';
+ } else
  h+='<div class="sv-sub">C) Resumen económico</div>'+
   '<table class="svt"><thead><tr><th>Concepto</th><th class="num">Importe</th></tr></thead><tbody>'+
   '<tr><td>Coste total de actuación para la comunidad</td><td class="num">'+svEur(r.costeReal)+'</td></tr>'+
@@ -5418,7 +5455,8 @@ function svInformeInner(o,pal){
   h+='</div>';
  }
  h+=avisos;
- h+='<div class="sv-sub">Plazos y requisitos clave</div><ul class="reqlist twocol">'+SV_REQUISITOS.map(function(x){return '<li>'+x+'</li>';}).join('')+'</ul>';
+ /* los requisitos son para PEDIR la ayuda: sin ayudas no pintan nada */
+ if(!r.sinAyudas)h+='<div class="sv-sub">Plazos y requisitos clave</div><ul class="reqlist twocol">'+SV_REQUISITOS.map(function(x){return '<li>'+x+'</li>';}).join('')+'</ul>';
  h+='<div class="legalbox"><b>AVISO LEGAL:</b> cuantías <b>ORIENTATIVAS</b>, sujetas a convocatoria vigente, disponibilidad presupuestaria y verificación técnica del ahorro. <b>Plan Estatal</b>: RD 326/2026 (BOE, gestión por las CCAA), cifras verificadas en el BOE. <b>Plan Rehabilita Madrid 2026</b>: Ayuntamiento de Madrid (BOAM nº 10138), cuantías provisionales pendientes de verificar el Anexo I. Los % e importes pueden variar por convocatoria. Este informe no es resolución administrativa ni garantiza la concesión. Generado el '+hoy()+'.</div>';
  h+='<div class="doc-foot"><div><b>Revestimientos Proyecton SLU</b>'+(p.cif?' · CIF '+esc(p.cif):'')+' · '+esc(p.dirEmp||'Leganés (Madrid)')+'</div><div>'+esc(p.email||'info@proyecton.es')+' · Rehabilitación integral de edificios en Madrid</div></div>';
  return h;
@@ -6946,7 +6984,7 @@ window.PRESTON={state:function(){return state;},obra:obra,ficha:function(){var o
  qr:{matriz:qrMatriz,cw:qrCodewords,ec:qrEC,png:qrDataURL,svg:qrSvgDe},
  pub:{url:pubURL,qr:pubQR,pagina:paginaPublica,publica:publicaObra,token:pubDe,auto:autoPublica,hash:pubHash},
  dir:{bonita:dirBonita,muni:muniBonito,parse:parseDireccion},
- version:'v157-direcciones-bien-escritas (LAB · copia de pruebas)'};
+ version:'v158-quitar-ayudas (LAB · copia de pruebas)'};
 try{var th0=localStorage.getItem('prestonLAB_theme'); if(th0)document.documentElement.setAttribute('data-theme',th0);}catch(e){}
 var _bd=document.getElementById('brandDode'); if(_bd&&typeof PBRAND!=='undefined')_bd.src=PBRAND.dode;
 try{ var _rv=document.getElementById('railVer'); if(_rv)_rv.textContent='Versión '+(PRESTON.version||'').split(' ')[0]; }catch(e){}
