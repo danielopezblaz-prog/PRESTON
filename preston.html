@@ -266,10 +266,36 @@ table.data{width:100%;border-collapse:collapse}
 .eq-cambiar:hover{color:var(--brand)}
 .eq-hero{position:relative;max-width:700px;margin:-30px auto 0;background:transparent;border:0;box-shadow:none;overflow:visible}
 .eq-hero video,.eq-hero .eq-lienzo{display:block;width:100%;height:auto}
-/* flotacion propia: minima (3 px), lenta y en vaiven perfecto — el bucle no se nota */
+/* LATIDO de la portada. Reproduce el movimiento medido en el video de referencia
+   (8 s, sin giro ni cambio de escala aparente, 13 % de pixeles en movimiento) pero
+   sobre la imagen de 1716 px, que tiene el doble de resolucion que el video.
+   Dos capas con PERIODOS DISTINTOS y primos entre si (8 s y 5,5 s): al no coincidir
+   nunca en fase, el ciclo aparente dura minutos y el bucle no se percibe. Un solo
+   keyframe repetido si se nota, que era el problema del video. */
 .eq-float{will-change:transform}
-@media (prefers-reduced-motion:no-preference){ .eq-float{animation:eqFloat 5.5s ease-in-out infinite alternate} }
-@keyframes eqFloat{from{transform:translateY(-3px)}to{transform:translateY(3px)}}
+.eq-float>.eq-lienzo{will-change:transform;transform-origin:50% 55%}
+@media (prefers-reduced-motion:no-preference){
+  .eq-float{animation:eqFlota 5.5s ease-in-out infinite alternate}
+  .eq-float>.eq-lienzo{animation:eqLatido 8s ease-in-out infinite}
+  /* el reflejo que recorre la esfera: un brillo suave y muy tenue */
+  .eq-hero::after{content:'';position:absolute;left:0;top:0;right:0;bottom:0;pointer-events:none;
+    background:radial-gradient(38% 30% at 46% 52%,rgba(255,255,255,.5),rgba(255,255,255,0) 70%);
+    mix-blend-mode:screen;opacity:.28;animation:eqBrillo 11s ease-in-out infinite}
+}
+/* flotacion vertical, minima */
+@keyframes eqFlota{from{transform:translateY(-3px)}to{transform:translateY(3px)}}
+/* respiracion: 0,9 % de escala. Por debajo de 1 % el ojo lo lee como vida, no como zoom */
+@keyframes eqLatido{
+  0%{transform:scale(1)}
+  42%{transform:scale(1.009)}
+  100%{transform:scale(1)}
+}
+/* el brillo se desplaza un pelin y cambia de intensidad, como el reflejo del video */
+@keyframes eqBrillo{
+  0%{opacity:.20;transform:translate3d(-1.2%,.6%,0)}
+  50%{opacity:.34;transform:translate3d(1.4%,-.8%,0)}
+  100%{opacity:.20;transform:translate3d(-1.2%,.6%,0)}
+}
 /* zonas clicables invisibles con el nombre SIEMPRE visible bajo su carpeta;
    nada de recuadros: el iman del mousemove cambia el cursor y aviva el nombre */
 .eq-spot{position:absolute;transform:translate(-50%,-50%);width:16%;aspect-ratio:1.2;background:transparent;border:0;border-radius:0;cursor:pointer;padding:0;pointer-events:none;outline:none}
@@ -6998,7 +7024,7 @@ window.PRESTON={state:function(){return state;},obra:obra,ficha:function(){var o
  qr:{matriz:qrMatriz,cw:qrCodewords,ec:qrEC,png:qrDataURL,svg:qrSvgDe},
  pub:{url:pubURL,qr:pubQR,pagina:paginaPublica,publica:publicaObra,token:pubDe,auto:autoPublica,hash:pubHash},
  dir:{bonita:dirBonita,muni:muniBonito,parse:parseDireccion},
- version:'v159-produccion'};
+ version:'v160-produccion'};
 try{var th0=localStorage.getItem('prestonLAB_theme'); if(th0)document.documentElement.setAttribute('data-theme',th0);}catch(e){}
 var _bd=document.getElementById('brandDode'); if(_bd&&typeof PBRAND!=='undefined')_bd.src=PBRAND.dode;
 try{ var _rv=document.getElementById('railVer'); if(_rv)_rv.textContent='Versión '+(PRESTON.version||'').split(' ')[0]; }catch(e){}
