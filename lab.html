@@ -6802,6 +6802,14 @@ function paginaLanding(o){
  var c=landCifras(o), p=state.params, L=landDe(o);
  var titular=L.titular||'Un edificio más eficiente y mejor conservado.';
  var comu=landComunidad(o), sitio=(o.dir||'')+(o.muni?' · '+o.muni:'');
+ /* Los códigos se acuñan AQUÍ, no al publicar, para que la vista previa enseñe los mismos
+    botones que tendrá la página de verdad. El de la presentación solo si el generador viaja
+    dentro de esta copia; se mira el tamaño del bloque, que es barato, en vez de armar el
+    deck entero solo para saber si existe. */
+ pubDe(o); landPubDe(o);
+ var hayGen=false;
+ try{ var _g=document.getElementById('presGenSrc'); hayGen=!!_g&&(_g.textContent||'').length>5000; }catch(e){}
+ if(hayGen)presPubDe(o);
  var urlPdf=pubURL(o), urlPres=presPubURL(o), vid=landVideo();
  var tel=(p.tel||'91 693 15 40'), telLimpio=String(tel).replace(/[^0-9+]/g,'');
  var mail=(p.email||'info@proyecton.es');
