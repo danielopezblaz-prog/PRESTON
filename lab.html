@@ -219,7 +219,7 @@ table.data{width:100%;border-collapse:collapse}
 #equipoView{background:#fff}
 @media (prefers-color-scheme:dark){ :root:not([data-theme="light"]) #equipoView{background:var(--bg)} }
 :root[data-theme="dark"] #equipoView{background:var(--bg)}
-.eq-wrap{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:26px;max-width:1240px;margin:0 auto;align-items:start}
+.eq-wrap{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:26px;max-width:1240px;margin:0;align-items:start}
 @media (max-width:1080px){ .eq-wrap{grid-template-columns:1fr} }
 .eq-head h1{margin:4px 0 6px;font-size:clamp(22px,3vw,30px);letter-spacing:-.02em;line-height:1.1}
 .eq-head .eq-nom{color:var(--brand)}
@@ -230,7 +230,7 @@ table.data{width:100%;border-collapse:collapse}
 .eq-quien{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:2px 0 10px;font-size:12.5px;color:var(--ink-2)}
 .eq-cambiar{font-size:10.5px;color:var(--muted);cursor:pointer;border:0;background:none;padding:0;text-decoration:underline;font-family:inherit}
 .eq-cambiar:hover{color:var(--brand)}
-.eq-hero{position:relative;max-width:640px;margin:-8px auto 0;background:transparent;border:0;box-shadow:none;overflow:visible}
+.eq-hero{position:relative;max-width:640px;margin:-30px auto 0;background:transparent;border:0;box-shadow:none;overflow:visible}
 .eq-hero video,.eq-hero .eq-lienzo{display:block;width:100%;height:auto}
 /* flotacion propia: minima (3 px), lenta y en vaiven perfecto — el bucle no se nota */
 .eq-float{will-change:transform}
@@ -245,7 +245,7 @@ table.data{width:100%;border-collapse:collapse}
 :root[data-theme="dark"] .eq-lbl{text-shadow:none}
 .eq-chips{display:none}
 /* panel Equipo (derecha) */
-.eq-panel{background:var(--panel);border:1px solid var(--line);border-radius:var(--r-lg);box-shadow:var(--shadow);padding:8px;position:sticky;top:12px}
+.eq-panel{background:var(--panel);border:1px solid var(--line);border-radius:var(--r-lg);box-shadow:var(--shadow);padding:8px;position:sticky;top:40px;margin-top:34px}
 .eq-ph{display:flex;align-items:center;gap:8px;font-size:15px;font-weight:800;letter-spacing:-.01em;padding:10px 10px 8px}
 .eq-pn{margin-left:auto;font-size:11px;font-weight:800;color:var(--muted);display:inline-flex;align-items:center;gap:5px}
 .eq-pn .g{width:14px;height:14px}
@@ -3529,15 +3529,6 @@ function renderEquipo(){ var host=document.getElementById('equipoView'); if(!hos
   ?(USA_SERVIDOR?'':'<div class="eq-quien"><button class="eq-cambiar" id="eqCambiar">cambiar de usuario</button></div>')
   :'<div class="eq-quien">¿Quién eres? '+EQUIPO.map(function(e){
      return '<button class="eq-mchip" data-quien="'+e.id+'" style="cursor:pointer">'+esc(e.nom)+'</button>'; }).join('')+'</div>';
- /* metricas de cabecera */
- var nP=state.obras.length, u=0;
- state.obras.forEach(function(o){ var f=Math.max(o.fEstado||0,o.creada||0); if(f>u)u=f; });
- var dU=diasDesde(u), txtU=dU<1?'Actualizado hoy':('Últ. cambio hace '+dU+' d');
- var ic=function(k){ return g(k,'g'); };
- var meta='<div class="eq-meta">'+
-  '<span class="eq-mchip">'+ic('obras')+EQUIPO.length+' personas</span>'+
-  '<span class="eq-mchip">'+ic('doc')+nP+' presupuesto'+(nP===1?'':'s')+'</span>'+
-  '<span class="eq-mchip">'+ic('cal')+txtU+'</span></div>';
  /* panel Equipo con contadores reales */
  var filas=EQUIPO.map(function(e){ var l=obrasCarpeta(e.id);
    var enCurso=l.filter(function(o){ return o.estado==='borrador'||o.estado==='enviada'; }).length;
@@ -3548,8 +3539,7 @@ function renderEquipo(){ var host=document.getElementById('equipoView'); if(!hos
     '<span class="eq-pgo">›</span></button>'; }).join('');
  host.innerHTML='<div class="eq-wrap"><div class="eq-main">'+
    '<div class="eq-head"><h1>'+h1+'</h1>'+
-   '<p class="eq-sub2">Esta es la central de vuestro equipo. Selecciona una carpeta para ver sus presupuestos.</p>'+
-   meta+quienHtml+'</div>'+
+   quienHtml+'</div>'+
    '<div class="eq-hero"><div class="eq-float">'+
    '<canvas class="eq-lienzo" width="'+EQ_IMG.w+'" height="'+EQ_IMG.h+'"></canvas></div>'+
    spots+'</div></div>'+
@@ -6128,7 +6118,7 @@ window.PRESTON={state:function(){return state;},obra:obra,ficha:function(){var o
  pres:{payload:function(){var o=obra();return o?presPayload(o):null;},url:function(){var o=obra();return o?presUrl(o):null;}},
  med:{parcial:parcialLinea,suma:sumaLineas,open:function(id){openDock(id);},close:function(){closeDock();},dock:function(){return {open:dockOpen,id:dockId};}},
  carp:{ir:abrirCarpeta,equipo:EQUIPO,de:carpetaDe,lista:obrasCarpeta,abierta:carpetaAbierta},
- version:'v127-central-equipo (LAB · copia de pruebas)'};
+ version:'v127b-limpio (LAB · copia de pruebas)'};
 try{var th0=localStorage.getItem('prestonLAB_theme'); if(th0)document.documentElement.setAttribute('data-theme',th0);}catch(e){}
 var _bd=document.getElementById('brandDode'); if(_bd&&typeof PBRAND!=='undefined')_bd.src=PBRAND.dode;
 if(USA_SERVIDOR){ state={v:3,activeId:null,params:defParams(),obras:[]}; } else { state=load(); }
