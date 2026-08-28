@@ -312,6 +312,30 @@ table.data{width:100%;border-collapse:collapse}
   :root:not([data-theme="light"]) .eq-lbl{text-shadow:none}
 }
 .eq-chips{display:none}
+/* ===== hoja de la landing (dentro de Prestón, no la pagina publica) ===== */
+.land-wrap{max-width:980px;margin:0 auto;padding:4px 0 40px;display:grid;gap:16px}
+.land-cab{display:flex;gap:18px;align-items:flex-start;flex-wrap:wrap;
+  background:var(--panel);border:1px solid var(--line);border-radius:var(--r-lg);box-shadow:var(--shadow);padding:16px 18px}
+.land-cab h2{margin:0 0 4px;font-size:17px;letter-spacing:-.01em}
+.land-cab p{margin:0;font-size:12.5px;color:var(--ink-2);max-width:60ch;line-height:1.5}
+.land-estado{margin-top:6px!important;font-size:12px!important}
+.land-acc{margin-left:auto;display:flex;gap:8px;flex-wrap:wrap}
+.land-cols{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media (max-width:760px){ .land-cols{grid-template-columns:1fr} .land-acc{margin-left:0} }
+.land-campo{display:grid;gap:4px}
+.land-campo span{font-size:11px;font-weight:700;color:var(--muted);letter-spacing:.02em}
+.land-campo input{border:1px solid var(--line-2);border-radius:9px;padding:9px 11px;font:inherit;font-size:13px;
+  background:var(--panel);color:var(--ink)}
+.land-faq{background:var(--panel);border:1px solid var(--line);border-radius:var(--r-lg);box-shadow:var(--shadow);padding:14px 16px;display:grid;gap:12px}
+.land-fh{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.land-fh b{font-size:14px}
+.land-fh span{font-size:11.5px;color:var(--muted)}
+.land-fh .mini{margin-left:auto}
+.land-qa{display:grid;gap:5px}
+.land-qa input,.land-qa textarea{border:1px solid var(--line-2);border-radius:9px;padding:8px 10px;font:inherit;font-size:12.5px;
+  background:var(--panel);color:var(--ink);resize:vertical}
+.land-qa input{font-weight:700}
+.land-prev{width:100%;height:70vh;border:1px solid var(--line);border-radius:var(--r-lg);background:#faf7f6;box-shadow:var(--shadow)}
 /* panel Equipo (derecha) */
 .eq-panel{background:var(--panel);border:1px solid var(--line);border-radius:var(--r-lg);box-shadow:var(--shadow);padding:8px;position:sticky;top:40px;margin-top:34px}
 .eq-ph{display:flex;align-items:center;gap:8px;font-size:15px;font-weight:800;letter-spacing:-.01em;padding:10px 10px 8px}
@@ -1792,6 +1816,8 @@ PBRAND.qr=qrSvg(PBRAND.qrData,PBRAND.qrN);
       <!-- CERTIFICACIONES -->
       <!-- PRESENTACIÓN -->
       <section class="view" data-view="presentacion"><div class="scroller" id="presView"></div></section>
+      <!-- LANDING DE VENTA -->
+      <section class="view" data-view="landing"><div class="scroller" id="landView"></div></section>
       <!-- BIBLIOTECA -->
       <section class="view" data-view="biblioteca"><div class="scroller" id="bdpView"></div></section>
       <!-- AJUSTES -->
@@ -1949,6 +1975,9 @@ function defParams(){return {caeEur:0.10,caeFee:15,tin:6,meses:60,gg:13,bi:6,iva
  cif:'', dirEmp:'C/ Oviedo 6 · Leganés (Madrid)', tel:'91 693 15 40', email:'info@proyecton.es', web:'www.proyecton.es',
  lema:'EXPERIENCIA · RESPONSABILIDAD · COMPROMISO',
  cond:'Forma de pago: según calendario de certificaciones acordado con la comunidad. El presente presupuesto no incluye licencias, tasas municipales ni honorarios técnicos salvo indicación expresa en partidas. Cualquier trabajo no contemplado se presupuestará y aprobará por escrito antes de su ejecución.',
+ /* el vídeo de empresa es el MISMO para todas las obras; se pone aquí una sola vez y
+    sirve para todas las landings. En blanco, la landing sale sin el botón de vídeo. */
+ video:'',
  fotoPortada:null};}
 /* migración del recargo estándar. La v142 lo bajó a 19 % (1,19 x 1,08 = 1,2852) para
    acercarse al 28 %; el usuario decidió volver al 20 % (1,20 x 1,08 = 1,296). Esto
@@ -3873,10 +3902,10 @@ function renderNav(){ var o=obra();
    (_cpE?navA('carpeta',_cpE.nom,'folder',obrasCarpeta(_cpE.id).length):'');
  /* las hojas de la obra solo se ven cuando ESTAS dentro de un presupuesto, y con
     su nombre de cabecera; al volver a carpetas o a lo general, desaparecen */
- var enObra=!!o&&(view==='presupuesto'||view==='subvenciones'||view==='dossier'||view==='presentacion');
+ var enObra=!!o&&(view==='presupuesto'||view==='subvenciones'||view==='dossier'||view==='presentacion'||view==='landing');
  var roh=document.getElementById('railObraHead');
  roh.style.display=enObra?'':'none'; if(enObra)roh.textContent=nombreBase(o.nombre||'Obra activa');
- document.getElementById('navObra').innerHTML=!enObra?'':(navA('presupuesto','Presupuesto','tree','')+navA('subvenciones','Subvención y CAE','subv','')+navA('dossier','Dossier de venta','doc','')+navA('presentacion','Presentación','sheet',''));
+ document.getElementById('navObra').innerHTML=!enObra?'':(navA('presupuesto','Presupuesto','tree','')+navA('subvenciones','Subvención y CAE','subv','')+navA('dossier','Dossier de venta','doc','')+navA('presentacion','Presentación','sheet','')+navA('landing','Landing de venta','obras',''));
  document.getElementById('navGen').innerHTML=navA('obras','Todas las obras','obras',state.obras.length)+navA('biblioteca','Base de precios','book','')+navA('ajustes','Ajustes','cfg','');
  function navA(v,label,ic,badge){ return '<a href="#" data-v="'+v+'" class="'+(view===v?'active':'')+'">'+g(ic)+'<span>'+label+'</span>'+(badge!==''?'<span class="badge num">'+badge+'</span>':'')+'</a>'; }
  document.querySelectorAll('.nav a').forEach(function(a){ a.onclick=function(e){e.preventDefault();go(a.dataset.v);}; });
@@ -3892,7 +3921,7 @@ function go(v){ view=v; reindex(); if(v==='equipo'||v==='obras'){ UI2.carpeta=nu
  if(v==='carpeta'){ var _cpT=cpTitulo(); setTxt('topTitle',_cpT[0]); setTxt('topSub',_cpT[1]); renderCarpeta(); }
  if(v==='obras')renderObras(); if(v==='asistente')renderWiz();
  if(v==='presupuesto'){renderEditor();} if(v==='subvenciones')renderSubv();
- if(v==='dossier')renderDossier(); if(v==='presentacion')renderPres();
+ if(v==='dossier')renderDossier(); if(v==='presentacion')renderPres(); if(v==='landing')renderLand();
  if(v==='biblioteca')renderBdp(); if(v==='ajustes')renderAjustes();
 }
 
@@ -6276,6 +6305,848 @@ function pintaPubEstado(o){ var el=document.getElementById('pubEstado'); if(!el)
    f='el '+('0'+d.getDate()).slice(-2)+'/'+('0'+(d.getMonth()+1)).slice(-2)+' a las '+('0'+d.getHours()).slice(-2)+':'+('0'+d.getMinutes()).slice(-2); }
  el.innerHTML='Publicado '+esc(f)+' · <a href="'+esc(pubURL(o))+'" target="_blank" rel="noopener" style="color:var(--brand)">ver la página</a>'; }
 
+var LAND_CSS=[
+"/* ===== ESTILO DE LA LANDING =====",
+"   Mismo diseno que la pagina de propuesta de la C/ Clavel, para que todas las",
+"   propuestas de Proyecton se vean iguales. */",
+":root{",
+"  --brand:#b01b1b;",
+"  --brand-deep:#7e0808;",
+"  --brand-mid:#9e1414;",
+"  --accent-copper:#c0662a;",
+"  --brand-bright:#e21b1b;",
+"  --accent-warm:#c0662a;",
+"  --accent-warm-soft:#d98a3a;",
+"  --neutral:#7c7c7c;",
+"  --neutral-soft:#9a9a9a;",
+"  --ink:#1a1a1a;",
+"  --ink-soft:#3a3030;",
+"  --muted:#7c7c7c;",
+"  --bg:#faf7f6;",
+"  --bg-soft:#f3eceb;",
+"  --card:#ffffff;",
+"  --line:#ece4e4;",
+"  --line-soft:#f5eeee;",
+"  --sh-xs:0 1px 2px rgba(126,8,8,.06);",
+"  --sh-sm:0 4px 14px rgba(126,8,8,.08);",
+"  --sh-md:0 12px 34px rgba(126,8,8,.12);",
+"  --sh-lg:0 24px 60px rgba(126,8,8,.18);",
+"  --r-lg:22px; --r-md:16px; --r-sm:12px;",
+"  --maxw:680px;",
+"  --t-fast:.16s cubic-bezier(.2,.7,.3,1);",
+"  --t-norm:.34s cubic-bezier(.2,.7,.3,1);",
+"}",
+"*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}",
+"html{-webkit-text-size-adjust:100%}",
+"body{",
+"  margin:0;",
+"  font-family:'Manrope',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;",
+"  color:var(--ink);",
+"  background:var(--bg);",
+"  line-height:1.5;",
+"  font-feature-settings:'ss01','cv01';",
+"  -webkit-font-smoothing:antialiased;",
+"  text-rendering:optimizeLegibility;",
+"  overflow-x:hidden;",
+"}",
+".energy-bg{",
+"  position:fixed;inset:0;z-index:-1;pointer-events:none;",
+"  background:",
+"    radial-gradient(60% 50% at 80% 8%, rgba(226,27,27,.06), transparent 60%),",
+"    radial-gradient(55% 45% at 12% 30%, rgba(124,124,124,.05), transparent 60%),",
+"    radial-gradient(50% 40% at 70% 80%, rgba(192,102,42,.05), transparent 60%);",
+"}",
+"h1,h2,h3{font-family:'Sora',-apple-system,'Segoe UI',sans-serif;letter-spacing:-.02em}",
+"a{color:inherit}",
+"img,svg{display:block;max-width:100%}",
+"::selection{background:rgba(176,27,27,.22)}",
+".wrap{max-width:var(--maxw);margin:0 auto;padding:0 18px 80px}",
+"/* =========================================================================",
+"   HERO",
+"   ========================================================================= */",
+".hero{",
+"  position:relative;",
+"  overflow:hidden;",
+"  color:#fff;",
+"  padding:calc(env(safe-area-inset-top,0px) + 34px) 20px 88px;",
+"  text-align:center;",
+"  background:",
+"    radial-gradient(120% 85% at 50% -6%, rgba(255,255,255,.30) 0%, rgba(255,255,255,0) 40%),",
+"    radial-gradient(115% 90% at 92% 4%, rgba(232,150,90,.28) 0%, rgba(232,150,90,0) 46%),",
+"    radial-gradient(130% 110% at 50% 120%, rgba(150,20,20,.40) 0%, rgba(150,20,20,0) 52%),",
+"    linear-gradient(157deg,#e24444 0%, #d13636 32%, #c22a2a 64%, #b01f1f 100%);",
+"}",
+".hero::after{",
+"  content:\"\";position:absolute;inset:0;z-index:1;pointer-events:none;",
+"  background:radial-gradient(130% 105% at 50% 30%, rgba(255,255,255,0) 55%, rgba(150,20,20,.16) 100%);",
+"}",
+".hero .sheen{",
+"  content:\"\";position:absolute;inset:-45% -15% auto -15%;height:95%;z-index:1;",
+"  background:radial-gradient(closest-side, rgba(255,255,255,.11), rgba(255,255,255,0) 70%);",
+"  animation:sheen 11s ease-in-out infinite;",
+"  pointer-events:none;mix-blend-mode:screen;",
+"}",
+".hero .grain{",
+"  position:absolute;inset:0;z-index:1;pointer-events:none;opacity:.06;",
+"  background-image:url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E\");",
+"  background-size:180px 180px;mix-blend-mode:overlay;",
+"}",
+"@keyframes sheen{",
+"  0%,100%{transform:translate(-12%, -8%) scale(1);opacity:.55}",
+"  50%{transform:translate(14%, 6%) scale(1.14);opacity:.9}",
+"}",
+"/* Lienzo de partículas/orbes de energía que levitan sobre el hero */",
+".hero canvas{position:absolute;inset:0;width:100%;height:100%;z-index:1;pointer-events:none}",
+".hero-inner{position:relative;z-index:3;max-width:var(--maxw);margin:0 auto}",
+".brand{display:flex;justify-content:center;width:100%;margin:0 auto 24px}",
+".brand .plate{display:inline-flex;align-items:center;justify-content:center;background:none;box-shadow:none;padding:0;border-radius:0}",
+".brand img{position:relative;z-index:1;width:clamp(295px,78vw,429px);height:auto;max-width:100%;display:block;filter:drop-shadow(0 2px 8px rgba(60,0,0,.22))}",
+".brand .brand-txt{display:inline-flex;align-items:baseline;gap:8px;font-family:'Sora';font-weight:800;font-size:clamp(22px,6vw,28px);letter-spacing:-.01em;color:var(--brand-deep)}",
+".brand .brand-txt small{font-family:'Manrope';font-weight:700;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--neutral)}",
+"@media(max-width:380px){.brand img{width:clamp(190px,72vw,260px)}}",
+".hero .kic{",
+"  display:inline-flex;align-items:center;gap:10px;",
+"  font-size:11.5px;letter-spacing:.24em;text-transform:uppercase;",
+"  font-weight:700;color:#ffe4e4;padding:0;background:none;border:0;",
+"}",
+".hero .kic::before,.hero .kic::after{content:\"\";width:24px;height:1px;background:linear-gradient(90deg, rgba(255,220,220,0), rgba(255,220,220,.7))}",
+".hero .kic::after{background:linear-gradient(90deg, rgba(255,220,220,.7), rgba(255,220,220,0))}",
+".hero h1{",
+"  margin:.5em auto .18em;max-width:15ch;",
+"  font-size:clamp(31px,8.2vw,46px);line-height:1.04;font-weight:800;letter-spacing:-.025em;",
+"  text-wrap:balance;text-shadow:0 2px 26px rgba(40,0,0,.34);",
+"}",
+".hero .sub{",
+"  font-size:clamp(15px,3.9vw,17px);color:#ffeeed;opacity:.9;",
+"  max-width:56ch;margin:.35em auto 0;font-weight:500;line-height:1.55;",
+"}",
+".hero .loc{",
+"  display:inline-flex;align-items:center;gap:8px;margin-top:22px;",
+"  background:linear-gradient(180deg, rgba(255,255,255,.16), rgba(255,255,255,.07));",
+"  border:1px solid rgba(255,255,255,.28);",
+"  border-radius:999px;padding:7px 16px;font-size:13px;font-weight:600;letter-spacing:.01em;",
+"  color:#fff;backdrop-filter:blur(6px);",
+"  box-shadow:0 1px 0 rgba(255,255,255,.18) inset, 0 6px 16px rgba(40,2,2,.22);",
+"}",
+".hero .loc svg{width:14px;height:14px;color:#ffd9c8;flex:0 0 auto}",
+".hero .wave{position:absolute;left:0;right:0;bottom:-1px;z-index:2;line-height:0}",
+".hero .wave svg{width:100%;height:46px;display:block}",
+"/* =========================================================================",
+"   ACCIONES PRINCIPALES",
+"   ========================================================================= */",
+".actions{display:grid;gap:14px;margin:-46px 0 8px;position:relative;z-index:6}",
+".btn{",
+"  display:flex;align-items:center;gap:15px;",
+"  background:var(--card);border:1px solid var(--line);border-radius:var(--r-lg);",
+"  padding:17px 18px;text-decoration:none;color:var(--ink);box-shadow:var(--sh-md);",
+"  transition:transform var(--t-fast),box-shadow var(--t-fast),border-color var(--t-fast);",
+"  cursor:pointer;position:relative;overflow:hidden;",
+"}",
+".btn::after{content:\"\";position:absolute;inset:0;left:-60%;width:50%;background:linear-gradient(100deg,transparent,rgba(255,255,255,.55),transparent);transform:skewX(-18deg);transition:left .55s ease;pointer-events:none}",
+".btn:hover{transform:translateY(-3px);box-shadow:var(--sh-lg);border-color:#e6cccc}",
+".btn:hover::after{left:130%}",
+".btn:active{transform:translateY(0) scale(.99)}",
+".btn .ic{flex:0 0 56px;height:56px;border-radius:16px;display:grid;place-items:center;color:#fff;box-shadow:0 8px 18px rgba(126,8,8,.22);position:relative}",
+".btn .ic svg{width:26px;height:26px}",
+".btn.video .ic{background:linear-gradient(150deg,var(--brand) 0%,var(--brand-mid) 70%,var(--brand-deep) 100%)}",
+".btn.video .ic::before{content:\"\";position:absolute;inset:0;border-radius:16px;border:2px solid rgba(176,27,27,.5);animation:pulse 2.6s ease-out infinite}",
+"@keyframes pulse{0%{transform:scale(1);opacity:.7}80%,100%{transform:scale(1.5);opacity:0}}",
+".btn.present .ic{background:linear-gradient(150deg,var(--brand-mid) 0%,var(--brand-deep) 100%)}",
+".btn.resumen .ic{background:linear-gradient(150deg,var(--neutral-soft) 0%,var(--neutral) 70%,#5e5e5e 100%)}",
+".btn.pdf .ic{background:linear-gradient(150deg,var(--accent-warm) 0%,#a4521f 100%)}",
+".btn .tx{flex:1;min-width:0}",
+".btn .tx b{display:block;font-family:'Sora';font-size:17px;font-weight:700;line-height:1.2}",
+".btn .tx span{font-size:13px;color:var(--muted);font-weight:500}",
+".btn .arr{margin-left:auto;color:var(--brand);font-size:22px;flex:0 0 auto;transition:transform var(--t-fast)}",
+".btn:hover .arr{transform:translateX(3px)}",
+".btn .ic::after{content:\"\";position:absolute;inset:-9px;border-radius:22px;z-index:-1;background:radial-gradient(closest-side, rgba(176,27,27,.40), rgba(176,27,27,0) 72%);filter:blur(7px);opacity:.55;transition:opacity var(--t-fast)}",
+".btn.present .ic::after{background:radial-gradient(closest-side, rgba(126,8,8,.40), rgba(126,8,8,0) 72%)}",
+".btn.resumen .ic::after{background:radial-gradient(closest-side, rgba(124,124,124,.40), rgba(124,124,124,0) 72%)}",
+".btn.pdf .ic::after{background:radial-gradient(closest-side, rgba(192,102,42,.42), rgba(192,102,42,0) 72%)}",
+".btn:hover .ic::after{opacity:.95}",
+"/* =========================================================================",
+"   SECCIONES + reveals",
+"   ========================================================================= */",
+"section{margin-top:34px}",
+".eyebrow{display:flex;align-items:center;gap:9px;margin:0 0 14px;font-family:'Sora';font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:var(--brand-mid);font-weight:700}",
+".eyebrow::before{content:\"\";width:22px;height:3px;border-radius:2px;background:linear-gradient(90deg,var(--brand-bright),var(--brand))}",
+".reveal{opacity:0;transform:translateY(22px);transition:opacity .6s ease,transform .6s cubic-bezier(.2,.7,.3,1)}",
+".reveal.in{opacity:1;transform:none}",
+"/* =========================================================================",
+"   SEIS RAZONES",
+"   ========================================================================= */",
+".reasons{display:grid;grid-template-columns:1fr 1fr;gap:12px}",
+".reason{background:var(--card);border:1px solid var(--line);border-radius:var(--r-md);padding:16px 16px 15px;box-shadow:var(--sh-xs);position:relative;overflow:hidden;transition:transform var(--t-fast),box-shadow var(--t-fast)}",
+".reason:hover{transform:translateY(-2px);box-shadow:var(--sh-sm)}",
+".reason .ric{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;color:#fff;margin-bottom:11px;background:linear-gradient(150deg,var(--brand) 0%,var(--brand-mid) 70%,var(--brand-deep) 100%);box-shadow:0 6px 14px rgba(126,8,8,.20)}",
+".reason .ric svg{width:20px;height:20px}",
+".reason.warm .ric{background:linear-gradient(150deg,var(--accent-warm-soft) 0%,var(--accent-warm) 100%);box-shadow:0 6px 14px rgba(192,102,42,.22)}",
+".reason b{display:block;font-family:'Sora';font-size:15px;font-weight:700;color:var(--brand-deep);line-height:1.25;margin-bottom:5px}",
+".reason span{font-size:13px;color:var(--ink-soft);line-height:1.5;font-weight:500}",
+"/* =========================================================================",
+"   RESUMEN EJECUTIVO — dossier",
+"   ========================================================================= */",
+".resumen-section{scroll-margin-top:14px}",
+".dossier{position:relative;border-radius:var(--r-lg);overflow:hidden;background:linear-gradient(180deg,#ffffff 0%,#fffafa 100%);border:1px solid var(--line);box-shadow:var(--sh-md);padding:6px 0 0}",
+".dossier::before{content:\"\";position:absolute;left:0;right:0;top:0;height:4px;background:linear-gradient(90deg,var(--brand-bright),var(--brand) 30%,var(--brand-deep) 65%,var(--accent-warm) 100%)}",
+".dossier-head{padding:26px 22px 4px;text-align:center}",
+".dossier-head .seal{display:inline-flex;align-items:center;gap:8px;margin-bottom:14px;font-family:'Sora';font-size:10.5px;letter-spacing:.22em;text-transform:uppercase;font-weight:700;color:var(--brand-mid);padding:6px 13px;border-radius:999px;background:linear-gradient(90deg,rgba(176,27,27,.08),rgba(226,27,27,.08));border:1px solid var(--line)}",
+".dossier-head .seal svg{width:13px;height:13px}",
+".dossier-head h2{font-size:clamp(24px,6.5vw,32px);line-height:1.04;margin:0;color:var(--brand-deep);font-weight:800}",
+".dossier-head .lede{max-width:34ch;margin:11px auto 0;color:var(--muted);font-size:14.5px;font-weight:500;line-height:1.5}",
+".dossier-rule{width:46px;height:3px;margin:20px auto 4px;border-radius:2px;background:linear-gradient(90deg,var(--brand-bright),var(--brand))}",
+".dossier .block-label{display:flex;align-items:center;gap:9px;justify-content:center;margin:26px 0 16px;font-family:'Sora';font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-soft);font-weight:700}",
+".dossier .block-label::before,.dossier .block-label::after{content:\"\";flex:0 0 26px;height:1px;background:linear-gradient(90deg,transparent,var(--line))}",
+".dossier .block-label::after{background:linear-gradient(90deg,var(--line),transparent)}",
+".dossier .pad{padding:0 22px}",
+".figs{display:grid;grid-template-columns:1fr 1fr;gap:14px}",
+".fig{background:var(--card);border:1px solid var(--line);border-radius:var(--r-md);padding:18px 17px 16px;box-shadow:var(--sh-xs);position:relative;overflow:hidden;transition:transform var(--t-fast),box-shadow var(--t-fast)}",
+".fig:hover{transform:translateY(-2px);box-shadow:var(--sh-sm)}",
+".fig::before{content:\"\";position:absolute;left:0;top:0;bottom:0;width:4px;background:linear-gradient(180deg,var(--brand-bright),var(--brand))}",
+".fig .fic{width:30px;height:30px;margin-bottom:11px;color:var(--brand)}",
+".fig b{display:block;font-family:'Sora';font-size:clamp(22px,6.5vw,28px);color:var(--brand-deep);font-weight:800;line-height:1;letter-spacing:-.025em;text-shadow:0 0 18px rgba(176,27,27,.14)}",
+".fig span{font-size:12.5px;color:var(--muted);display:block;margin-top:8px;font-weight:500;line-height:1.4}",
+".fig.accent::before{background:linear-gradient(180deg,var(--accent-warm-soft),var(--accent-warm))}",
+".fig.accent b{color:#a4521f}",
+".fig.accent .fic{color:var(--accent-warm)}",
+".cuotas{background:var(--card);border:1px solid var(--line);border-radius:var(--r-md);padding:4px 20px 18px;box-shadow:var(--sh-xs);overflow:hidden}",
+".cuotas .row{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:14px 0;border-bottom:1px solid var(--line-soft)}",
+".cuotas .row:last-of-type{border:0}",
+".cuotas .row .ph{font-size:14px;color:var(--ink-soft);font-weight:600;letter-spacing:.005em}",
+".cuotas .row .ph small{display:block;font-size:11.5px;color:var(--muted);font-weight:500;margin-top:2px;letter-spacing:.01em}",
+".cuotas .row .amt{font-family:'Sora';font-weight:700;font-size:17px;color:var(--brand-deep);white-space:nowrap}",
+".cuotas .row.hl{margin:8px -20px -18px;padding:18px 20px 20px;border-bottom:0;background:linear-gradient(120deg,rgba(176,27,27,.10),rgba(226,27,27,.10) 60%,rgba(124,124,124,.06));border-top:1px solid var(--line);border-radius:0 0 var(--r-md) var(--r-md)}",
+".cuotas .row.hl .ph{font-family:'Sora';font-weight:700;font-size:14.5px;color:var(--brand-deep)}",
+".cuotas .row.hl .ph small{color:var(--brand-mid);font-weight:600}",
+".cuotas .row.hl .amt{font-size:26px;color:var(--brand);letter-spacing:-.02em;text-shadow:0 1px 0 rgba(255,255,255,.6), 0 0 22px rgba(176,27,27,.30)}",
+".cuotas .nota{font-size:11.5px;color:var(--muted);margin-top:18px;line-height:1.45;display:flex;gap:7px}",
+".cuotas .nota svg{flex:0 0 14px;width:14px;height:14px;color:var(--accent-warm);margin-top:1px}",
+".dossier-foot{display:flex;align-items:center;justify-content:center;gap:8px;padding:18px 22px 22px;color:var(--muted);font-size:11.5px;font-weight:600;letter-spacing:.04em;text-align:center}",
+".dossier-foot i{display:block;width:5px;height:5px;border-radius:50%;background:var(--brand);opacity:.5;flex:0 0 auto}",
+"/* =========================================================================",
+"   PROCESO (5 pasos)",
+"   ========================================================================= */",
+".steps{display:grid;gap:12px}",
+".step{display:flex;gap:14px;align-items:flex-start;background:var(--card);border:1px solid var(--line);border-radius:var(--r-md);padding:15px 16px;box-shadow:var(--sh-xs)}",
+".step .num{flex:0 0 38px;width:38px;height:38px;border-radius:12px;display:grid;place-items:center;font-family:'Sora';font-weight:800;font-size:16px;color:#fff;background:linear-gradient(150deg,var(--brand) 0%,var(--brand-deep) 100%);box-shadow:0 6px 14px rgba(126,8,8,.22)}",
+".step .stx b{display:block;font-family:'Sora';font-size:15px;font-weight:700;color:var(--brand-deep);line-height:1.25;margin-bottom:3px}",
+".step .stx span{font-size:13.5px;color:var(--ink-soft);line-height:1.5;font-weight:500}",
+"/* =========================================================================",
+"   FAQ",
+"   ========================================================================= */",
+".faq{background:var(--card);border:1px solid var(--line);border-radius:var(--r-md);overflow:hidden;box-shadow:var(--sh-xs)}",
+".ask55{margin-top:16px;background:var(--card);border:1px solid var(--line);border-radius:var(--r-md);padding:18px;box-shadow:var(--sh-xs)}",
+".ask55-head{margin-bottom:11px}.ask55-head b{display:block;font-family:'Sora';font-size:16px;color:var(--ink)}.ask55-head span{font-size:13.5px;color:var(--neutral)}",
+".ask55 textarea{width:100%;min-height:88px;resize:vertical;border:1px solid var(--line);border-radius:12px;padding:12px 14px;font-family:'Manrope';font-size:14.5px;color:var(--ink);background:#fff}",
+".ask55-fields{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin:10px 0 2px}",
+"@media(max-width:520px){.ask55-fields{grid-template-columns:1fr}}",
+".ask55-fields input{width:100%;border:1px solid var(--line);border-radius:11px;padding:11px 13px;font-family:'Manrope';font-size:14px;color:var(--ink);background:#fff}",
+".ask55 textarea:focus,.ask55-fields input:focus{outline:none;border-color:var(--brand);box-shadow:0 0 0 4px rgba(176,27,27,.12)}",
+".ask55-actions{display:flex;gap:12px;align-items:center;margin-top:11px;flex-wrap:wrap}",
+".ask55-send{display:inline-flex;align-items:center;gap:8px;background:linear-gradient(150deg,var(--brand,#b01b1b),var(--brand-deep,#7e0808));color:#fff;text-decoration:none;font-family:'Sora';font-weight:700;font-size:14.5px;padding:12px 20px;border-radius:12px;cursor:pointer}",
+".ask55-ok{color:var(--brand,#b01b1b);font-weight:700;font-size:14px}",
+".qa{border-bottom:1px solid var(--line-soft)}",
+".qa:last-child{border:0}",
+".qa>button{width:100%;text-align:left;background:none;border:0;padding:16px 16px;font-family:'Manrope';font-size:15px;font-weight:700;color:var(--ink);display:flex;gap:12px;align-items:center;cursor:pointer;line-height:1.35}",
+".qa>button .q{flex:1}",
+".qa>button .pm{flex:0 0 24px;width:24px;height:24px;border-radius:50%;display:grid;place-items:center;background:var(--bg-soft);color:var(--brand);font-size:18px;font-weight:700;line-height:1;transition:transform var(--t-norm),background var(--t-fast)}",
+".qa.open>button .pm{transform:rotate(45deg);background:var(--brand);color:#fff}",
+".qa .a{max-height:0;overflow:hidden;transition:max-height var(--t-norm)}",
+".qa .a div{padding:0 16px 17px;color:var(--ink-soft);font-size:14.3px;line-height:1.55}",
+"/* =========================================================================",
+"   Bloque institucional Proyecton",
+"   ========================================================================= */",
+".ask{margin-top:16px;position:relative;overflow:hidden;border-radius:var(--r-md);border:1px solid var(--line);background:linear-gradient(180deg,#ffffff 0%,#fffafa 100%);box-shadow:var(--sh-sm);padding:22px 20px 20px}",
+".ask::before{content:\"\";position:absolute;left:0;right:0;top:0;height:3px;background:linear-gradient(90deg,var(--brand-bright),var(--brand) 40%,var(--brand-deep) 75%,var(--accent-warm))}",
+".ask::after{content:\"\";position:absolute;right:-40px;top:-40px;width:160px;height:160px;border-radius:50%;background:radial-gradient(closest-side, rgba(176,27,27,.10), transparent 70%);pointer-events:none}",
+".ask .ask-head{display:flex;align-items:center;gap:12px;margin-bottom:6px}",
+".ask .ask-ic{flex:0 0 42px;width:42px;height:42px;border-radius:13px;display:grid;place-items:center;color:#fff;background:linear-gradient(150deg,var(--brand) 0%,var(--brand-mid) 70%,var(--brand-deep) 100%);box-shadow:0 8px 18px rgba(126,8,8,.22);position:relative}",
+".ask .ask-ic svg{width:21px;height:21px}",
+".ask .ask-head b{font-family:'Sora';font-size:17px;font-weight:700;color:var(--brand-deep);line-height:1.2;display:block}",
+".ask .ask-head span{font-size:13px;color:var(--muted);font-weight:500}",
+".inst{text-align:left}",
+".inst .inst-tx{margin-top:14px;font-size:14.5px;color:var(--ink-soft);line-height:1.55}",
+".inst .inst-claim{margin-top:12px;font-family:'Sora';font-weight:700;color:var(--brand-deep);font-size:15.5px}",
+"/* =========================================================================",
+"   CONTACTO",
+"   ========================================================================= */",
+".contact{display:grid;gap:12px}",
+".cbtn{display:flex;align-items:center;gap:14px;background:var(--card);border:1px solid var(--line);border-radius:var(--r-md);padding:15px 16px;text-decoration:none;color:var(--ink);font-weight:700;font-size:15px;box-shadow:var(--sh-xs);transition:transform var(--t-fast),box-shadow var(--t-fast)}",
+".cbtn:hover{transform:translateY(-2px);box-shadow:var(--sh-sm)}",
+".cbtn .ic{width:42px;height:42px;border-radius:12px;display:grid;place-items:center;color:#fff;flex:0 0 auto}",
+".cbtn .ic svg{width:20px;height:20px}",
+".cbtn .sub{display:block;font-size:12.5px;color:var(--muted);font-weight:500;margin-top:1px}",
+".cbtn .arr{margin-left:auto;color:var(--muted);font-size:20px}",
+"/* =========================================================================",
+"   CIERRE / FOOTER",
+"   ========================================================================= */",
+".closing{margin-top:40px;border-radius:var(--r-lg);overflow:hidden;position:relative;color:#fff;padding:34px 24px 30px;text-align:center;box-shadow:var(--sh-md);",
+"  background:",
+"    radial-gradient(120% 100% at 90% -10%, rgba(192,102,42,.33), transparent 50%),",
+"    radial-gradient(120% 100% at 0% 110%, rgba(226,27,27,.38), transparent 55%),",
+"    linear-gradient(150deg,#b01b1b,#9e1414 55%,#7e0808);",
+"}",
+".closing .stripe{display:flex;justify-content:center;gap:6px;margin-bottom:16px}",
+".closing .stripe i{width:26px;height:6px;border-radius:3px;display:block}",
+".closing h3{font-size:clamp(19px,5vw,22px);font-weight:800;margin:0 0 6px;text-shadow:0 2px 12px rgba(60,0,0,.3)}",
+".closing p{margin:0;opacity:.92;font-size:14px;font-weight:500}",
+".closing .valid{display:inline-block;margin-top:16px;font-size:12.5px;font-weight:700;padding:6px 14px;border-radius:999px;background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.24)}",
+"footer.legal{text-align:center;color:var(--muted);font-size:12px;margin-top:24px;line-height:1.7}",
+"footer.legal .pby{display:inline-flex;align-items:center;gap:6px;margin-top:4px;font-weight:600;color:var(--ink-soft)}",
+"/* =========================================================================",
+"   FAB compartir + modal vídeo",
+"   ========================================================================= */",
+".share{position:fixed;right:16px;bottom:calc(16px + env(safe-area-inset-bottom,0px));display:inline-flex;align-items:center;gap:8px;background:linear-gradient(140deg,var(--brand) 0%,var(--brand-mid) 100%);color:#fff;border:0;border-radius:999px;padding:13px 18px;font-size:14.5px;font-weight:700;font-family:'Manrope';box-shadow:0 10px 26px rgba(126,8,8,.40);cursor:pointer;z-index:30;transition:transform var(--t-fast),box-shadow var(--t-fast)}",
+".share svg{width:17px;height:17px}",
+".share:hover{transform:translateY(-2px);box-shadow:0 14px 32px rgba(126,8,8,.5)}",
+".share:active{transform:scale(.96)}",
+".modal{position:fixed;inset:0;background:rgba(20,4,4,.78);backdrop-filter:blur(8px);display:none;align-items:center;justify-content:center;z-index:50;padding:14px;opacity:0;transition:opacity var(--t-norm)}",
+".modal.on{display:flex;opacity:1}",
+".modal .stage{width:100%;max-width:980px;position:relative;transform:scale(.96);transition:transform var(--t-norm)}",
+".modal.on .stage{transform:scale(1)}",
+".modal video{width:100%;max-height:84vh;border-radius:16px;background:#000;box-shadow:0 30px 80px rgba(0,0,0,.6);display:block}",
+".modal .x{position:absolute;top:-46px;right:0;color:#fff;font-size:22px;width:38px;height:38px;border-radius:50%;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.25);cursor:pointer;display:grid;place-items:center;line-height:1}",
+".modal .x:hover{background:rgba(255,255,255,.26)}",
+"/* Modal PRESENTACIÓN — iframe a pantalla completa */",
+".pmodal{position:fixed;inset:0;background:rgba(20,4,4,.92);display:none;z-index:60;opacity:0;transition:opacity var(--t-norm)}",
+".pmodal.on{display:block;opacity:1}",
+".pmodal .pstage{position:absolute;inset:0;display:flex;flex-direction:column}",
+".pmodal .pbar{flex:0 0 auto;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 14px;background:linear-gradient(180deg,rgba(126,8,8,.96),rgba(126,8,8,.86));color:#fff}",
+".pmodal .pbar b{font-family:'Sora';font-weight:700;font-size:14px;letter-spacing:.01em}",
+".pmodal .pbar .pclose{display:inline-flex;align-items:center;gap:7px;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.28);color:#fff;border-radius:10px;padding:8px 14px;font-family:'Manrope';font-weight:700;font-size:13.5px;cursor:pointer}",
+".pmodal .pbar .pclose:hover{background:rgba(255,255,255,.26)}",
+".pmodal iframe{flex:1 1 auto;width:100%;border:0;background:#EFE9DD}",
+"@media (prefers-reduced-motion: reduce){*{animation:none !important;transition:none !important}.reveal{opacity:1;transform:none}}",
+":focus-visible{outline:3px solid var(--brand);outline-offset:2px;border-radius:6px}",
+".sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);border:0}",
+"@media (min-width:560px){.figs{grid-template-columns:repeat(3,1fr)}.reasons{grid-template-columns:repeat(3,1fr)}}",
+"@media (max-width:820px){.wrap{padding:0 16px 76px}}",
+"@media (max-width:520px){",
+"  :root{--r-lg:18px;--r-md:14px}",
+"  .wrap{padding:0 13px 72px}",
+"  .reasons{grid-template-columns:1fr}.figs{grid-template-columns:1fr}",
+"  .hero{padding-left:16px;padding-right:16px;padding-bottom:80px}",
+"  .brand{margin-bottom:22px}.brand img{width:clamp(260px,90vw,402px)}",
+"  .hero .kic{letter-spacing:.18em}.hero .kic::before,.hero .kic::after{width:16px}",
+"  .hero .sub{max-width:38ch}",
+"  .btn{padding:15px 15px;gap:13px}.btn .ic{flex:0 0 50px;height:50px}",
+"  .dossier .pad{padding:0 16px}.dossier-head{padding:22px 16px 4px}",
+"  .cuotas .row{flex-wrap:wrap}.cuotas .row .amt{font-size:16px}.cuotas .row.hl .amt{font-size:23px}",
+"  .step{padding:14px 14px}.share{padding:12px 15px;font-size:13.5px;right:12px}",
+"}",
+"/* --- red de seguridad: en el movil nada se sale de la pantalla --- */",
+"@media(max-width:520px){.hero h1,h1{overflow-wrap:break-word!important;word-break:break-word!important;hyphens:auto;}}",
+"html,body{overflow-x:hidden!important;max-width:100%!important;}",
+"img,svg,video,canvas,table,iframe{max-width:100%!important;height:auto;}",
+"*{min-width:0;}",
+"h1,h2,h3,[class*=\"title\"]{overflow-wrap:anywhere!important;word-break:break-word!important;}",
+"@media (max-width:430px){",
+"  .hero h1,h1{font-size:clamp(24px,8.2vw,34px)!important;line-height:1.12!important;}",
+"  [class*=\"grid\"],[class*=\"cards\"],[class*=\"cols\"],[class*=\"fig\"]{grid-template-columns:1fr!important;}",
+"  body{font-size:15px;}",
+"}",
+""
+].join('\n');
+
+/* ================= LANDING DE VENTA =================
+   La tercera salida de «Terminar», además del dossier y la presentación: una página web
+   de propuesta para la comunidad, con el vídeo de empresa, el PDF, la presentación y las
+   preguntas frecuentes. Se genera SOLA con los datos de la obra — mismas cifras que el
+   dossier, porque salen del mismo motor (subvCalcular).
+   Se publica igual que la página del QR: un fichero suelto en el servidor detrás de un
+   código largo. Son TRES páginas con TRES códigos distintos (PDF, presentación y esta),
+   así que la landing se puede mandar sin repartir por separado el resto. */
+var LAND_VIDEO='https://proyecton.es/preston/video-proyecton.mp4';
+function landVideo(){ var v=(state.params&&state.params.video); return (v==null||v==='')?LAND_VIDEO:String(v); }
+function landDe(o){ if(!o.landing||typeof o.landing!=='object')o.landing={}; return o.landing; }
+/* caducidad de la oferta: hoy + los días de validez de Ajustes */
+function landValidez(){ var d=new Date(); d.setDate(d.getDate()+(num(state.params.validez)||60));
+ return ('0'+d.getDate()).slice(-2)+'/'+('0'+(d.getMonth()+1)).slice(-2)+'/'+d.getFullYear(); }
+function landComunidad(o){ return o.promotor||('Comunidad '+(o.dir||o.nombre||'')); }
+
+/* Todas las cifras de la página salen de aquí, y de un solo sitio: el motor de
+   subvenciones. Si la obra aún no da para calcular, cae a la ficha del dossier para que
+   la página siga saliendo (con menos cosas) en vez de romperse. */
+function landCifras(o){
+ var r=null; try{ if(pemDe(o)>0&&num(o.viviendas)>=1)r=subvCalcular(o); }catch(e){}
+ var f=fichaDe(o);
+ var viv=num(o.viviendas)||0, loc=r?num(r.numLocales):0;
+ var total=r?r.costeTotal:f.t.total;
+ var ayudas=r?r.obtenibleReal:((f.opt?f.opt.subv:0)+((f.opt&&f.opt.cae)?f.opt.cae.neto:0));
+ var resto=r?r.restoVecinos:f.neto;
+ var restoViv=r?r.restoPorViv:f.netoViv;
+ var sinViv=viv>0?total/viv:0;
+ return {r:r,f:f,viv:viv,loc:loc,uds:viv+loc,total:total,ayudas:ayudas,resto:resto,
+  restoViv:restoViv,sinViv:sinViv,ahorroViv:Math.max(0,sinViv-restoViv),
+  pctAy:total>0?Math.round(ayudas/total*100):0,
+  pctResto:total>0?Math.round(resto/total*100):0,
+  cuota:r?r.finCuotaViv:f.cuotaViv,
+  meses:r?r.finMeses:(f.finMeses||num(state.params.meses)),
+  tin:r?num(r.s.finInteres):num(state.params.tin),
+  entrada:r?r.finEntrada:0,
+  dosFases:!!(r&&r.finDosFases), cuota1:r?r.finCuota1Viv:0, cuota2:r?r.finCuota2Viv:0,
+  irpf:r?r.irpfDeduccion:f.irpf, irpfPct:r?r.irpfPct:60,
+  adelanto:(presModo(o)==='adelanto'),
+  meds:(function(){ var k={}; try{ medidasDe(o).forEach(function(m){k[m.key]=m;}); }catch(e){} return k; })()};
+}
+function landSate(c){ var m=c.meds; return m.sate60||m.sate80||m.sate100||m.sate120||null; }
+
+/* iconos: los mismos trazos que la página de propuesta de la C/ Clavel */
+var LAND_IC={
+ casa:'<path d="M3 21h18M6 21V9l6-4 6 4v12M10 21v-5h4v5"/>',
+ escudo:'<path d="M12 2l8 4v6c0 5-3.4 8.5-8 10-4.6-1.5-8-5-8-10V6z"/><path d="M9 12l2 2 4-4"/>',
+ escudoLiso:'<path d="M12 2l8 4v6c0 5-3.4 8.5-8 10-4.6-1.5-8-5-8-10V6z"/>',
+ bombilla:'<path d="M12 2a7 7 0 00-4 12.7V17a2 2 0 002 2h4a2 2 0 002-2v-2.3A7 7 0 0012 2zM9 21h6"/>',
+ papel:'<path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6M9 13h6M9 17h4"/>',
+ check:'<path d="M9 11l3 3L22 4M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/>',
+ euro:'<circle cx="12" cy="12" r="9"/><path d="M12 7v10M9.5 9.5h3.5a2 2 0 010 4H10a2 2 0 000 4h3.5"/>',
+ edificio:'<path d="M3 21h18M5 21V8l7-5 7 5v13M9 21v-6h6v6"/>',
+ regalo:'<path d="M20 12v8a1 1 0 01-1 1H5a1 1 0 01-1-1v-8M2 7h20v5H2zM12 22V7M12 7H7.5a2.5 2.5 0 010-5C11 2 12 7 12 7zM12 7h4.5a2.5 2.5 0 000-5C13 2 12 7 12 7z"/>',
+ hacienda:'<path d="M4 12h16M6 8h12M8 16h8M3 20h18V4H3z"/>',
+ estrella:'<path d="M12 2l2.9 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l7.1-1.01z"/>',
+ reloj:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>'
+};
+function landSvg(k){ return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+LAND_IC[k]+'</svg>'; }
+
+/* Las seis razones NO son fijas: se arman con lo que ESTA obra lleva de verdad, para no
+   prometer aerotermia en un edificio en el que solo se cambia la fachada. */
+function landRazones(o,c){
+ var m=c.meds, R=[], env=[];
+ if(landSate(c))env.push('aislamiento SATE por el exterior en toda la fachada');
+ if(m.cubierta)env.push('cubierta nueva, aislada e impermeabilizada');
+ if(m.ventanas)env.push('ventanas nuevas con rotura de puente térmico');
+ if(env.length)R.push({ic:'casa',t:'Menos frío y menos calor',
+  x:'Con '+env.join(' y ')+'. La envolvente del edificio, para gastar mucho menos en climatización.'});
+ if(c.ayudas>0)R.push({ic:'escudo',w:1,t:'El '+c.pctAy+' % lo ponen las ayudas',
+  x:m0(c.ayudas)+' € en ayudas estimadas (Plan Estatal + CAE) que Proyecton '+
+    (c.adelanto?'adelanta y descuenta ya en la firma.':'tramita y justifica por la comunidad de principio a fin.')});
+ var ins=[];
+ if(m.aero)ins.push('climatización y agua caliente con bombas de calor de alta eficiencia');
+ if(m.fv)ins.push('fotovoltaica de autoconsumo en cubierta');
+ if(ins.length)R.push({ic:'bombilla',t:(m.aero&&m.fv)?'Aerotermia y placas solares':(m.aero?'Aerotermia de alta eficiencia':'Placas solares en cubierta'),
+  x:ins.join(', ').replace(/^./,function(s){return s.toUpperCase();})+'. Menos factura desde el primer mes.'});
+ R.push({ic:'papel',t:'Nosotros hacemos el papeleo',
+  x:'Proyecton identifica, solicita, justifica y cobra todas las ayudas de principio a fin.'+(c.adelanto?' Y las adelanta.':'')});
+ R.push({ic:'escudoLiso',w:1,t:'Garantías por escrito, no promesas',
+  x:'10 años de garantía (LOE), seguro de responsabilidad civil de 1.000.000 € con REALE y precio cerrado por contrato.'});
+ R.push({ic:'check',t:'Su vivienda vale más',
+  x:'Un edificio mejor aislado, con fachada nueva y una etiqueta energética mucho mejor, se vende y se alquila mejor.'});
+ if(c.cuota>0)R.push({ic:'euro',t:'Una cuota que cabe en el recibo',
+  x:m2(c.cuota)+' € al mes por vivienda a '+m0(c.meses)+' meses y sin entrada: unos '+m2(c.cuota/30.4)+' € al día.'});
+ R.push({ic:'reloj',t:'Sin obras dentro de su casa',
+  x:'Se trabaja por fuera y en zonas comunes. Nadie tiene que quedarse en casa esperando a los operarios.'});
+ return R.slice(0,6);
+}
+
+/* Preguntas frecuentes con las cifras de ESTA obra. Si el comercial las cambia en la
+   hoja de la landing, mandan las suyas (o.landing.faq). */
+function landFaqAuto(o,c){
+ var eu=function(n){return m0(n)+' €';}, q=[];
+ var alc=[]; try{ alc=presAlcance(o); }catch(e){}
+ q.push({q:'¿En qué consiste exactamente la obra?',
+  a:(alc.length?'Es una rehabilitación del edificio que incluye: '+alc.join('; ')+'. ':'Es una rehabilitación energética del edificio. ')+
+    'Incluye medios auxiliares, seguridad y salud, gestión de residuos y la tramitación de las ayudas. No se actúa dentro de las viviendas.'});
+ if(c.adelanto)q.push({q:'¿La comunidad tiene que adelantar el dinero de las ayudas?',
+  a:'No. Es la clave del modelo: al firmar el contrato, las ayudas estimadas ('+eu(c.ayudas)+') ya se descuentan del presupuesto. La comunidad solo paga o financia su parte neta desde el primer día, y la obra puede empezar sin esperar a que la Administración resuelva ni pague. De tramitarlas y cobrarlas nos encargamos nosotros.'});
+ else q.push({q:'¿Cuándo se cobra la subvención?',
+  a:'La Administración resuelve y abona la ayuda a la comunidad según los plazos de la convocatoria. Proyecton solicita, justifica y hace el seguimiento del expediente por usted. Mientras tanto la obra se paga por certificaciones, y cuando entra la ayuda la aportación de cada vecino baja.'});
+ q.push({q:'¿Cuánto cuesta la obra en total?',
+  a:'El total es de '+eu(c.total)+' (IVA incluido, honorarios técnicos y tasas). Las ayudas estimadas aportan '+eu(c.ayudas)+' (el '+c.pctAy+' %), y la comunidad aporta '+eu(c.resto)+' (el '+c.pctResto+' %). Esa parte no cubierta por las ayudas es la que se paga por certificaciones de obra o se financia.'});
+ if(c.viv>0)q.push({q:'¿Cuánto pagaría cada vivienda?',
+  a:'Sin gestión de ayudas, el coste por vivienda sería de '+eu(c.sinViv)+'. Con las ayudas estimadas ya aplicadas, baja a '+m2(c.restoViv)+' € por vivienda, un ahorro de '+m2(c.ahorroViv)+' € en cada casa.'+
+    (c.cuota>0?' Se puede pagar por certificaciones mensuales según avanza la obra, o financiado a '+m0(c.meses)+' meses (TIN '+loose(c.tin)+' %) y sin entrada, con una cuota estimada de '+m2(c.cuota)+' € al mes por vivienda ('+m0(c.viv)+' viviendas).':'')+
+    ' El reparto real se hace por coeficiente de participación y la cuota definitiva la fija el banco.'});
+ q.push({q:'¿Hay que dar una entrada?',
+  a:'No es necesaria entrada por parte de la comunidad.'+(c.adelanto?' Además, Proyecton adelanta las ayudas: la comunidad no tiene que esperar a cobrar las subvenciones para acometer la obra.':'')});
+ q.push({q:'¿De cuánto son las ayudas y quién las tramita?',
+  a:'De unos '+eu(c.ayudas)+' estimados (el '+c.pctAy+' % del total). Proyecton, como agente rehabilitador, tramita y gestiona todas las ayudas: el Plan Estatal de rehabilitación más los Certificados de Ahorro Energético (CAE). '+
+    (c.adelanto?'También las adelantamos y las cobramos de la Administración por cesión del derecho de cobro. ':'')+
+    'Las ayudas se conceden según convocatoria, no están garantizadas y se otorgan por orden de solicitud, por lo que cuanto antes se apruebe la obra, mejor.'});
+ q.push({q:'Si al final conceden menos ayuda de la estimada, ¿pagamos más?',
+  a:'El precio total cerrado de la obra no cambia ('+m2(c.total)+' €). Las ayudas son estimaciones prudentes; si el importe realmente concedido difiere del estimado, se ajusta la diferencia en la liquidación conforme a la cláusula de regularización del contrato.'});
+ q.push({q:'¿Y la deducción del IRPF?',
+  a:'Aparte de las subvenciones, Hacienda devuelve hasta el '+m0(c.irpfPct)+' % de la parte de su inversión no cubierta por las ayudas, a través de la deducción por rehabilitación energética (base máxima de 5.000 € al año y hasta 15.000 € acumulados por vivienda). Requiere acreditar con certificados energéticos que el consumo de energía primaria no renovable baja al menos un 30 %. Los certificados inicial y final van incluidos. La solicita cada propietario en su declaración de la renta y está sujeta a la aprobación de Hacienda; por eso no la incluimos en el total.'});
+ q.push({q:'¿Qué garantías tiene la obra?',
+  a:'La obra tiene una garantía de 10 años conforme a la Ley de Ordenación de la Edificación (LOE). Además, Proyecton cuenta con un seguro de responsabilidad civil de 1.000.000 € con REALE, y el precio queda cerrado por contrato. Cualquier trabajo adicional solo se ejecuta si la comunidad lo aprueba antes, por escrito y con su propio presupuesto.'});
+ q.push({q:'¿La obra obliga a entrar en mi vivienda?',
+  a:'No. Todas las actuaciones son por fuera (fachada) y en zonas comunes. No se interviene dentro de las viviendas.'});
+ q.push({q:'¿Cómo se aprueba la obra en la comunidad?',
+  a:'Las obras de mejora de la eficiencia energética se aprueban por mayoría simple (art. 17.2 de la Ley de Propiedad Horizontal). El acta recoge la obra, el presupuesto, las ayudas y la financiación.'});
+ q.push({q:'¿Quién ejecuta la obra y qué experiencia tiene?',
+  a:'La ejecuta Revestimientos Proyecton, empresa con más de 25 años de experiencia en rehabilitación integral de edificios y comunidades de propietarios, homologada por CONCOVI, con servicio llave en mano. Tu tranquilidad es nuestro mejor proyecto.'});
+ return q;
+}
+function landFaq(o,c){ var L=landDe(o);
+ if(Array.isArray(L.faq)&&L.faq.length)return L.faq.filter(function(x){return x&&x.q;});
+ return landFaqAuto(o,c); }
+
+/* Tres páginas por obra, cada una con su código: la del PDF (la del QR, o.pub), la de la
+   presentación (o.pubPres) y esta landing (o.pubLand). Así se puede mandar la landing sin
+   repartir lo demás por separado. El código se genera aquí, no en el servidor, para que el
+   enlace exista desde el primer momento. */
+function landPubDe(o){ if(!o.pubLand){ o.pubLand=pubToken(); setTimeout(function(){ try{save();}catch(e){} },0); } return o.pubLand; }
+function presPubDe(o){ if(!o.pubPres){ o.pubPres=pubToken(); setTimeout(function(){ try{save();}catch(e){} },0); } return o.pubPres; }
+function landURL(o){ return (o&&o.pubLand)?PUB_BASE+o.pubLand:''; }
+function presPubURL(o){ return (o&&o.pubPres)?PUB_BASE+o.pubPres:''; }
+
+function landFila(et,sub,val,destaca){
+ return '<div class="row'+(destaca?' hl':'')+'"><span class="ph">'+esc(et)+
+  (sub?'<small>'+esc(sub)+'</small>':'')+'</span><span class="amt">'+esc(val)+'</span></div>'; }
+function landFig(ic,valor,texto,acento){
+ return '<div class="fig'+(acento?' acento':'')+'"><svg class="fic" viewBox="0 0 24 24" fill="none" '+
+  'stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'+LAND_IC[ic]+'</svg>'+
+  '<b>'+esc(valor)+'</b><span>'+texto+'</span></div>'; }
+
+/* La página entera, en un solo fichero y sin depender de nada del servidor salvo el vídeo. */
+function paginaLanding(o){
+ var c=landCifras(o), p=state.params, L=landDe(o);
+ var titular=L.titular||'Un edificio más eficiente y mejor conservado.';
+ var comu=landComunidad(o), sitio=(o.dir||'')+(o.muni?' · '+o.muni:'');
+ var urlPdf=pubURL(o), urlPres=presPubURL(o), vid=landVideo();
+ var tel=(p.tel||'91 693 15 40'), telLimpio=String(tel).replace(/[^0-9+]/g,'');
+ var mail=(p.email||'info@proyecton.es');
+ var asunto='Consulta '+(o.dir||o.nombre||'rehabilitación')+(o.exp?' ('+o.exp+')':'');
+ var mailto='mailto:'+mail+'?subject='+encodeURIComponent(asunto);
+
+ /* --- cabecera --- */
+ var h='<header class="hero"><canvas id="fx" aria-hidden="true"></canvas>'+
+  '<span class="sheen" aria-hidden="true"></span><span class="grain" aria-hidden="true"></span>'+
+  '<div class="hero-inner"><div class="brand"><span class="plate">'+
+   '<img src="'+PBRAND.logo+'" alt="Revestimientos Proyecton"></span></div>'+
+  '<span class="kic">Rehabilitación Energética Integral</span>'+
+  '<h1>'+esc(titular)+'</h1>'+
+  '<p class="sub">Propuesta económica de Proyecton para la '+esc(comu)+'. Para verla con calma en casa.</p>'+
+  '<div class="loc"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">'+
+   '<path d="M12 2C8.1 2 5 5.1 5 9c0 5.2 7 13 7 13s7-7.8 7-13c0-3.9-3.1-7-7-7zm0 9.5A2.5 2.5 0 1112 6.5a2.5 2.5 0 010 5z"/></svg> '+
+   esc(sitio)+'</div></div>'+
+  '<div class="wave" aria-hidden="true"><svg viewBox="0 0 1440 60" preserveAspectRatio="none">'+
+   '<path d="M0,40 C240,8 480,8 720,28 C960,48 1200,52 1440,20 L1440,60 L0,60 Z" fill="#faf7f6"/></svg></div>'+
+ '</header><div class="wrap">';
+
+ /* --- los cuatro botones. Solo sale el que tiene destino: una obra sin presentación
+        publicada no debe enseñar un botón que no lleva a ninguna parte. --- */
+ var bt='';
+ if(vid)bt+='<a class="btn video" id="btnVideo" role="button" tabindex="0" aria-label="Ver el vídeo de presentación de Proyecton">'+
+  '<span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></span>'+
+  '<span class="tx"><b>Ver vídeo</b><span>Vídeo de presentación de Proyecton</span></span><span class="arr" aria-hidden="true">›</span></a>';
+ if(urlPres)bt+='<a class="btn present" id="btnPresent" role="button" tabindex="0" aria-label="Ver la presentación de la propuesta">'+
+  '<span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8 21h8M12 17v4"/></svg></span>'+
+  '<span class="tx"><b>Ver presentación</b><span>La propuesta, página a página</span></span><span class="arr" aria-hidden="true">›</span></a>';
+ if(urlPdf)bt+='<a class="btn pdf" id="btnPdf" href="'+esc(urlPdf)+'" target="_blank" rel="noopener" aria-label="Ver la propuesta completa en PDF">'+
+  '<span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6zm0 7V3.5L18.5 9H14zM8 13h8v1.5H8V13zm0 3h8v1.5H8V16z"/></svg></span>'+
+  '<span class="tx"><b>Ver PDF</b><span>Propuesta completa · puedes verla o descargarla</span></span><span class="arr" aria-hidden="true">›</span></a>';
+ bt+='<a class="btn resumen" id="btnResumen" role="button" tabindex="0" aria-label="Ir al resumen ejecutivo">'+
+  '<span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l2.9 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l7.1-1.01L12 2z"/></svg></span>'+
+  '<span class="tx"><b>Resumen ejecutivo</b><span>Las cifras y cuotas, de un vistazo</span></span><span class="arr" aria-hidden="true">›</span></a>';
+ h+='<div class="actions">'+bt+'</div>';
+
+ /* --- seis razones --- */
+ var raz=landRazones(o,c);
+ h+='<section class="reveal" aria-labelledby="razones-title">'+
+  '<p class="eyebrow" id="razones-title">'+(raz.length===6?'Seis razones':'Razones')+' para decir sí este año</p><div class="reasons">'+
+  raz.map(function(r){ return '<div class="reason'+(r.w?' warm':'')+'">'+
+   '<span class="ric" aria-hidden="true">'+landSvg(r.ic)+'</span>'+
+   '<b>'+esc(r.t)+'</b><span>'+esc(r.x)+'</span></div>'; }).join('')+
+  '</div></section>';
+
+ /* --- resumen ejecutivo --- */
+ var alc=[]; try{ alc=presAlcance(o); }catch(e){}
+ h+='<section class="reveal resumen-section" id="resumen" aria-labelledby="resumen-title"><div class="dossier">'+
+  '<header class="dossier-head"><span class="seal" aria-hidden="true">'+
+   '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l2.9 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l7.1-1.01L12 2z"/></svg> Resumen ejecutivo</span>'+
+   '<h2 id="resumen-title">La propuesta, en sus cifras esenciales</h2>'+
+   '<p class="lede">Lo que de verdad importa para la '+esc(comu)+', con claridad. El documento completo lo encontrarás en el PDF.</p>'+
+   '<div class="dossier-rule" aria-hidden="true"></div></header>';
+ if(alc.length){
+  h+='<p class="block-label">Lo que se hace · resumen de la obra</p><div class="pad">'+
+   '<ul style="list-style:none;margin:0;padding:0;display:grid;gap:11px">'+
+   alc.map(function(t){ return '<li style="display:flex;gap:11px;align-items:flex-start;font-size:14.5px;color:var(--ink-soft)">'+
+     '<span style="color:var(--brand);font-weight:800;flex:0 0 auto">&#10003;</span><span>'+esc(t)+'</span></li>'; }).join('')+
+   '<li style="display:flex;gap:11px;align-items:flex-start;font-size:14.5px;color:var(--ink-soft)">'+
+    '<span style="color:var(--brand);font-weight:800;flex:0 0 auto">&#10003;</span><span><b>Servicio llave en mano</b>, con <b>garantía de 10 años</b>'+
+    (c.adelanto?' y las <b>ayudas por adelantado</b>: Proyecton las descuenta al firmar, las tramita y las cobra.':' y la <b>gestión completa de las ayudas</b>: Proyecton las solicita, las justifica y hace el seguimiento.')+'</span></li>'+
+   '</ul><p style="margin:15px 0 2px;font-size:15px;color:var(--ink);text-align:center">Menor gasto energético y económico, que se traduce en una vivienda <b style="color:var(--brand)">más ecológica, confortable y revalorizada</b>. Todo sin obras dentro de las viviendas.</p></div>';
+ }
+ h+='<p class="block-label">Las cifras clave</p><div class="pad"><div class="figs">'+
+  landFig('euro',m0(c.total)+' €','inversión total de la obra (IVA incl., honorarios y tasas)')+
+  landFig('edificio',m0(c.uds),c.loc>0?'viviendas y locales':'viviendas')+
+  (c.ayudas>0?landFig('regalo',m0(c.ayudas)+' €','en ayudas estimadas (Plan Estatal + CAE · el '+c.pctAy+' % del total · Proyecton las tramita'+(c.adelanto?' y adelanta':'')+'; no garantizadas)',1):'')+
+  landFig('hacienda','Deducción IRPF','Hacienda devuelve hasta el '+m0(c.irpfPct)+' % · lo solicita cada propietario, sujeto a aprobación',1)+
+  landFig('escudo','10 años','de garantía (LOE) · seguro RC 1.000.000 € con REALE')+
+  landFig('estrella','+25 años','de experiencia · empresa homologada CONCOVI',1)+
+  '</div></div>';
+ if(c.viv>0&&c.ayudas>0){
+  h+='<p class="block-label">Lo que cambian las ayudas, por vivienda</p><div class="pad">'+
+   '<div style="background:var(--bg-soft);border:1px solid var(--line);border-radius:14px;padding:15px 18px">'+
+   '<p style="margin:0 0 11px;display:flex;gap:11px;align-items:flex-start;font-size:14.5px;color:var(--ink-soft)"><b style="color:var(--neutral);flex:0 0 66px">Sin ayudas</b><span>El coste por vivienda de la obra completa sería de <b>'+m0(c.sinViv)+' €</b>.</span></p>'+
+   '<p style="margin:0 0 11px;display:flex;gap:11px;align-items:flex-start;font-size:14.5px;color:var(--ink-soft)"><b style="color:var(--brand);flex:0 0 66px">Con ayudas</b><span>Aplicadas las ayudas estimadas, baja a <b style="color:var(--brand-deep)">'+m2(c.restoViv)+' € por vivienda</b> — un <b>ahorro de '+m2(c.ahorroViv)+' €</b> en cada casa.</span></p>'+
+   '<p style="margin:0;display:flex;gap:11px;align-items:flex-start;font-size:14.5px;color:var(--ink-soft)"><b style="color:var(--accent-warm);flex:0 0 66px">IRPF</b><span>Y <b>aparte</b>, Hacienda devuelve <b>hasta el '+m0(c.irpfPct)+' %</b> de tu parte no cubierta por las ayudas. Lo solicita cada propietario en su declaración de la renta y está sujeto a aprobación de Hacienda; por eso no lo sumamos al total.</span></p>'+
+   '</div></div>';
+ }
+ if(c.cuota>0||c.dosFases){
+  var fin=landFila('Entrada de la comunidad','',m0(c.entrada)+' €')+
+   landFila('Plazo de financiación','TIN '+loose(c.tin)+' %',m0(c.meses)+' meses')+
+   landFila('Aporta la comunidad',(c.ayudas>0?'su parte, ya descontadas las ayudas ('+c.pctResto+' %)':'importe a financiar'),m0(c.resto)+' €');
+  /* SIN adelanto la financiación va en dos fases, igual que en el dossier: pagan el total y
+     la cuota baja cuando entra la ayuda. No se puede enseñar una sola cuota. */
+  if(c.dosFases)fin+=landFila('Cuota por vivienda · primeros '+m0(c.r?c.r.finK:0)+' meses','hasta que la Administración abona la ayuda',m2(c.cuota1)+' €/mes',1)+
+    landFila('Cuota por vivienda · resto del plazo','ya aplicada la ayuda',m2(c.cuota2)+' €/mes',1);
+  else fin+=landFila('Cuota por vivienda',(c.ayudas>0?'ya aplicadas las ayudas · ':'')+m0(c.viv)+' viviendas · sin entrada',m2(c.cuota)+' €/mes',1);
+  h+='<p class="block-label">La financiación, mes a mes</p><div class="pad"><div class="cuotas">'+fin+
+   '<p class="nota"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2a10 10 0 100 20 10 10 0 000-20zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg> '+
+   (c.dosFases?'':'&#8776; '+m2(c.cuota/30.4)+' € al día. ')+
+   (c.ayudas>0?'Solo se financia la parte que las ayudas no cubren. ':'')+
+   (c.adelanto?'Proyecton adelanta el importe de las ayudas y pone en marcha la obra, así que la comunidad no adelanta dinero a la Administración. ':'')+
+   'La cuota definitiva la fija el banco al formalizar la operación. El reparto real por vivienda se hace por coeficiente de participación.</p>'+
+   '</div></div>';
+ }
+ if(urlPdf)h+='<p class="block-label">Para el detalle completo</p><div class="pad" style="margin-bottom:8px">'+
+  '<a href="'+esc(urlPdf)+'" target="_blank" rel="noopener" style="display:flex;align-items:center;justify-content:center;gap:9px;'+
+  'background:linear-gradient(150deg,var(--brand) 0%,var(--brand-deep) 100%);color:#fff;text-decoration:none;font-family:\'Sora\';'+
+  'font-weight:700;font-size:15px;padding:15px 16px;border-radius:14px;box-shadow:0 10px 24px rgba(126,8,8,.22)">Abre la propuesta completa (PDF) &rarr;</a></div>';
+ h+='<p class="dossier-foot"><i aria-hidden="true"></i> '+esc(comu)+' · Proyecton'+(o.exp?' · '+esc(o.exp):'')+'</p>'+
+  '</div></section>';
+
+ /* --- el proceso, con los pasos que ya calcula la presentación (cambian si adelantamos) --- */
+ var pasos=[]; try{ pasos=presCalendario(o); }catch(e){}
+ if(pasos.length)h+='<section class="reveal" aria-labelledby="proceso-title">'+
+  '<p class="eyebrow" id="proceso-title">Nosotros hacemos el papeleo · el proceso en '+m0(pasos.length)+' pasos</p><div class="steps">'+
+  pasos.map(function(s,i){ return '<div class="step"><span class="num" aria-hidden="true">'+(i+1)+'</span>'+
+    '<span class="stx"><b>'+esc(s.titulo)+'</b><span>'+esc(s.texto)+'</span></span></div>'; }).join('')+
+  '</div></section>';
+
+ /* --- quiénes ejecutan la obra --- */
+ h+='<section class="reveal"><p class="eyebrow">Quiénes ejecutan la obra</p><div class="ask inst">'+
+  '<div class="ask-head"><span class="ask-ic" aria-hidden="true">'+landSvg('casa')+'</span>'+
+  '<span><b>Revestimientos Proyecton</b><span>+25 años rehabilitando edificios · Empresa homologada CONCOVI</span></span></div>'+
+  '<p class="inst-tx">Empresa de la construcción especializada en la <b>rehabilitación integral de edificios</b> y comunidades de propietarios: '+
+  'envolvente (fachadas y cubiertas), instalaciones eficientes (aerotermia y fotovoltaica) y gestión de ayudas. Servicio <b>llave en mano</b>, '+
+  'seguro de responsabilidad civil de 1.000.000 € con REALE y <b>garantía de 10 años</b>. Como agente rehabilitador, nos ocupamos de la '+
+  '<b>tramitación y gestión de las ayudas</b> (Plan Estatal, CAE y deducción del IRPF)'+(c.adelanto?', <b>las adelantamos</b>':'')+
+  ' y organizamos la financiación del proyecto, con transparencia y precio cerrado por contrato.</p>'+
+  '<p class="inst-claim">&laquo;Tu tranquilidad es nuestro mejor proyecto.&raquo;</p></div></section>';
+
+ /* --- preguntas frecuentes: se pintan aquí, no por JavaScript, para que se lean aunque
+        el navegador tenga el script parado --- */
+ var faq=landFaq(o,c);
+ h+='<section class="reveal"><p class="eyebrow">Preguntas frecuentes</p><div class="faq" id="faq">'+
+  faq.map(function(it){ return '<div class="qa"><button type="button" aria-expanded="false">'+
+   '<span class="q">'+esc(it.q)+'</span><span class="pm" aria-hidden="true">+</span></button>'+
+   '<div class="a"><div>'+esc(it.a)+'</div></div></div>'; }).join('')+'</div>'+
+  '<div class="ask55" id="askBox"><div class="ask55-head"><b>¿No encuentras tu duda?</b><span>Escríbenos y te responderemos a tu email.</span></div>'+
+  '<textarea id="askText" maxlength="600" placeholder="Escribe aquí tu pregunta sobre la rehabilitación&#8230;"></textarea>'+
+  '<div class="ask55-fields"><input id="askName" type="text" maxlength="80" autocomplete="name" placeholder="Tu nombre (opcional)">'+
+  '<input id="askEmail" type="email" maxlength="120" autocomplete="email" placeholder="Tu email · para responderte"></div>'+
+  '<div class="ask55-actions"><a class="ask55-send" id="askSend" href="'+esc(mailto)+'" target="_blank" rel="noopener" role="button">Enviar pregunta</a>'+
+  '<span class="ask55-ok" id="askOk" hidden>&#10003; ¡Gracias! Te responderemos a tu email.</span></div></div></section>';
+
+ /* --- contacto y cierre --- */
+ h+='<section class="reveal"><p class="eyebrow">¿Tienes más dudas?</p><div class="contact">'+
+  '<a class="cbtn" href="'+esc(mailto)+'" target="_blank" rel="noopener"><span class="ic" style="background:linear-gradient(150deg,#b01b1b,#7e0808)" aria-hidden="true">'+
+   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg></span>'+
+   '<span>Escríbenos por email<span class="sub">'+esc(mail)+'</span></span><span class="arr" aria-hidden="true">›</span></a>'+
+  '<a class="cbtn" href="tel:'+esc(telLimpio)+'"><span class="ic" style="background:linear-gradient(150deg,#9e1414,#7e0808)" aria-hidden="true">'+
+   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z"/></svg></span>'+
+   '<span>Llámanos por teléfono<span class="sub">'+esc(tel)+'</span></span><span class="arr" aria-hidden="true">›</span></a>'+
+  '</div></section>'+
+  '<div class="closing reveal"><div class="stripe" aria-hidden="true">'+
+   '<i style="background:#7e0808"></i><i style="background:#9e1414"></i><i style="background:#b01b1b"></i><i style="background:#e21b1b"></i><i style="background:#c0662a"></i></div>'+
+   '<h3>'+esc(titular)+'</h3><p>'+esc(L.cierre||'Más confort, menos factura y una vivienda que vale más.')+'</p>'+
+   '<span class="valid">Propuesta para '+esc(sitio||comu)+' · válida hasta '+esc(landValidez())+'</span></div>'+
+  '<footer class="legal">Documento informativo para la '+esc(comu)+'.<br>'+
+   'Importes estimados. Las ayudas se conceden según convocatoria, no están garantizadas y se otorgan por orden de solicitud.<br>'+
+   'Revestimientos Proyecton Rehabilitaciones S.L.U'+(p.cif?' · CIF '+esc(p.cif):'')+' · '+esc(tel)+' · '+esc(mail)+'<br>'+
+   '<span class="pby">Empresa homologada CONCOVI</span></footer></div>';
+
+ /* --- botón de compartir y las dos ventanas --- */
+ h+='<button class="share" id="shareBtn" aria-label="Compartir esta página">'+
+  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+
+  '<circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg>'+
+  '<span id="shareTxt" aria-live="polite" role="status">Compartir</span></button>';
+ if(vid)h+='<div class="modal" id="vmodal" role="dialog" aria-modal="true" aria-label="Vídeo de la propuesta"><div class="stage">'+
+  '<button class="x" id="vclose" aria-label="Cerrar vídeo">&#10005;</button>'+
+  '<video id="vplayer" controls playsinline preload="none" src="'+esc(vid)+'"></video></div></div>';
+ if(urlPres)h+='<div class="pmodal" id="pmodal" role="dialog" aria-modal="true" aria-label="Presentación de la propuesta"><div class="pstage">'+
+  '<div class="pbar"><b>Propuesta · '+esc(o.dir||o.nombre||'')+'</b>'+
+  '<button class="pclose" id="pclose" aria-label="Cerrar presentación">&#10005; Cerrar</button></div>'+
+  '<iframe id="pframe" title="Presentación de la propuesta" loading="lazy" data-src="'+esc(urlPres)+'"></iframe></div></div>';
+
+ /* --- el guion de la página. Va troceado el cierre de etiqueta: escribirlo entero aquí
+        cerraría el script de Prestón y partiría la aplicación en dos. --- */
+ var js=''+
+  '(function(){var e=document.querySelectorAll(".reveal");'+
+   'if(!("IntersectionObserver" in window)){e.forEach(function(x){x.classList.add("in")});return}'+
+   'var io=new IntersectionObserver(function(en){en.forEach(function(x){if(x.isIntersecting){x.target.classList.add("in");io.unobserve(x.target)}})},{threshold:.12});'+
+   'e.forEach(function(x){io.observe(x)})})();'+
+  /* las preguntas: abrir y cerrar */
+  '(function(){document.querySelectorAll(".qa>button").forEach(function(b){'+
+   'b.addEventListener("click",function(){var d=b.parentNode,a=d.querySelector(".a");'+
+   'var ab=d.classList.toggle("open");b.setAttribute("aria-expanded",ab?"true":"false");'+
+   'a.style.maxHeight=ab?(a.scrollHeight+30)+"px":"0"})})})();'+
+  '(function(){var b=document.getElementById("btnResumen");if(!b)return;'+
+   'function ir(){var t=document.getElementById("resumen");if(!t)return;'+
+   'var s=!window.matchMedia("(prefers-reduced-motion: reduce)").matches;'+
+   't.scrollIntoView({behavior:s?"smooth":"auto",block:"start"})}'+
+   'b.addEventListener("click",ir);b.addEventListener("keydown",function(e){if(e.key==="Enter"||e.key===" "){e.preventDefault();ir()}})})();'+
+  /* vídeo */
+  '(function(){var m=document.getElementById("vmodal");if(!m)return;'+
+   'var v=document.getElementById("vplayer"),c=document.getElementById("vclose"),b=document.getElementById("btnVideo"),f=null;'+
+   'function abre(){f=document.activeElement;m.classList.add("on");document.body.style.overflow="hidden";'+
+   'var p=v.play();if(p&&p["catch"])p["catch"](function(){});c.focus()}'+
+   'function cierra(){v.pause();m.classList.remove("on");document.body.style.overflow="";if(f&&f.focus)f.focus()}'+
+   'if(b){b.addEventListener("click",abre);b.addEventListener("keydown",function(e){if(e.key==="Enter"||e.key===" "){e.preventDefault();abre()}})}'+
+   'c.addEventListener("click",cierra);m.addEventListener("click",function(e){if(e.target===m)cierra()});'+
+   'document.addEventListener("keydown",function(e){if(e.key==="Escape"&&m.classList.contains("on"))cierra()})})();'+
+  /* presentación */
+  '(function(){var m=document.getElementById("pmodal");if(!m)return;'+
+   'var fr=document.getElementById("pframe"),c=document.getElementById("pclose"),b=document.getElementById("btnPresent"),f=null,cargado=false;'+
+   'function abre(){f=document.activeElement;if(!cargado){fr.src=fr.getAttribute("data-src");cargado=true}'+
+   'm.classList.add("on");document.body.style.overflow="hidden";c.focus()}'+
+   'function cierra(){m.classList.remove("on");document.body.style.overflow="";if(f&&f.focus)f.focus()}'+
+   'if(b){b.addEventListener("click",abre);b.addEventListener("keydown",function(e){if(e.key==="Enter"||e.key===" "){e.preventDefault();abre()}})}'+
+   'c.addEventListener("click",cierra);'+
+   'document.addEventListener("keydown",function(e){if(e.key==="Escape"&&m.classList.contains("on"))cierra()})})();'+
+  /* compartir: la página va en un origen aislado, asi que puede no haber ni compartir ni
+     portapapeles. Por eso hay tres escalones y el ultimo siempre enseña el enlace. */
+  '(function(){var b=document.getElementById("shareBtn"),t=document.getElementById("shareTxt");if(!b)return;'+
+   'b.addEventListener("click",function(){var d={title:document.title,url:location.href};'+
+   'if(navigator.share){navigator.share(d)["catch"](function(){});return}'+
+   'if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(location.href).then(function(){'+
+    't.textContent="Enlace copiado";setTimeout(function(){t.textContent="Compartir"},2000)})["catch"](function(){alert(location.href)});return}'+
+   'alert(location.href)})})();'+
+  /* la pregunta suelta: se manda por correo, no hay servidor detras */
+  '(function(){var s=document.getElementById("askSend"),q=document.getElementById("askText"),'+
+   'n=document.getElementById("askName"),m=document.getElementById("askEmail"),ok=document.getElementById("askOk");'+
+   'if(!s||!q)return;var base=s.getAttribute("href");'+
+   's.addEventListener("click",function(){var t=(q.value||"").trim();if(!t)return;'+
+   'var c=t+((n&&n.value)?("\\n\\n- "+n.value):"")+((m&&m.value)?(" ("+m.value+")"):"");'+
+   's.setAttribute("href",base+"&body="+encodeURIComponent(c));if(ok)ok.hidden=false})})();'+
+  /* las particulas del encabezado, la misma gama roja de la marca */
+  '(function(){if(window.matchMedia("(prefers-reduced-motion: reduce)").matches)return;'+
+   'var cv=document.getElementById("fx");if(!cv)return;var g=cv.getContext("2d");'+
+   'var dpr=Math.min(window.devicePixelRatio||1,2);'+
+   'var PAL=[[224,68,68],[176,27,27],[192,102,42],[217,138,58],[255,225,210]];'+
+   'var W=0,H=0,ns=[],raf=0,on=false,t0=0,LINK=128;'+
+   'function tam(){var r=cv.parentElement.getBoundingClientRect();W=r.width;H=r.height;'+
+   'cv.width=Math.max(1,W*dpr);cv.height=Math.max(1,H*dpr);g.setTransform(dpr,0,0,dpr,0,0)}'+
+   'function sem(){var n=Math.max(22,Math.min(48,Math.round(W*H/11000)));ns=[];'+
+   'for(var i=0;i<n;i++)ns.push({x:Math.random()*W,y:Math.random()*H,vx:(Math.random()-.5)*.28,'+
+   'vy:(Math.random()-.5)*.28,r:Math.random()*1.8+1.1,ph:Math.random()*6.283,col:PAL[(Math.random()*PAL.length)|0]})}'+
+   'function rgba(c,a){return "rgba("+c[0]+","+c[1]+","+c[2]+","+a+")"}'+
+   'function cuadro(ts){if(!on)return;if(!t0)t0=ts;var tt=(ts-t0)/1000;'+
+   'g.clearRect(0,0,W,H);g.globalCompositeOperation="lighter";'+
+   'for(var i=0;i<ns.length;i++){var a=ns[i];a.x+=a.vx;a.y+=a.vy;'+
+   'if(a.x<-20)a.x=W+20;if(a.x>W+20)a.x=-20;if(a.y<-20)a.y=H+20;if(a.y>H+20)a.y=-20;'+
+   'for(var j=i+1;j<ns.length;j++){var b=ns[j],dx=a.x-b.x,dy=a.y-b.y,d=Math.sqrt(dx*dx+dy*dy);'+
+   'if(d<LINK){var pr=1-d/LINK,pu=.55+.45*Math.sin(tt*1.3+(a.x+a.y)*.012),al=pr*pr*.5*pu;'+
+   'if(al<.012)continue;g.strokeStyle=rgba(a.col,al);g.lineWidth=pr*1.1+.25;'+
+   'g.beginPath();g.moveTo(a.x,a.y);g.lineTo(b.x,b.y);g.stroke()}}}'+
+   'for(var k=0;k<ns.length;k++){var p=ns[k],be=.6+.4*Math.sin(tt*1.6+p.ph),ha=p.r*7;'+
+   'var gr=g.createRadialGradient(p.x,p.y,0,p.x,p.y,ha);'+
+   'gr.addColorStop(0,rgba(p.col,.5*be));gr.addColorStop(.25,rgba(p.col,.15*be));gr.addColorStop(1,rgba(p.col,0));'+
+   'g.fillStyle=gr;g.beginPath();g.arc(p.x,p.y,ha,0,6.283);g.fill();'+
+   'g.fillStyle=rgba([255,240,235],.8*be);g.beginPath();g.arc(p.x,p.y,p.r*.7,0,6.283);g.fill()}'+
+   'g.globalCompositeOperation="source-over";raf=requestAnimationFrame(cuadro)}'+
+   'function arranca(){if(on)return;on=true;raf=requestAnimationFrame(cuadro)}'+
+   'function para(){on=false;cancelAnimationFrame(raf)}'+
+   'function monta(){tam();sem()}monta();arranca();var rt;'+
+   'window.addEventListener("resize",function(){clearTimeout(rt);rt=setTimeout(monta,200)},{passive:true});'+
+   'document.addEventListener("visibilitychange",function(){document.hidden?para():arranca()})})();';
+
+ return '<!DOCTYPE html><html lang="es"><head><meta charset="utf-8">'+
+  '<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">'+
+  '<meta name="robots" content="noindex, nofollow, noarchive, nosnippet">'+
+  '<meta name="googlebot" content="noindex, nofollow">'+
+  '<meta name="theme-color" content="#7e0808"><meta name="color-scheme" content="light">'+
+  '<title>'+esc((o.dir||o.nombre||'Propuesta')+' · Rehabilitación Energética · Proyecton')+'</title>'+
+  '<link rel="preconnect" href="https://fonts.googleapis.com">'+
+  '<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>'+
+  '<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Sora:wght@600;700;800&display=swap" rel="stylesheet">'+
+  '<style>'+LAND_CSS+'</style></head><body><div class="energy-bg" aria-hidden="true"></div>'+
+  h+'<scr'+'ipt>'+js+'</scr'+'ipt></body></html>';
+}
+
+/* Publica las TRES páginas de una vez: primero el PDF y la presentación, porque la landing
+   enlaza a las dos, y la landing al final. Si alguna falla se dice cuál — antes eso que dar
+   por bueno un enlace que lleva a una página que no existe. */
+function landEnvia(o,token,html){
+ return fetch('publicar.php?op=publicar',{method:'POST',headers:{'Content-Type':'application/json'},
+  body:JSON.stringify({id:o.id,token:token,html:html})})
+  .then(function(r){ return r.text().then(function(t){
+    var j=null; try{ j=JSON.parse(t); }catch(_){ }
+    if(!j)throw new Error('el servidor respondió '+r.status+' con '+(t.slice(0,120)||'nada'));
+    if(!j.ok)throw new Error(j.error||'respuesta no válida');
+    return j; }); });
+}
+function publicaLanding(o,cb){
+ if(!USA_SERVIDOR){ toast('La landing solo se puede publicar desde proyecton.es'); return; }
+ landPubDe(o); pubDe(o);
+ var paso=function(t){ setTxt('landEstado',t); };
+ paso('Preparando el PDF…');
+ var tareas=[];
+ /* el PDF: el mismo documento al que ya lleva el QR */
+ tareas.push(landEnvia(o,o.pub,paginaPublica(o)));
+ /* la presentación: solo si el generador embebido responde */
+ var pd=null; try{ pd=presDoc(o); }catch(e){ pd=null; }
+ if(pd){ presPubDe(o); tareas.push(landEnvia(o,o.pubPres,pd)); }
+ else { o.pubPres=''; }
+ Promise.all(tareas)
+  .then(function(){ paso('Montando la landing…'); return landEnvia(o,o.pubLand,paginaLanding(o)); })
+  .then(function(){ o.pubFecha=Date.now(); o.landFecha=Date.now(); save();
+    paso(''); pintaLandEstado(o); toast('Landing publicada');
+    if(cb)cb(landURL(o)); })
+  .catch(function(e){ var el=document.getElementById('landEstado');
+    if(el)el.innerHTML='<b style="color:var(--brand)">No se pudo publicar:</b> '+esc(e.message||'error desconocido');
+    toast('No se pudo publicar: '+e.message); });
+}
+function pintaLandEstado(o){ var el=document.getElementById('landEstado'); if(!el)return;
+ if(!USA_SERVIDOR){ el.innerHTML='<b style="color:var(--brand)">Esta copia no publica.</b> La landing se sube abriendo esta hoja en <b>proyecton.es/preston/lab.php</b>'; return; }
+ if(!o.landFecha){ el.textContent='Todavía sin publicar.'; return; }
+ var d=new Date(o.landFecha);
+ el.innerHTML='Publicada el '+('0'+d.getDate()).slice(-2)+'/'+('0'+(d.getMonth()+1)).slice(-2)+
+  ' a las '+('0'+d.getHours()).slice(-2)+':'+('0'+d.getMinutes()).slice(-2)+
+  ' · <a href="'+esc(landURL(o))+'" target="_blank" rel="noopener" style="color:var(--brand)">abrir la página</a>'; }
+
+/* ---- la hoja de la landing dentro de Prestón ---- */
+function renderLand(){ var o=obra(); var host=document.getElementById('landView'); if(!o||!host)return;
+ var c=landCifras(o), L=landDe(o), faq=landFaq(o,c);
+ var propias=Array.isArray(L.faq)&&L.faq.length;
+ host.innerHTML='<div class="land-wrap">'+
+  '<div class="land-cab"><div><h2>Landing de venta</h2>'+
+   '<p>Una página web con el vídeo, el PDF, la presentación y las preguntas de siempre. Se arma sola con los datos de esta obra.</p>'+
+   '<p class="land-estado" id="landEstado"></p></div>'+
+   '<div class="land-acc"><button class="btn primary" id="landPub">Publicar y copiar el enlace</button>'+
+   '<button class="btn" id="landVer">Ver cómo queda</button></div></div>'+
+  '<div class="land-cols">'+
+   '<label class="land-campo"><span>Titular</span><input id="landTit" value="'+esc(L.titular||'Un edificio más eficiente y mejor conservado.')+'"></label>'+
+   '<label class="land-campo"><span>Frase de cierre</span><input id="landCie" value="'+esc(L.cierre||'Más confort, menos factura y una vivienda que vale más.')+'"></label>'+
+  '</div>'+
+  '<div class="land-faq"><div class="land-fh"><b>Preguntas frecuentes</b>'+
+   '<span>'+(propias?'Editadas a mano para esta obra':'Se escriben solas con las cifras de esta obra')+'</span>'+
+   (propias?'<button class="mini" id="landFaqReset">Volver a las automáticas</button>':'')+'</div>'+
+   faq.map(function(it,i){ return '<div class="land-qa"><input data-fq="'+i+'" value="'+esc(it.q)+'">'+
+     '<textarea data-fa="'+i+'" rows="3">'+esc(it.a)+'</textarea></div>'; }).join('')+
+  '</div><iframe class="land-prev" id="landPrev" title="Vista previa de la landing"></iframe></div>';
+ pintaLandEstado(o);
+ var previa=function(){ var f=document.getElementById('landPrev'); if(f)f.srcdoc=paginaLanding(o); };
+ previa();
+ /* lo que se escriba se guarda EN LA OBRA, no en unos ajustes generales: cada comunidad
+    tiene sus dudas y su titular */
+ var apunta=function(){ var t=document.getElementById('landTit'), ci=document.getElementById('landCie');
+   L.titular=t?t.value:''; L.cierre=ci?ci.value:'';
+   var qs=host.querySelectorAll('[data-fq]'), as=host.querySelectorAll('[data-fa]'), n=[];
+   for(var i=0;i<qs.length;i++)n.push({q:qs[i].value,a:as[i]?as[i].value:''});
+   L.faq=n; save(); };
+ host.querySelectorAll('#landTit,#landCie,[data-fq],[data-fa]').forEach(function(e){
+   e.addEventListener('change',function(){ apunta(); previa(); }); });
+ var br=document.getElementById('landFaqReset');
+ if(br)br.onclick=function(){ L.faq=null; save(); renderLand(); toast('Preguntas otra vez automáticas'); };
+ var bv=document.getElementById('landVer');
+ if(bv)bv.onclick=function(){ previa(); document.getElementById('landPrev').scrollIntoView({behavior:'smooth',block:'start'}); };
+ var bp=document.getElementById('landPub');
+ if(bp)bp.onclick=function(){ publicaLanding(o,function(u){
+   try{ navigator.clipboard.writeText(u); toast('Enlace copiado: '+u); }catch(e){ toast('Publicada: '+u); } }); };
+}
 function renderDossier(){ var o=obra(); if(!o)return;
  var bp=document.getElementById('btnPublicar');
  if(bp)bp.onclick=function(){ var oo=obra(); if(oo)publicaObra(oo,false); };
@@ -6873,13 +7744,15 @@ function empezarComo(oid){
 }
 document.getElementById('btnClone').onclick=abrePickClon;
 
-/* TERMINAR: elige el documento final (dossier de venta o presentación para la comunidad) */
+/* TERMINAR: elige el documento final (dossier, presentación o la landing de venta) */
 function abrePickTerminar(){
  pickOpen('Terminar — ¿qué documento?',
   '<button class="pick-row big" data-terminar="dossier"><span class="pk-main"><b>Dossier de venta</b>'+
     '<small>Documento A4 con presupuesto, subvención y financiación — para descargar en PDF y enviar.</small></span><span class="pk-go">→</span></button>'+
   '<button class="pick-row big" data-terminar="presentacion"><span class="pk-main"><b>Presentación para la comunidad</b>'+
-    '<small>Deck visual con las ayudas por adelantado — para enseñar en la junta de vecinos.</small></span><span class="pk-go">→</span></button>');
+    '<small>Deck visual con las ayudas por adelantado — para enseñar en la junta de vecinos.</small></span><span class="pk-go">→</span></button>'+
+  '<button class="pick-row big" data-terminar="landing"><span class="pk-main"><b>Landing de venta</b>'+
+    '<small>Página web con el vídeo, el PDF, la presentación y las preguntas de siempre — para mandarle el enlace a la comunidad.</small></span><span class="pk-go">→</span></button>');
 }
 /* delegación de clics dentro del modal de elección */
 document.getElementById('pickBody').addEventListener('click',function(e){
@@ -7028,8 +7901,8 @@ function palBuild(q){ q=(q||'').trim().toLowerCase(); var o=obra(); var items=[]
    add('Acciones','Renumerar códigos','según el orden actual','tree',function(){go('presupuesto');var b=document.querySelector('[data-action="renum"]');if(b)b.click();}); }
  add('Acciones','Cambiar tema claro/oscuro','','cfg',function(){document.getElementById('themeBtn').click();});
  add('Acciones','Exportar copia de seguridad (JSON)','','sheet',function(){go('ajustes');setTimeout(function(){var b=document.querySelector('[data-action="exportJson"]');if(b)b.click();},80);});
- [['obras','Obras','obras'],['presupuesto','Presupuesto','tree'],['subvenciones','Subvención y CAE','subv'],['dossier','Dossier de venta','doc'],['presentacion','Presentación','sheet'],['biblioteca','Base de precios','book'],['ajustes','Ajustes','cfg']].forEach(function(v){
-   if(!o&&['presupuesto','subvenciones','dossier','presentacion'].indexOf(v[0])>=0)return;
+ [['obras','Obras','obras'],['presupuesto','Presupuesto','tree'],['subvenciones','Subvención y CAE','subv'],['dossier','Dossier de venta','doc'],['presentacion','Presentación','sheet'],['landing','Landing de venta','obras'],['biblioteca','Base de precios','book'],['ajustes','Ajustes','cfg']].forEach(function(v){
+   if(!o&&['presupuesto','subvenciones','dossier','presentacion','landing'].indexOf(v[0])>=0)return;
    add('Ir a',v[1],'',v[2],function(){go(v[0]);}); });
  state.obras.forEach(function(ob){ if(ob.id!==state.activeId)add('Abrir obra',ob.nombre||'Sin nombre',ob.dir||'','obras',function(){abrirObra(ob.id);}); });
  if(o&&q){ o.capitulos.forEach(function(c){ add('Capítulos',c.cod+' · '+c.res,eur0(capTotal(c)),'tree',function(){gotoRow(c.id,null);});
@@ -7157,13 +8030,16 @@ window.PRESTON={state:function(){return state;},obra:obra,ficha:function(){var o
  bc3:{parse:parseBC3,obra:obraDesdeBC3},
  pdf:{parse:parsePresupuestoPDF,obra:obraDesdePDF,importar:importarPDFPreston},
  pres:{payload:function(){var o=obra();return o?presPayload(o):null;},url:function(){var o=obra();return o?presUrl(o):null;}},
+ land:{html:function(){var o=obra();return o?paginaLanding(o):null;},cifras:function(){var o=obra();return o?landCifras(o):null;},
+  faq:function(){var o=obra();return o?landFaq(o,landCifras(o)):null;},razones:function(){var o=obra();return o?landRazones(o,landCifras(o)):null;},
+  url:function(){var o=obra();return o?landURL(o):null;},publica:function(cb){var o=obra();if(o)publicaLanding(o,cb);}},
  med:{parcial:parcialLinea,suma:sumaLineas,open:function(id){openDock(id);},close:function(){closeDock();},dock:function(){return {open:dockOpen,id:dockId};}},
  carp:{ir:abrirCarpeta,equipo:EQUIPO,de:carpetaDe,lista:obrasCarpeta,abierta:carpetaAbierta},
  ver:compruebaVersion,
  qr:{matriz:qrMatriz,cw:qrCodewords,ec:qrEC,png:qrDataURL,svg:qrSvgDe},
  pub:{url:pubURL,qr:pubQR,pagina:paginaPublica,publica:publicaObra,token:pubDe,auto:autoPublica,hash:pubHash},
  dir:{bonita:dirBonita,muni:muniBonito,parse:parseDireccion},
- version:'v161-portada-en-oscuro (LAB · copia de pruebas)'};
+ version:'v162-landing-de-venta (LAB · copia de pruebas)'};
 try{var th0=localStorage.getItem('prestonLAB_theme'); if(th0)document.documentElement.setAttribute('data-theme',th0);}catch(e){}
 var _bd=document.getElementById('brandDode'); if(_bd&&typeof PBRAND!=='undefined')_bd.src=PBRAND.dode;
 try{ var _rv=document.getElementById('railVer'); if(_rv)_rv.textContent='Versión '+(PRESTON.version||'').split(' ')[0]; }catch(e){}
