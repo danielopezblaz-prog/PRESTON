@@ -819,7 +819,10 @@ table.bdp{width:100%;border-collapse:collapse}
 .dk-card .l{font-size:9.5px;letter-spacing:.16em;color:#888;text-transform:uppercase}
 .dk-card h2{margin:3px 0 5px;font-size:18.5px;color:#1a1a1a}
 .dk-card .m{font-size:11px;color:#555}
-.dk-card img.qr{width:88px;height:88px;flex-shrink:0;margin-left:auto}
+/* 136px y no 88: el QR de la obra lleva una URL de 57 caracteres, o sea 33 modulos
+   frente a los 21 del QR de marca. A 88px salian 2,15 px por modulo (0,57 mm
+   impresos) y el movil no lo cogia; a 136 son 3,3 px y 0,88 mm. */
+.dk-card img.qr{width:136px;height:136px;flex-shrink:0;margin-left:auto}
 .dk-cfoot{display:flex;justify-content:space-between;gap:14px;padding:18px 44px 24px;font-size:9.5px;color:#555;flex-wrap:wrap;margin-top:auto}
 .dk-cfoot b{color:#ae0b0b}
 /* páginas interiores */
@@ -2013,6 +2016,9 @@ function saneaNombreObra(o){
  return true;
 }
 function normObra(o){ if(!o.id)o.id=uid("o");
+  /* limpieza de una versión anterior: el SVG del QR se llegó a guardar dentro de la
+     obra y de ahí viajaba a la columna wizard de la base de datos */
+  if(o._qrCache)delete o._qrCache;
   if(typeof o.autor!=='string')o.autor='';            /* carpeta del equipo (MARIA, DAVID...) */
   saneaNombreObra(o);                                    /* nombre del edificio, no del fichero */
   if(!o.com)o.com=comSlug(o.nombre||o.dir)||('c_'+o.id); /* comunidad: agrupa las versiones del mismo edificio */
@@ -5902,10 +5908,14 @@ function pubHash(s){ var h=5381; for(var i=0;i<s.length;i++)h=((h*33)^s.charCode
 /* QR propio de la obra, SIEMPRE y en todas. El código es el mismo se abra donde se
    abra (va guardado con la obra), así que el QR impreso desde cualquier copia sirve
    en cuanto esa obra se haya publicado alguna vez desde el servidor. */
+/* el caché va APARTE, nunca colgado de la obra: _datos.php mete en la columna wizard
+   todo campo que no tenga columna propia, así que guardarlo ahí metía 31 KB de SVG
+   dentro del registro de cada obra en cada guardado. */
+var QR_CACHE={};
 function pubQR(o){ if(!o)return PBRAND.qr;
  pubDe(o);
  var u=pubURL(o); if(!u)return PBRAND.qr;
- try{ if(!o._qrCache||o._qrCache.u!==u)o._qrCache={u:u,png:qrSvgDe(u)}; return o._qrCache.png; }
+ try{ if(!QR_CACHE[u])QR_CACHE[u]=qrSvgDe(u); return QR_CACHE[u]; }
  catch(e){ return PBRAND.qr; } }
 function pubCss(){ return '.pubbar{position:sticky;top:0;z-index:10;display:flex;align-items:center;gap:12px;'+
  'padding:10px 16px;background:#fff;border-bottom:1px solid #e6ded9;box-shadow:0 2px 10px -6px rgba(0,0,0,.25)}'+
@@ -5951,13 +5961,22 @@ function publicaObra(o,callado,cb){
  else setTxt('pubEstado','Actualizando el enlace…');
  fetch('publicar.php?op=publicar',{method:'POST',headers:{'Content-Type':'application/json'},
   body:JSON.stringify({id:o.id,token:o.pub,html:html})})
-  .then(function(r){return r.json();})
+  /* se lee como texto y se intenta parsear a mano: si el servidor devuelve una página
+     de error en vez de JSON, r.json() soltaría un "Unexpected token" que no dice nada */
+  .then(function(r){ return r.text().then(function(t){
+    var j=null; try{ j=JSON.parse(t); }catch(_){ }
+    if(!j)throw new Error('el servidor respondió '+r.status+' con '+(t.slice(0,120)||'nada'));
+    if(!r.ok&&!j.error)throw new Error('el servidor respondió '+r.status);
+    return j; }); })
   .then(function(j){ if(!j||!j.ok)throw new Error((j&&j.error)||'respuesta no válida');
     o.pub=j.token; o.pubFecha=Date.now(); o.pubHash=h; save();
     pintaPubEstado(o);
     if(!callado)toast('Enlace actualizado');
     if(cb)cb(j); })
-  .catch(function(e){ setTxt('pubEstado','No se pudo actualizar el enlace');
+  /* el fallo se ve SIEMPRE, aunque la publicación sea automática: si esto calla,
+     el QR sale impreso apuntando a una página que no existe y nadie se entera */
+  .catch(function(e){ var el=document.getElementById('pubEstado');
+    if(el)el.innerHTML='<b style="color:var(--brand)">No se pudo publicar la página del QR:</b> '+esc(e.message||'error desconocido');
     if(!callado)toast('No se pudo publicar: '+e.message); });
 }
 /* Se llama al abrir el dossier y antes de imprimir: si el documento ha cambiado desde
@@ -6757,7 +6776,7 @@ function dossierHtml(o){ var f=fichaDe(o), t=f.t, opt=f.opt, p=state.params;
   '<div class="dk-lema dk-black" style="margin:0">'+esc(p.lema||'EXPERIENCIA · RESPONSABILIDAD · COMPROMISO')+'</div>'+
   '<div style="display:flex;align-items:center;gap:14px;margin-top:6px"><div style="font-size:10px;color:#666;text-align:right">'+
    (o.pub?'Escanea el código<br>para ver este presupuesto<br>y descargarlo:':'Escanea el código<br>para conocernos mejor:')+
-   '<br><b style="color:#ae0b0b">'+esc(o.pub?'proyecton.es':(p.web||'www.proyecton.es'))+'</b></div><img src="'+pubQR(o)+'" style="width:84px;height:84px" alt="QR"></div>'+
+   '<br><b style="color:#ae0b0b">'+esc(o.pub?'proyecton.es':(p.web||'www.proyecton.es'))+'</b></div><img src="'+pubQR(o)+'" style="width:136px;height:136px" alt="QR"></div>'+
  '</div>'+dkFoot(p)+'</div>';
  return h; }
 
@@ -6777,7 +6796,7 @@ window.PRESTON={state:function(){return state;},obra:obra,ficha:function(){var o
  ver:compruebaVersion,
  qr:{matriz:qrMatriz,cw:qrCodewords,ec:qrEC,png:qrDataURL,svg:qrSvgDe},
  pub:{url:pubURL,qr:pubQR,pagina:paginaPublica,publica:publicaObra,token:pubDe,auto:autoPublica,hash:pubHash},
- version:'v151-qr-en-todas (LAB · copia de pruebas)'};
+ version:'v152-qr-legible (LAB · copia de pruebas)'};
 try{var th0=localStorage.getItem('prestonLAB_theme'); if(th0)document.documentElement.setAttribute('data-theme',th0);}catch(e){}
 var _bd=document.getElementById('brandDode'); if(_bd&&typeof PBRAND!=='undefined')_bd.src=PBRAND.dode;
 try{ var _rv=document.getElementById('railVer'); if(_rv)_rv.textContent='Versión '+(PRESTON.version||'').split(' ')[0]; }catch(e){}
