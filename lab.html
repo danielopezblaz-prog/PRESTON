@@ -8054,7 +8054,12 @@ window.PRESTON={state:function(){return state;},obra:obra,ficha:function(){var o
   doc:function(){var o=obra();return o?presDoc(o):null;}},
  land:{html:function(){var o=obra();return o?paginaLanding(o):null;},cifras:function(){var o=obra();return o?landCifras(o):null;},
   faq:function(){var o=obra();return o?landFaq(o,landCifras(o)):null;},razones:function(){var o=obra();return o?landRazones(o,landCifras(o)):null;},
-  url:function(){var o=obra();return o?landURL(o):null;},publica:function(cb){var o=obra();if(o)publicaLanding(o,cb);}},
+  url:function(){var o=obra();return o?landURL(o):null;},publica:function(cb){var o=obra();if(o)publicaLanding(o,cb);},
+  /* las TRES páginas tal cual se suben, con su código: sirve para comprobarlas fuera */
+  paginas:function(){ var o=obra(); if(!o)return null; var l=paginaLanding(o); var d=null;
+   try{ d=presDoc(o); }catch(e){}
+   return {land:{token:o.pubLand,html:l},pdf:{token:o.pub,html:paginaPublica(o)},
+    pres:{token:o.pubPres,html:d}}; }},
  med:{parcial:parcialLinea,suma:sumaLineas,open:function(id){openDock(id);},close:function(){closeDock();},dock:function(){return {open:dockOpen,id:dockId};}},
  carp:{ir:abrirCarpeta,equipo:EQUIPO,de:carpetaDe,lista:obrasCarpeta,abierta:carpetaAbierta},
  ver:compruebaVersion,
