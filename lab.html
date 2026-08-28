@@ -4442,7 +4442,10 @@ function renderLivehead(){ var o=obra(); if(!o)return; var f=fichaDe(o);
  document.getElementById('livehead').innerHTML=
   lh('euro','Total c/IVA',eur0(f.t.total),'brand',true)+
   lh('sun','Ahorro energético est.',m1(f.opt.ah)+' %','ok',false,'<span class="gauge"><i style="width:'+Math.min(100,f.opt.ah/75*100)+'%"></i></span>')+
-  lh('subv','Subvención + CAE',eur0(f.opt.subv+f.opt.cae.neto),'ok')+
+  /* del MISMO motor que la hoja y el dossier (subvCalcular, en f.r): el optimizador
+     viejo (f.opt) usaba los tramos del RD 853/2021 y aquí salía otra cifra distinta
+     de la que el cliente ve en el informe. Solo queda de respaldo sin PEM/viviendas. */
+  lh('subv','Subvención + CAE',eur0(f.r?f.r.obtenibleReal:(f.opt.subv+f.opt.cae.neto)),'ok')+
   lh('obras','Neto por vivienda',eur0(f.netoViv),'brand')+
   lh('cal','Cuota '+(f.finMeses||state.params.meses)+' meses',eur0(f.cuotaViv)+'/mes','',false,(f.esAdelanto?'<span class="l" style="color:var(--brand)">ayudas descontadas</span>':''))+
   /* TERMINAR: un solo botón al documento final de venta (dossier), con subvención ya dentro */
@@ -6842,7 +6845,7 @@ window.PRESTON={state:function(){return state;},obra:obra,ficha:function(){var o
  ver:compruebaVersion,
  qr:{matriz:qrMatriz,cw:qrCodewords,ec:qrEC,png:qrDataURL,svg:qrSvgDe},
  pub:{url:pubURL,qr:pubQR,pagina:paginaPublica,publica:publicaObra,token:pubDe,auto:autoPublica,hash:pubHash},
- version:'v153-traspaso-de-obra (LAB · copia de pruebas)'};
+ version:'v154-livehead-motor-real (LAB · copia de pruebas)'};
 try{var th0=localStorage.getItem('prestonLAB_theme'); if(th0)document.documentElement.setAttribute('data-theme',th0);}catch(e){}
 var _bd=document.getElementById('brandDode'); if(_bd&&typeof PBRAND!=='undefined')_bd.src=PBRAND.dode;
 try{ var _rv=document.getElementById('railVer'); if(_rv)_rv.textContent='Versión '+(PRESTON.version||'').split(' ')[0]; }catch(e){}
