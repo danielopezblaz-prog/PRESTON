@@ -1952,6 +1952,7 @@ function normObra(o){ if(!o.id)o.id=uid("o");
   if(typeof o.autor!=='string')o.autor='';            /* carpeta del equipo (MARIA, DAVID...) */
   saneaNombreObra(o);                                    /* nombre del edificio, no del fichero */
   if(!o.com)o.com=comSlug(o.nombre||o.dir)||('c_'+o.id); /* comunidad: agrupa las versiones del mismo edificio */
+  if(!o.fase)o.fase=faseDe(o);                        /* fase de trabajo: entrada, proceso, pendiente o enviado */
   if(['borrador','enviada','aceptada','perdida'].indexOf(o.estado)<0)o.estado='borrador';
   o.config=Object.assign({gg:0,bi:0,iva:10},o.config||{});
   if(!Array.isArray(o.capitulos))o.capitulos=[];
@@ -3531,10 +3532,23 @@ var EQUIPO=[{id:'MARIA',nom:'María',ini:'MA',col:'#b8365c'},
  {id:'PACO', nom:'Paco', ini:'PA',col:'#6c4bb6'},
  {id:'TELLO',nom:'Tello',ini:'TE',col:'#167c80'}];
 var SIN={id:'SIN',nom:'Sin asignar',ini:'··',col:'#8a817d'};
-var SECCIONES=[{k:'borrador',t:'Por hacer',sub:'sin terminar o sin enviar',col:'var(--line-2)'},
- {k:'enviada', t:'Enviados',   sub:'esperando respuesta',      col:'var(--warn)'},
- {k:'aceptada',t:'Contratados',sub:'aceptados por la comunidad',col:'var(--ok)'},
- {k:'perdida', t:'Perdidos',   sub:'no salieron',              col:'var(--bad)'}];
+/* Las 4 carpetas de dentro, en el orden de trabajo real: llega el presupuesto,
+   se hace, queda a la espera de algo y por fin se envia. Van en o.fase; el
+   estado comercial (borrador/enviada/aceptada/perdida) sigue existiendo para el
+   resto de la app y para el servidor, y se mantiene en sintonia con la fase. */
+var SECCIONES=[{k:'entrada',  t:'Entrada de presupuestos',sub:'recien llegados',        col:'var(--info)'},
+ {k:'proceso',  t:'En proceso',  sub:'se estan haciendo',       col:'var(--warn)'},
+ {k:'pendiente',t:'Pendiente',   sub:'a la espera de algo',     col:'var(--brand)'},
+ {k:'enviado',  t:'Enviados',    sub:'ya estan en el cliente',  col:'var(--ok)'}];
+function faseDe(o){ var f=o&&o.fase;
+ if(f&&['entrada','proceso','pendiente','enviado'].indexOf(f)>=0)return f;
+ return (o&&(o.estado==='enviada'||o.estado==='aceptada'||o.estado==='perdida'))?'enviado':'entrada'; }
+/* al pasar a Enviados el presupuesto pasa a "enviada" (y arranca el contador de
+   dias); al sacarlo de ahi vuelve a borrador. Si ya estaba aceptado o perdido no
+   se toca: eso es historia comercial, no una fase de trabajo. */
+function ponFase(o,f){ o.fase=f;
+ if(f==='enviado'){ if(o.estado==='borrador'){ o.estado='enviada'; o.fEstado=Date.now(); } }
+ else if(o.estado==='enviada'){ o.estado='borrador'; o.fEstado=Date.now(); } }
 var cpQ='';   /* búsqueda dentro de la carpeta (no se guarda: es de un vistazo) */
 var cpSub='';  /* subcarpeta abierta: '' = se ven las subcarpetas, no la lista */
 var cpCom='';  /* comunidad abierta dentro de la subcarpeta */
@@ -3682,8 +3696,8 @@ function cpMvOpts(actual){ var h='<option value="">Mover a…</option>';
    una CARPETA POR COMUNIDAD, y dentro de la comunidad sus presupuestos: la V1,
    la V2 si la hay... cpSub = estado abierto, cpCom = comunidad abierta. */
 function secDe(kk){ for(var i=0;i<SECCIONES.length;i++)if(SECCIONES[i].k===kk)return SECCIONES[i]; return null; }
-function secCol(s){ return s.k==='borrador'?'var(--muted)':s.col; }
-function cpDeEstado(l,kk){ return l.filter(function(o){ return (o.estado||'borrador')===kk; }); }
+function secCol(s){ return s.col; }
+function cpDeEstado(l,kk){ return l.filter(function(o){ return faseDe(o)===kk; }); }
 /* la comunidad agrupa versiones del mismo edificio: clave = nombre normalizado
    (sin coletillas "(V2)"/"(variante)", sin acentos ni signos), guardada en o.com
    para que una copia renombrada siga siendo de la misma comunidad */
@@ -3727,7 +3741,7 @@ function renderCarpeta(){ var host=document.getElementById('carpetaView'); if(!h
 
  if(!sec){                                   /* --- 1) subcarpetas de estado --- */
   var subs=SECCIONES.map(function(s){ var rows=cpDeEstado(todas,s.k);
-    if(!rows.length&&s.k==='perdida')return '';
+
     var nc=comunidadesDe(rows).length;
     return '<div class="eqcard sub" data-sub="'+s.k+'" style="--eqc:'+secCol(s)+'">'+
       '<span class="eq-fold">'+folderSvg('eqf')+'<span class="eq-cnt">'+nc+'</span></span>'+
@@ -3790,10 +3804,10 @@ function renderCarpeta(){ var host=document.getElementById('carpetaView'); if(!h
    var ult=grupo.slice().sort(function(a,b){ return (b.creada||0)-(a.creada||0); })[0];
    var cp=JSON.parse(JSON.stringify(ult)); cp.id=uid('o');
    cp.nombre=nombreBase(ult.nombre||ult.dir||'Obra')+' (V'+(grupo.length+1)+')';
-   cp.com=ult.com; cp.estado='borrador'; cp.fEstado=Date.now(); cp.creada=Date.now();
+   cp.com=ult.com; cp.estado='borrador'; cp.fase='entrada'; cp.fEstado=Date.now(); cp.creada=Date.now();
    normObra(cp); cp.capitulos.forEach(function(c){ c.id=uid('c'); c.partidas.forEach(function(p){ p.id=uid('p'); }); });
    state.obras.unshift(cp); state.activeId=cp.id; selected=null; collapsed={}; save();
-   go('presupuesto'); toast('Versión '+(grupo.length+1)+' creada — cambia lo que toque'); };
+   go('presupuesto'); toast('Versión '+(grupo.length+1)+' creada · está en «Entrada de presupuestos»'); };
  var bus=host.querySelector('#cpSearch');
  if(bus){ bus.value=cpQ; bus.oninput=function(){ cpQ=bus.value; renderCarpeta();
    var b2=document.getElementById('cpSearch'); if(b2){ b2.focus(); try{ b2.setSelectionRange(b2.value.length,b2.value.length); }catch(_){} } }; }
@@ -3804,11 +3818,15 @@ function renderCarpeta(){ var host=document.getElementById('carpetaView'); if(!h
    listener global de .ocard, que repinta la vista que este delante. */
 function cardObraHtml(o,ver){ var t=totalesDe(o); var f=fichaDe(o); var est=ESTADOS[o.estado]||ESTADOS.borrador;
  var dias=diasDesde(o.fEstado); var envejecido=o.estado==='enviada'&&dias>10;
- var topCol={borrador:'var(--line-2)',enviada:'var(--warn)',aceptada:'var(--ok)',perdida:'var(--bad)'}[o.estado]||'var(--line-2)';
+ /* dentro de una carpeta manda la FASE de trabajo; en "Todas las obras", el estado comercial */
+ var enCarp=(view==='carpeta'), fs=enCarp?(secDe(faseDe(o))||SECCIONES[0]):null;
+ var etiq=fs?('<span class="tag" data-estado title="Pasar a la siguiente fase" style="background:color-mix(in srgb,'+fs.col+' 14%,transparent);color:'+fs.col+';border-color:color-mix(in srgb,'+fs.col+' 35%,transparent)">'+fs.t+'</span>')
+  :('<span class="tag '+est[1]+'" data-estado title="Cambiar estado">'+est[0]+(envejecido?' · ¿toca llamar?':'')+'</span>');
+ var topCol=fs?fs.col:({borrador:'var(--line-2)',enviada:'var(--warn)',aceptada:'var(--ok)',perdida:'var(--bad)'}[o.estado]||'var(--line-2)');
  var pemO=pemDe(o);
  var miniBar=(o.capitulos||[]).map(function(cc,i){ var w=pct(capTotal(cc,o),pemO); return w>0?'<i style="width:'+w+'%;background:'+capColor(i)+'" title="'+esc(cc.cod+' · '+cc.res)+'"></i>':''; }).join('');
  return '<div class="ocard" data-id="'+o.id+'" style="border-top-color:'+topCol+'">'+
-  '<div class="oc-top">'+(ver?'<span class="cp-ver">'+ver+'</span>':'')+'<h4>'+esc(o.nombre||'Sin nombre')+'</h4><span class="tag '+est[1]+'" data-estado title="Cambiar estado">'+est[0]+(envejecido?' · ¿toca llamar?':'')+'</span></div>'+
+  '<div class="oc-top">'+(ver?'<span class="cp-ver">'+ver+'</span>':'')+'<h4>'+esc(o.nombre||'Sin nombre')+'</h4>'+etiq+'</div>'+
   '<div class="oc-dir">'+esc(o.dir||'—')+(o.muni?' · '+esc(o.muni):'')+' · '+(o.viviendas||0)+' viv</div>'+
   '<div class="oc-nums">'+
     '<div><span class="l">Total c/IVA</span><span class="v">'+eur0(t.total)+'</span></div>'+
@@ -3837,7 +3855,13 @@ function renderObras(){ var q=(document.getElementById('obraSearch').value||'').
  host.innerHTML=list.map(function(o){ return cardObraHtml(o); }).join('');
 }
 function abrirObra(id){ state.activeId=id; selected=null; collapsed={}; save(); go('presupuesto'); }
-function cicloEstado(o){ var orden=['borrador','enviada','aceptada','perdida'];
+/* Dentro de una carpeta la etiqueta mueve la FASE de trabajo (entrada > proceso >
+   pendiente > enviados); en "Todas las obras" sigue moviendo el estado comercial. */
+function cicloFase(o){ var orden=['entrada','proceso','pendiente','enviado'];
+ var i=(orden.indexOf(faseDe(o))+1)%orden.length; ponFase(o,orden[i]); save(); repintaObras(); renderNav();
+ toast('Ahora está en «'+(secDe(orden[i])||{t:''}).t+'»'); }
+function cicloEstado(o){ if(view==='carpeta')return cicloFase(o);
+ var orden=['borrador','enviada','aceptada','perdida'];
  var i=(orden.indexOf(o.estado)+1)%orden.length; o.estado=orden[i]; o.fEstado=Date.now(); save(); repintaObras(); toast('Estado: '+ESTADOS[o.estado][0]); }
 
 /* ================= asistente ================= */
@@ -5950,7 +5974,7 @@ function empezarComo(oid){
  var src=state.obras.find(function(x){return x.id===oid;}); if(!src)return;
  var cp=JSON.parse(JSON.stringify(src)); cp.id=uid('o');
  cp.nombre='Copia de '+(src.nombre||src.dir||'obra'); cp.dir=''; cp.exp=''; cp.promotor='';
- cp.estado='borrador'; cp.fEstado=Date.now(); cp.creada=Date.now(); delete cp.pres;
+ cp.estado='borrador'; cp.fase='entrada'; cp.fEstado=Date.now(); cp.creada=Date.now(); delete cp.pres;
  normObra(cp); cp.capitulos.forEach(function(c){c.id=uid('c'); c.partidas.forEach(function(p){p.id=uid('p');});});
  state.obras.unshift(asignaCarpeta(cp)); state.activeId=cp.id; selected=null; collapsed={}; save();
  pickClose(); go('presupuesto'); toast('Copiada de «'+(src.nombre||src.dir||'obra')+'» · cambia dirección y viviendas en Ajustes');
@@ -6227,7 +6251,7 @@ window.PRESTON={state:function(){return state;},obra:obra,ficha:function(){var o
  pres:{payload:function(){var o=obra();return o?presPayload(o):null;},url:function(){var o=obra();return o?presUrl(o):null;}},
  med:{parcial:parcialLinea,suma:sumaLineas,open:function(id){openDock(id);},close:function(){closeDock();},dock:function(){return {open:dockOpen,id:dockId};}},
  carp:{ir:abrirCarpeta,equipo:EQUIPO,de:carpetaDe,lista:obrasCarpeta,abierta:carpetaAbierta},
- version:'v132-movil-tablet (LAB · copia de pruebas)'};
+ version:'v133-cuatro-fases (LAB · copia de pruebas)'};
 try{var th0=localStorage.getItem('prestonLAB_theme'); if(th0)document.documentElement.setAttribute('data-theme',th0);}catch(e){}
 var _bd=document.getElementById('brandDode'); if(_bd&&typeof PBRAND!=='undefined')_bd.src=PBRAND.dode;
 if(USA_SERVIDOR){ state={v:3,activeId:null,params:defParams(),obras:[]}; } else { state=load(); }
