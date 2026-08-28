@@ -4554,6 +4554,7 @@ function svShellHtml(o,s){
  h+='<table class="svt"><tbody>'+
   o.capitulos.map(function(c,i){ return '<tr><td>'+esc(c.cod)+' · '+esc(c.res)+'</td><td class="num">'+svEur(capTotal(c))+'</td></tr>'; }).join('')+
   ((t.gg+t.bi)>0?'<tr><td>Gastos generales ('+loose(o.config.gg)+' %) y beneficio industrial ('+loose(o.config.bi)+' %)</td><td class="num">'+svEur(t.gg+t.bi)+'</td></tr>':'')+
+  ((t.agente>0)?'<tr><td>Honorarios de agente rehabilitador ('+loose(recAgP(o))+' % sobre la obra a coste '+svEur(t.pemBase)+')</td><td class="num">'+svEur(t.agente)+'</td></tr>':'')+
   '<tr class="subtot"><td>PEM de contrata</td><td class="num">'+svEur(t.pec)+'</td></tr>'+
   '</tbody></table>';
  h+='<div class="sv-sub" style="margin-top:16px">Honorarios, IVA y tasas</div><div class="sv-grid">'+
@@ -4723,11 +4724,22 @@ function svRefresh(){ var o=obra(); if(!o)return; var s=subvDe(o);
  var eco=document.getElementById('svEco');
  if(eco){ var e=subvEconomia(o,s);
   var accCoste=Math.min(num(s.costeAcc)||0,e.costeSubvencionable);
+  /* Si la obra lleva adelanto, el PEM de contrata incluye DENTRO el recargo repartido
+     en las partidas y los honorarios del agente. Se desglosa para que se vea de donde
+     sale cada euro y sobre que base va cada porcentaje. */
+  var recP=recPctDe(o), agP=recAgP(o), tt=e.t;
+  var desglose=(tt.agente>0||recP>0)
+   ?('<tr><td>Obra a coste (PEM sin recargo)</td><td class="num">'+svEur(tt.pemBase)+'</td></tr>'+
+     (recP>0?'<tr><td>Recargo por adelanto de ayudas ('+loose(recP)+' % repartido en las partidas)</td><td class="num">'+svEur(tt.pem-tt.pemBase)+'</td></tr>':'')+
+     (tt.agente>0?'<tr><td>Honorarios de agente rehabilitador ('+loose(agP)+' % sobre la obra a coste)</td><td class="num">'+svEur(tt.agente)+'</td></tr>':'')+
+     ((tt.gg+tt.bi)>0?'<tr><td>Gastos generales y beneficio industrial</td><td class="num">'+svEur(tt.gg+tt.bi)+'</td></tr>':''))
+   :'';
   eco.innerHTML='<table class="svt"><tbody>'+
-   '<tr><td>PEM de contrata (partidas + GG + BI)</td><td class="num">'+svEur(e.pem)+'</td></tr>'+
+   desglose+
+   '<tr'+(desglose?' class="total"':'')+'><td>PEM de contrata'+(tt.agente>0?' (obra + recargo + agente + GG/BI)':' (partidas + GG + BI)')+'</td><td class="num">'+svEur(e.pem)+'</td></tr>'+
    '<tr><td>IVA de la obra ('+loose(e.ivaObraPct)+' %)</td><td class="num">'+svEur(e.ivaObraEur)+'</td></tr>'+
    '<tr><td>Honorarios técnicos + IVA ('+loose(e.ivaHon)+' %)</td><td class="num">'+svEur(e.honTecConIva)+'</td></tr>'+
-   (e.honAgente>0?'<tr><td>Honorarios agente rehabilitador + IVA</td><td class="num">'+svEur(e.honAgenteConIva)+'</td></tr>':'')+
+   (e.honAgente>0?'<tr><td>Honorarios agente rehabilitador (aparte) + IVA</td><td class="num">'+svEur(e.honAgenteConIva)+'</td></tr>':'')+
    '<tr class="total"><td>COSTE SUBVENCIONABLE</td><td class="num">'+svEur(e.costeSubvencionable)+'</td></tr>'+
    (accCoste>0?'<tr><td style="font-style:italic;color:var(--svgris)">— de los cuales, accesibilidad/ascensor</td><td class="num">'+svEur(accCoste)+'</td></tr>':'')+
    '<tr><td>Tasas no subvencionables · ICIO+Tasas ('+loose(s.tasasPct)+' % PEM'+(e.tasasBonif>0?', bonif. '+loose(e.tasasBonif)+' %':'')+')</td><td class="num">'+svEur(e.tasasEur)+'</td></tr>'+
@@ -4959,6 +4971,7 @@ function svInformeInner(o,pal){
   '<table class="svt"><thead><tr><th>Concepto</th><th class="num">Importe</th></tr></thead><tbody>'+
   o.capitulos.map(function(c){return '<tr><td>'+esc(c.cod)+' · '+esc(c.res)+'</td><td class="num">'+svEur(capTotal(c))+'</td></tr>';}).join('')+
   ((r.e.t.gg+r.e.t.bi)>0?'<tr><td>Gastos generales ('+loose(o.config.gg)+' %) y beneficio industrial ('+loose(o.config.bi)+' %)</td><td class="num">'+svEur(r.e.t.gg+r.e.t.bi)+'</td></tr>':'')+
+  ((r.e.t.agente>0)?'<tr><td>Honorarios de agente rehabilitador ('+loose(recAgP(o))+' % sobre la obra a coste '+svEur(r.e.t.pemBase)+')</td><td class="num">'+svEur(r.e.t.agente)+'</td></tr>':'')+
   '<tr class="subtot"><td>PEM de contrata</td><td class="num">'+svEur(r.e.pem)+'</td></tr>'+
   svRow('IVA obra ('+loose(r.e.ivaObraPct)+' %)',svEur(r.e.ivaObraEur),svEur(r.e.pem)+' × '+loose(r.e.ivaObraPct)+'%')+
   svRow('Honorarios téc. + IVA',svEur(r.e.honTecConIva),svEur(r.e.honTec)+' + IVA '+loose(r.e.ivaHon)+'%')+
@@ -6325,7 +6338,7 @@ window.PRESTON={state:function(){return state;},obra:obra,ficha:function(){var o
  med:{parcial:parcialLinea,suma:sumaLineas,open:function(id){openDock(id);},close:function(){closeDock();},dock:function(){return {open:dockOpen,id:dockId};}},
  carp:{ir:abrirCarpeta,equipo:EQUIPO,de:carpetaDe,lista:obrasCarpeta,abierta:carpetaAbierta},
  ver:compruebaVersion,
- version:'v138-cuadre-formato (LAB · copia de pruebas)'};
+ version:'v139-agente-en-hoja (LAB · copia de pruebas)'};
 try{var th0=localStorage.getItem('prestonLAB_theme'); if(th0)document.documentElement.setAttribute('data-theme',th0);}catch(e){}
 var _bd=document.getElementById('brandDode'); if(_bd&&typeof PBRAND!=='undefined')_bd.src=PBRAND.dode;
 try{ var _rv=document.getElementById('railVer'); if(_rv)_rv.textContent='Versión '+(PRESTON.version||'').split(' ')[0]; }catch(e){}
