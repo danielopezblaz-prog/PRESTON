@@ -252,7 +252,6 @@ table.data{width:100%;border-collapse:collapse}
 .eq-wrap{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:clamp(26px,3vw,48px);align-items:start}
 /* en portatil (hasta ~1680px) la portada se ve como al 80% de zoom: mismo ancho, contenido mas recogido; el monitor grande queda al 100% */
 @media (min-width:1081px) and (max-width:1680px){ .eq-wrap{zoom:.8} }
-@media (max-width:1080px){ .eq-wrap{grid-template-columns:1fr} }
 .eq-head h1{margin:4px 0 6px;font-size:clamp(22px,3vw,30px);letter-spacing:-.02em;line-height:1.1}
 .eq-head .eq-nom{color:var(--brand)}
 .eq-sub2{margin:0 0 12px;font-size:13px;color:var(--ink-2);max-width:52ch;line-height:1.5}
@@ -295,6 +294,46 @@ table.data{width:100%;border-collapse:collapse}
  .eq-hero{animation:eqIn .34s cubic-bezier(.2,.7,.2,1) .06s backwards}
  .eq-panel{animation:eqIn .34s cubic-bezier(.2,.7,.2,1) .12s backwards}
  .eq-prow{animation:fadeIn .3s ease-out backwards}
+}
+/* ===== movil y tablet ===== */
+/* tablet en horizontal (iPad y similares): se mantienen las dos columnas con el
+   panel del equipo mas estrecho, que cabe de sobra */
+@media (min-width:900px) and (max-width:1080px){
+  .eq-wrap{grid-template-columns:minmax(0,1fr) 250px;gap:20px}
+  .eq-panel{margin-top:20px}
+}
+@media (max-width:899px){
+  .eq-wrap{grid-template-columns:1fr;gap:18px}
+  /* en una sola columna el panel no debe quedarse pegado ni desplazado */
+  .eq-panel{position:static;margin-top:4px;top:auto}
+  .eq-hero{margin:-6px auto 0;max-width:min(560px,92vw)}
+  .eq-head h1{font-size:clamp(20px,5.4vw,26px)}
+}
+@media (max-width:640px){
+  .eq-lbl{font-size:11.5px;top:97%}
+  .eq-hero{max-width:100%}
+  /* los botones de crear: dos por fila y el principal ocupando toda la anchura */
+  #carpetaView .cp-tools{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  #carpetaView .cp-tools>.btn{grid-column:1/-1;justify-content:center}
+  #carpetaView .cp-tools>.mini{justify-content:center}
+  #carpetaView .cp-tools>.search{grid-column:1/-1;max-width:none!important}
+  #carpetaView .cp-tools>.spring{display:none}
+  #carpetaView .cp-hint{grid-column:1/-1;max-width:none}
+  .cp-head{gap:9px}
+  .cp-h1{font-size:14px}
+  /* la animacion de entrada no debe asomar por el borde en pantallas estrechas */
+  .view>.scroller{overflow-x:hidden}
+  .cp-sec .cp-body{overflow-x:hidden}
+}
+/* dedos, no raton: objetivos mas grandes y acciones siempre visibles */
+@media (hover:none){
+  .cp-acts button{width:38px;height:38px}
+  .cp-acts button svg{width:17px;height:17px}
+  .eq-lbl{color:var(--eqc)}
+  .eq-prow{padding:13px 10px}
+  .eqcard.sub{padding:14px 16px}
+  .cp-row{padding:12px 13px}
+  .eqcard:active,.cp-row:active,.eq-prow:active,.ocard:active{transform:scale(.97)}
 }
 .cp-head{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px}
 .cp-head .eq-av{width:44px;height:44px;border-radius:13px;font-size:14px;display:grid;place-items:center;color:#fff;background:var(--eqc,var(--muted));font-weight:800;letter-spacing:.05em;flex:none}
@@ -865,6 +904,22 @@ table.dkt{width:100%;border-collapse:collapse;font-size:10.4px;margin:6px 0}
   .wfall .wr{grid-template-columns:110px 1fr 92px}
 }
 @media (hover:none){ .ocard .oc-foot .acts{opacity:1} .rowact{opacity:1} }
+/* ===== tacto: va al final para mandar sobre las medidas de raton ===== */
+@media (hover:none){
+  .ocard .oc-foot .acts button{width:36px;height:36px;border-radius:8px}
+  .ocard .oc-foot .acts button svg{width:16px;height:16px}
+  .ocard .oc-foot{gap:8px;flex-wrap:wrap}
+  .ocard .oc-mv{font-size:11.5px;padding:5px 9px;max-width:none}
+  .cp-acts button{width:38px;height:38px}
+  .cp-acts button svg{width:17px;height:17px}
+  .eq-prow{padding:13px 10px}
+  .cp-row{padding:12px 13px}
+}
+@media (max-width:640px){
+  /* el deslizamiento de entrada, mas corto en pantallas estrechas */
+  @keyframes navIn{from{opacity:0;transform:translate3d(12px,0,0)}to{opacity:1;transform:none}}
+  @keyframes navOut{from{opacity:0;transform:translate3d(-12px,0,0)}to{opacity:1;transform:none}}
+}
 </style>
 <style>
 /* ============================================================
@@ -3607,7 +3662,9 @@ function renderEquipo(){ var host=document.getElementById('equipoView'); if(!hos
    sps.forEach(function(s){ var p=eqPos(s.dataset.carpeta);
     var dx=px-p[0]/100*r.width, dy=py-p[1]/100*r.height;
     var d=Math.sqrt(dx*dx+dy*dy); if(d<md){ md=d; mejor=s; } });
-   return (md<=r.width*0.11)?mejor:null; };
+   /* con el dedo la punteria es peor que con el raton: mas radio en tactil */
+   var rad=(window.matchMedia&&matchMedia('(hover:none)').matches)?0.16:0.11;
+   return (md<=r.width*rad)?mejor:null; };
   hero.addEventListener('mousemove',function(ev){ var s=cerca(ev);
    sps.forEach(function(x){ x.classList.toggle('on',x===s); });
    hero.style.cursor=s?'pointer':'default'; });
@@ -6170,7 +6227,7 @@ window.PRESTON={state:function(){return state;},obra:obra,ficha:function(){var o
  pres:{payload:function(){var o=obra();return o?presPayload(o):null;},url:function(){var o=obra();return o?presUrl(o):null;}},
  med:{parcial:parcialLinea,suma:sumaLineas,open:function(id){openDock(id);},close:function(){closeDock();},dock:function(){return {open:dockOpen,id:dockId};}},
  carp:{ir:abrirCarpeta,equipo:EQUIPO,de:carpetaDe,lista:obrasCarpeta,abierta:carpetaAbierta},
- version:'v131-arreglo-crear (LAB · copia de pruebas)'};
+ version:'v132-movil-tablet (LAB · copia de pruebas)'};
 try{var th0=localStorage.getItem('prestonLAB_theme'); if(th0)document.documentElement.setAttribute('data-theme',th0);}catch(e){}
 var _bd=document.getElementById('brandDode'); if(_bd&&typeof PBRAND!=='undefined')_bd.src=PBRAND.dode;
 if(USA_SERVIDOR){ state={v:3,activeId:null,params:defParams(),obras:[]}; } else { state=load(); }
