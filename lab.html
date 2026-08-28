@@ -550,7 +550,9 @@ table.pre{width:100%;border-collapse:collapse}
 .livehead .gauge{width:110px;height:6px;border-radius:999px;background:var(--bg-sunken);overflow:hidden;margin-top:3px}
 .livehead .gauge i{display:block;height:100%;background:linear-gradient(90deg,var(--warn),var(--ok));border-radius:999px}
 .tscroll{flex:1;min-height:0;overflow:auto;background:var(--panel)}
-table.tree{width:100%;min-width:960px;border-collapse:collapse;table-layout:fixed;font-size:12px}
+/* la tabla mas ancha que el hueco: asi el Resumen tiene sitio de sobra y, como las tres
+   primeras columnas son fijas, el titulo se sigue leyendo aunque desplaces a la derecha */
+table.tree{width:100%;min-width:1180px;border-collapse:collapse;table-layout:fixed;font-size:12px}
 .tree thead th{position:sticky;top:0;z-index:3;background:var(--panel);color:var(--muted);font-weight:600;font-size:9.5px;letter-spacing:.06em;text-transform:uppercase;text-align:left;padding:6px 10px 5px;border-bottom:1px solid var(--line-2);white-space:nowrap}
 .tree th.r{text-align:right}
 .tree td{padding:0;border-bottom:1px solid var(--line);vertical-align:middle}
@@ -582,7 +584,7 @@ tr.t-add:hover .add-row{opacity:1}
 .tree tbody tr.row:hover>td{background:var(--row-hover)}
 tr.t-cap td.ed input.ce.mono{color:var(--brand);font-weight:700}
 /* resumen como input (mismo modelo de teclado que el resto de celdas) */
-.tree .res input.ce{border:0;background:transparent;font:inherit;font-size:12px;color:inherit;padding:2px 5px;outline:none;border-radius:3px;flex:1;min-width:60px}
+.tree .res input.ce{border:0;background:transparent;font:inherit;font-size:12px;color:inherit;padding:2px 5px;outline:none;border-radius:3px;flex:1;min-width:0;text-overflow:ellipsis}
 tr.t-cap .res input.ce{font-weight:700;color:var(--ink)}
 /* modo navegación (celda activa, readonly) vs modo edición */
 .tree input.ce[readonly],.pre input.ci[readonly],.bdp input.ci[readonly]{cursor:default}
@@ -601,7 +603,7 @@ tr.t-cap .res input.ce{font-weight:700;color:var(--ink)}
 tr.t-cap>td{background:var(--panel-2);border-bottom:1px solid var(--line-2)}
 .tree tbody tr.t-cap:not(:first-child)>td{border-top:1px solid var(--line-2)}
 tr.t-cap .cell{font-weight:700;color:var(--ink)}
-.res{display:flex;align-items:center;gap:2px}
+.res{display:flex;align-items:center;gap:2px;flex:1 1 auto;min-width:0}   /* que ocupe toda la celda: si no, el titulo se corta a la mitad */
 .tw{width:16px;height:16px;flex-shrink:0;display:grid;place-items:center;border-radius:3px;color:var(--muted);cursor:pointer}
 .tw:hover{background:var(--line);color:var(--ink)}
 .tw svg{width:9px;height:9px;transition:transform .12s ease}
@@ -1672,7 +1674,7 @@ PBRAND.qr=qrSvg(PBRAND.qrData,PBRAND.qrN);
                        el espacio libre (con table-layout:fixed, un col sin ancho recoge el resto).
                        Así Cantidad/Precio/Importe miden SIEMPRE lo mismo, en cualquier pantalla. -->
                   <col style="width:44px"><col style="width:88px"><col>
-                  <col style="width:46px"><col style="width:104px"><col style="width:118px"><col style="width:116px"><col style="width:86px"><col style="width:48px">
+                  <col style="width:44px"><col style="width:96px"><col style="width:106px"><col style="width:112px"><col style="width:68px"><col style="width:48px">
                 </colgroup>
                 <thead><tr>
                   <th class="stk s1">Nat</th><th class="stk s2">Código</th><th class="stk s3">Resumen</th><th>Ud</th>
@@ -4144,7 +4146,7 @@ function specRow(n,isCap){ var tr=document.createElement('tr'); tr.className='t-
 function capRow(c,ci){ var tr=document.createElement('tr'); tr.className='row t-cap'+(selected===c.id?' sel':''); tr.dataset.id=c.id; var open=!collapsed[c.id]; var col=capColor(ci||0);
  tr.innerHTML='<td class="stk s1"><i class="capstripe" style="background:'+col+'"></i><div class="cell"><span class="nat cap" draggable="true" data-drag="c:'+c.id+'" title="Capítulo — arrastra para reordenar" style="color:'+col+';background:'+col+'1f"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M4 7a1.5 1.5 0 011.5-1.5H9l2 2h7.5A1.5 1.5 0 0120 9v8.5A1.5 1.5 0 0118.5 19h-13A1.5 1.5 0 014 17.5z"/></svg></span></div></td>'+
   '<td class="ed stk s2"><input readonly class="ce mono" data-col="cod" data-k="text" data-kind="cap" data-id="'+c.id+'" data-f="cod" value="'+esc(c.cod)+'"></td>'+
-  '<td class="stk s3"><div class="cell"><div class="res"><span class="tw '+(open?'open':'')+'" data-tw="'+c.id+'">'+twSvg()+'</span><input readonly class="ce" data-col="res" data-k="text" data-kind="cap" data-id="'+c.id+'" data-f="res" value="'+esc(c.res)+'" aria-label="Resumen del capítulo">'+
+  '<td class="stk s3"><div class="cell"><div class="res"><span class="tw '+(open?'open':'')+'" data-tw="'+c.id+'">'+twSvg()+'</span><input readonly class="ce" data-col="res" data-k="text" data-kind="cap" data-id="'+c.id+'" data-f="res" title="'+esc(c.res)+'" value="'+esc(c.res)+'" aria-label="Resumen del capítulo">'+
   '<span class="spectg'+(specOpen[c.id]?' open':'')+(c.spec?' has':'')+'" data-spectg="'+c.id+'" title="Descripción del capítulo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></span></div></div></td>'+
   '<td><div class="cell"></div></td>'+
   '<td class="r"><div class="cell"></div></td><td class="r"><div class="cell"></div></td>'+
@@ -4155,7 +4157,7 @@ function capRow(c,ci){ var tr=document.createElement('tr'); tr.className='row t-
 function partRow(c,p,ci){ var tr=document.createElement('tr'); tr.className='row t-par'+(selected===p.id?' sel':''); tr.dataset.id=p.id; var col=capColor(ci||0);
  tr.innerHTML='<td class="stk s1"><i class="capstripe" style="background:'+col+'"></i><div class="cell"><span class="nat par" draggable="true" data-drag="p:'+p.id+'" title="Partida — arrastra para mover"><svg viewBox="0 0 24 24"><rect x="7" y="7" width="10" height="10" rx="2.5" fill="currentColor"/></svg></span></div></td>'+
   '<td class="ed stk s2"><input readonly class="ce mono" data-col="cod" data-k="text" data-kind="part" data-id="'+p.id+'" data-f="cod" value="'+esc(p.cod)+'"></td>'+
-  '<td class="stk s3"><div class="cell"><div class="res" style="padding-left:14px"><span class="tw leaf"></span><input readonly class="ce" data-col="res" data-k="text" data-kind="part" data-id="'+p.id+'" data-f="res" value="'+esc(p.res)+'" aria-label="Resumen de la partida">'+(p.est?'<span class="estchip" title="Medición estimada por el asistente'+(p.formula?': '+esc(p.formula):'')+'">est</span>':'')+
+  '<td class="stk s3"><div class="cell"><div class="res" style="padding-left:14px"><span class="tw leaf"></span><input readonly class="ce" data-col="res" data-k="text" data-kind="part" data-id="'+p.id+'" data-f="res" title="'+esc(p.res)+'" value="'+esc(p.res)+'" aria-label="Resumen de la partida">'+(p.est?'<span class="estchip" title="Medición estimada por el asistente'+(p.formula?': '+esc(p.formula):'')+'">est</span>':'')+
   '<span class="spectg'+(specOpen[p.id]?' open':'')+(p.spec?' has':'')+'" data-spectg="'+p.id+'" title="Especificación de la partida"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></span></div></div></td>'+
   '<td class="ed"><input readonly class="ce" data-col="ud" data-k="text" data-kind="part" data-id="'+p.id+'" data-f="ud" value="'+esc(p.ud||'')+'"></td>'+
   '<td class="ed"><input readonly class="ce r'+(tieneLineas(p)?' calc':'')+'" data-col="can" inputmode="decimal" data-k="partNum" data-id="'+p.id+'" data-f="cantidad" value="'+loose(num(p.cantidad))+'"'+(tieneLineas(p)?' title="Cantidad por medición ('+p.lineas.length+' líneas) — edítala en el panel inferior (doble clic)"':'')+'></td>'+
@@ -6291,7 +6293,7 @@ window.PRESTON={state:function(){return state;},obra:obra,ficha:function(){var o
  pres:{payload:function(){var o=obra();return o?presPayload(o):null;},url:function(){var o=obra();return o?presUrl(o):null;}},
  med:{parcial:parcialLinea,suma:sumaLineas,open:function(id){openDock(id);},close:function(){closeDock();},dock:function(){return {open:dockOpen,id:dockId};}},
  carp:{ir:abrirCarpeta,equipo:EQUIPO,de:carpetaDe,lista:obrasCarpeta,abierta:carpetaAbierta},
- version:'v134-botonera (LAB · copia de pruebas)'};
+ version:'v135-titulos-legibles (LAB · copia de pruebas)'};
 try{var th0=localStorage.getItem('prestonLAB_theme'); if(th0)document.documentElement.setAttribute('data-theme',th0);}catch(e){}
 var _bd=document.getElementById('brandDode'); if(_bd&&typeof PBRAND!=='undefined')_bd.src=PBRAND.dode;
 if(USA_SERVIDOR){ state={v:3,activeId:null,params:defParams(),obras:[]}; } else { state=load(); }
