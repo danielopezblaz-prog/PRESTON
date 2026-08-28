@@ -1889,7 +1889,9 @@ var TRAMOS=[
 })();
 var KEY='prestonLAB';   /* COPIA DE PRUEBAS: datos propios, no toca los del Prestón normal */
 var state; /* se inicializa al final, cuando todas las tablas están definidas */
-function defParams(){return {caeEur:0.13,caeFee:15,tin:6,meses:60,gg:13,bi:6,iva:10,validez:60,irpf:true,
+/* caeEur: precio de mercado del CAE. En 2026 se movía en 0,09-0,10 €/kWh, con la
+   referencia MITECO para propietarios en 0,115-0,140. Se deja en 0,10 (prudente). */
+function defParams(){return {caeEur:0.10,caeFee:15,tin:6,meses:60,gg:13,bi:6,iva:10,validez:60,irpf:true,
  recPct:20,recAgentePct:8,ivaAgentePct:21,
  cif:'', dirEmp:'C/ Oviedo 6 · Leganés (Madrid)', tel:'91 693 15 40', email:'info@proyecton.es', web:'www.proyecton.es',
  lema:'EXPERIENCIA · RESPONSABILIDAD · COMPROMISO',
@@ -2441,6 +2443,7 @@ function subvDe(o){
    ivaHon:21,tasasPct:0,tasasBonif:0,honTec:0,honAgente:0,   /* las tasas parten SIEMPRE de 0 % */
    costeAcc:svAccAuto(o).coste,nivelAcc:'general',accMayor:'no',pctAccEstatal:70,pctAccCam:75,topeAccCam:10000,
    vuln:'no',vulnViv:0,caePct:6,cae:0,caeInc:true,
+   zc:'D3',supEnvolvente:0,tasasInc:false,   /* D3 = Madrid capital (CTE, Anejo B) */
    finInc:true,finDosFases:true,finMesesSubv:24,finEntrada:0,finPlazo:120,finInteres:5,finBase:'resto',
    numLocales:(num(o.locales)>0?1:0),supLocales:num(o.locales)||0,supTotal:0,supViv:0,distrito:'',
    actuaciones:svActuacionesAuto(o)};
@@ -2462,6 +2465,64 @@ function svSetZona(s){
  s.pctRehab=r2((z[s.presetRehab||'una_letra']||0)*100); s.topeVivRehab=SUBV_CUANTIAS.rehabilita.topeViv; }
 function svSetAccMayor(s){ var si=s.accMayor==='si'; s.pctAccEstatal=si?80:70; s.nivelAcc=si?'mayor':'general'; }
 
+/* ================= CAE · Certificados de Ahorro Energético (RD 36/2023) =================
+   Un CAE = UN kWh de energía final ahorrada AL AÑO. No es un % del presupuesto: se
+   calcula con las fichas del catálogo de medidas estandarizadas del MITECO. Para
+   rehabilitación de la envolvente de vivienda hay dos, y la que aplica depende de
+   cuánta envolvente se toca:
+
+     RES010 — se rehabilita MÁS del 25 % de la envolvente térmica del edificio:
+              AE = Fp · (Ki − Kf) · S · G
+              Ki/Kf = coeficiente GLOBAL de transmisión de la envolvente (CTE DB HE1),
+              antes y después. S = superficie rehabilitada.
+     RES020 — se rehabilita el 25 % o menos:
+              AE = Fp · Σj (Ui − Uf)j · Sj · G
+              U = transmitancia de CADA elemento afectado. Más fácil de justificar.
+
+   Fp (factor de ponderación) = 1. G es el coeficiente por zona climática del Anexo II
+   de la ficha, en miles de horas·K/año, y YA lleva dentro los rendimientos estacionales
+   de los equipos: no hay que dividir por el rendimiento de la caldera.
+   La duración indicativa Di NO entra en el cálculo (es dato administrativo).
+
+   OJO a la diferencia: en RES010 la mejora se diluye en TODA la envolvente, así que
+   para la misma obra da menos kWh que RES020. No es un error, es como está la ficha.
+
+   Compatibilidad: los CAE SON compatibles con el Plan Estatal de Vivienda (fondos MRR)
+   y con las ayudas autonómicas y municipales. Solo son incompatibles con las ayudas
+   financiadas por el FNEE (sería contar dos veces el mismo ahorro). Hay que firmar la
+   declaración responsable del Anexo I declarando toda ayuda pedida u obtenida. */
+var CAE_G={A3:25,A4:26,B3:32,B4:33,C1:44,C2:45,C3:46,C4:46,D1:60,D2:60,D3:61,E1:74};
+/* Transmitancias ORIENTATIVAS: edificio de los 50-70 sin aislar, y el elemento ya
+   rehabilitado. El valor que vale para el CAE sale del certificado energético y lo
+   firma la dirección de obra; esto solo sirve para estimar en fase de oferta. */
+var CAE_U={sate60:{ui:1.60,uf:0.42},sate80:{ui:1.60,uf:0.34},sate100:{ui:1.60,uf:0.28},
+ sate120:{ui:1.60,uf:0.24},cubierta:{ui:1.80,uf:0.30},ventanas:{ui:5.70,uf:1.60}};
+function caeZC(s){ var z=(s&&s.zc)||'D3'; return CAE_G[z]?z:'D3'; }
+/* superficie de la envolvente térmica: si no la han informado, se estima como
+   fachada + cubierta + suelo (el suelo se aproxima a la cubierta). */
+function caeEnvolvente(o,s,sRehab,sCub){ var v=num(s&&s.supEnvolvente);
+  if(v>0)return {sup:v,estimada:false};
+  return {sup:Math.max(sRehab, sRehab+sCub), estimada:true}; }
+function caeRD36(o,s){
+  var meds=medidasDe(o), zc=caeZC(s), G=CAE_G[zc];
+  var elems=[], sRehab=0, sumaDU=0, sCub=0;
+  meds.forEach(function(m){ var u=CAE_U[m.key]; if(!u||!(m.cant>0))return;
+    var dU=u.ui-u.uf; elems.push({key:m.key,n:m.n,sup:m.cant,ui:u.ui,uf:u.uf,dU:r2(dU)});
+    sRehab+=m.cant; sumaDU+=dU*m.cant; if(m.key==='cubierta')sCub+=m.cant; });
+  var env=caeEnvolvente(o,s,sRehab,sCub);
+  var pct=env.sup>0?(sRehab/env.sup*100):0;
+  var ficha=(pct>25)?'RES010':'RES020';
+  /* RES010 reparte la mejora sobre toda la envolvente (Ki−Kf) y luego multiplica por
+     la superficie rehabilitada; RES020 va elemento a elemento. */
+  var kwh=(ficha==='RES010'&&env.sup>0)?(sumaDU/env.sup)*sRehab*G:sumaDU*G;
+  var eur=(state.params.caeEur!=null?num(state.params.caeEur):0.10);
+  var fee=(state.params.caeFee!=null?num(state.params.caeFee):15);
+  var bruto=kwh*eur, neto=bruto*(1-fee/100);
+  return {zc:zc,G:G,ficha:ficha,elems:elems,supRehab:r2(sRehab),supEnv:r2(env.sup),
+    envEstimada:env.estimada,pctEnv:r2(pct),kwh:r2(kwh),eur:eur,fee:fee,
+    bruto:r2(bruto),neto:r2(neto)};
+}
+
 /* economía: PEM contrata (partidas+GG+BI) → +IVA obra → +honorarios c/IVA = COSTE SUBVENCIONABLE → +tasas = COSTE TOTAL */
 function subvEconomia(o,s){ var t=totalesDe(o);
  var pem=t.pec, ivaObraPct=(o.config&&o.config.iva!=null)?o.config.iva:10, ivaObraEur=t.iva;
@@ -2473,10 +2534,16 @@ function subvEconomia(o,s){ var t=totalesDe(o);
  var tasasBonif=num(s.tasasBonif)||0;
  var tasasBruta=pem*num(s.tasasPct)/100;
  var tasasEur=tasasBruta*(1-tasasBonif/100);
+ /* Las tasas (ICIO + licencia) NO se suman al total: se enseñan para que la comunidad
+    vea a cuánto le quedarían con la bonificación, pero las liquida el Ayuntamiento
+    aparte y no van en nuestro presupuesto. Si alguna obra las lleva dentro, se activa
+    con s.tasasInc. */
+ var tasasInc=!!s.tasasInc;
  return {t:t,pem:pem,ivaObraPct:ivaObraPct,ivaObraEur:ivaObraEur,ivaHon:ivaHon,
   honTec:honTec,honTecConIva:honTecConIva,honAgente:honAgente,honAgenteConIva:honAgenteConIva,
   costeSubvencionable:costeSubvencionable,tasasBruta:tasasBruta,tasasBonif:tasasBonif,tasasEur:tasasEur,
-  costeTotalComunidad:costeSubvencionable+tasasEur}; }
+  tasasInc:tasasInc,tasasAhorro:tasasBruta-tasasEur,
+  costeTotalComunidad:costeSubvencionable+(tasasInc?tasasEur:0)}; }
 
 /* núcleo de cálculo — réplica exacta de calcular() de la calculadora online */
 function subvCalcular(o){
@@ -2525,8 +2592,12 @@ function subvCalcular(o){
  /* C) CAE: 6 % de la ACTUACIÓN ENERGÉTICA (baseEnergia), NO del total — igual que la calculadora
     online. Los CAE salen del ahorro de kWh (SATE, cubierta, forjado…); el ascensor no ahorra
     energía → no cuenta. Manual si se indica en s.cae. */
+ /* CAE por la ficha del MITECO (kWh de ahorro anual x precio de mercado), no por un
+    porcentaje del presupuesto. El % viejo se queda solo como respaldo para las obras
+    en las que no hay ninguna medida con superficie (importadas de PDF, por ejemplo). */
+ var caeF=caeRD36(o,s);
  var caePct=(s.caePct!=null&&s.caePct!==''?num(s.caePct):((C.cae&&C.cae.pct!=null)?C.cae.pct*100:6));
- var caeAuto=baseEnergia*(caePct/100);
+ var caeAuto=(caeF.kwh>0)?caeF.neto:baseEnergia*(caePct/100);
  var caeImporte=(num(s.cae)>0?num(s.cae):caeAuto);
  var caeTotal=s.caeInc?caeImporte:0;
 
@@ -2606,7 +2677,7 @@ function subvCalcular(o){
   est_porPct:est_porPct,est_topeViv:est_topeViv,est_locales:est_locales,est_topeTotal:est_topeTotal,estatalTotal:estatalTotal,
   reh_porPct:reh_porPct,reh_topeViv:reh_topeViv,rehabTotal:rehabTotal,grantsBrutos:grantsBrutos,grantsCapados:grantsCapados,recorteGrants:recorteGrants,
   accCoste:accCoste,nivel:nivel,acc_est:acc_est,acc_cam:acc_cam,accBrutos:accBrutos,accCapados:accCapados,recorteAcc:recorteAcc,
-  caeTotal:caeTotal,caePct:caePct,caeImporte:caeImporte,ayudasGrants:ayudasGrants,ayudasTotales:ayudasTotales,
+  caeTotal:caeTotal,caePct:caePct,caeImporte:caeImporte,caeF:caeF,ayudasGrants:ayudasGrants,ayudasTotales:ayudasTotales,
   obtenibleReal:obtenibleReal,recorteFinal:recorteFinal,costeTotal:costeTotal,costeReal:costeTotal,esAdelanto:esAdelanto,
   topeEstatalViv:topeEstatalViv,topeRehabViv:topeRehabViv,topeAccViv:topeAccViv,
   irpfPct:IR.pct,irpfDeduccion:irpfDeduccion,irpfAnios:irpfAnios,irpfAnual:irpfAnual,netoTrasIrpf:netoTrasIrpf,
@@ -4612,10 +4683,7 @@ function svShellHtml(o,s){
    '<option value="si"'+(s.vuln==='si'?' selected':'')+'>Sí (generalizada)</option></select>'+
    '<span class="sv-hint">Puede elevar la ayuda hasta el 100 % en casos justificados.</span></div>'+
   '<div class="sv-field" id="svVulnViv"'+(s.vuln==='parcial'?'':' style="display:none"')+'><label>Nº de viviendas vulnerables</label><input class="sv-in" data-sv="vulnViv" inputmode="numeric" value="'+esc(loose(s.vulnViv))+'"></div>'+
-  fi('CAE (% sobre la actuación energética)','caePct',loose(s.caePct),'Por defecto 6 % del coste de la actuación energética (SATE, cubierta…); el ascensor no ahorra energía y no cuenta.')+
-  fi('CAE importe (€) — opcional','cae',s.cae?loose(s.cae):'','Si lo dejas vacío, se calcula con el % de arriba.')+
-  '<div class="sv-field"><label>&nbsp;</label>'+chk('Incluir CAE en el total','caeInc',s.caeInc!==false)+'</div>'+
-  '</div></div></section>';
+  '</div>'+svCaeBloque(o,s)+'</div></section>';
 
  /* 6 · Financiación */
  h+='<section class="sv-card" data-sec="5"><h2 class="sv-head"><span class="n">6</span> 🏦 Financiación (opcional)</h2><div class="sv-body">'+
@@ -4742,8 +4810,40 @@ function svSyncNums(){ var o=obra(); if(!o)return; var s=subvDe(o);
  ['pctEstatal','topeVivEstatal','euroM2Local','pctRehab','topeVivRehab','tasasBonif','pctAccCam','topeAccCam','pctAccEstatal'].forEach(function(k){
   var inp=document.querySelector('#svwrap [data-sv="'+k+'"]'); if(inp&&document.activeElement!==inp)inp.value=loose(s[k]); }); }
 
+/* bloque CAE de la pantalla de trabajo: enseña de dónde sale cada kWh para poder
+   defenderlo delante del verificador (y para cazar una superficie mal puesta). */
+function svCaeBloque(o,s){ var f=caeRD36(o,s);
+ var opts=['A3','A4','B3','B4','C1','C2','C3','C4','D1','D2','D3','E1'].map(function(z){
+   return '<option value="'+z+'"'+(f.zc===z?' selected':'')+'>'+z+' — G '+CAE_G[z]+'</option>'; }).join('');
+ var filas=f.elems.map(function(e){
+   return '<tr><td>'+esc(e.n)+'</td><td class="num">'+loose(r2(e.sup))+' m²</td><td class="num">'+loose(e.ui)+'</td><td class="num">'+loose(e.uf)+'</td><td class="num">'+loose(e.dU)+'</td></tr>'; }).join('');
+ return '<div id="svCae">'+
+  '<div class="sv-sub" style="margin-top:16px">Certificados de Ahorro Energético (CAE) <span class="sv-hint">— RD 36/2023 · ficha '+f.ficha+' del catálogo MITECO</span></div>'+
+  '<div class="sv-grid">'+
+   '<div class="sv-field"><label>Zona climática (CTE)</label><select class="sv-in" data-sv="zc">'+opts+'</select>'+
+    '<span class="sv-hint">Madrid capital es <b>D3</b>. G sale del Anexo II de la ficha, en miles de horas·K/año.</span></div>'+
+   '<div class="sv-field"><label>Superficie total de la envolvente térmica (m²)</label><input class="sv-in" data-sv="supEnvolvente" inputmode="decimal" value="'+esc(s.supEnvolvente?loose(s.supEnvolvente):'')+'">'+
+    '<span class="sv-hint">'+(f.envEstimada?'<b>Estimada en '+loose(f.supEnv)+' m²</b> (fachada + cubierta + suelo). Ponla del proyecto: cambia el resultado.':'Del proyecto.')+'</span></div>'+
+  '</div>'+
+  (f.elems.length
+   ?'<table class="svt" style="margin-top:8px"><thead><tr><th>Elemento</th><th class="num">Superficie</th><th class="num">U antes</th><th class="num">U después</th><th class="num">ΔU</th></tr></thead><tbody>'+filas+
+     '<tr class="total"><td>Superficie rehabilitada</td><td class="num">'+loose(f.supRehab)+' m²</td><td class="num" colspan="3">'+loose(f.pctEnv)+' % de la envolvente → ficha <b>'+f.ficha+'</b></td></tr>'+
+     '<tr><td>Ahorro anual de energía final</td><td class="num" colspan="4"><b>'+loose(Math.round(f.kwh))+' kWh/año</b> = '+(f.ficha==='RES010'?'(Ki−Kf) × S × G':'Σ (Ui−Uf) × Sj × G')+'</td></tr>'+
+     '<tr><td>Valor de los CAE</td><td class="num" colspan="4">'+loose(Math.round(f.kwh))+' kWh × '+loose(f.eur)+' €/kWh = '+svEur(f.bruto)+' − '+loose(f.fee)+' % de gestión → <b>'+svEur(f.neto)+'</b></td></tr>'+
+     '</tbody></table>'
+   :'<p class="sv-hint">Esta obra no tiene partidas con medida energética etiquetada (SATE, cubierta, ventanas), así que no se puede calcular el ahorro por ficha. Se usa el % de respaldo.</p>')+
+  '<div class="sv-grid" style="margin-top:10px">'+
+   '<div class="sv-field"><label>CAE importe (€) — forzar</label><input class="sv-in" data-sv="cae" inputmode="decimal" value="'+(s.cae?esc(loose(s.cae)):'')+'">'+
+    '<span class="sv-hint">Vacío = el calculado arriba. Rellénalo solo si ya tienes oferta cerrada del gestor de CAE.</span></div>'+
+   '<div class="sv-field"><label>&nbsp;</label><label class="sv-chk'+(s.caeInc!==false?' on':'')+'"><input type="checkbox" data-sv="caeInc"'+(s.caeInc!==false?' checked':'')+' style="width:auto"> Incluir CAE en el total</label>'+
+    '<span class="sv-hint">Compatibles con el Plan Estatal (fondos MRR). Solo chocan con ayudas del FNEE.</span></div>'+
+  '</div>'+
+  '<p class="sv-hint" style="margin-top:8px">Las transmitancias son <b>orientativas</b> para la oferta. Las que valen para emitir los CAE salen del certificado energético y las firma la dirección de obra; además hay que aportar la declaración responsable del Anexo I con las ayudas solicitadas u obtenidas.</p>'+
+ '</div>'; }
+
 /* ---------- refresco en vivo: resumen económico + stepper + badge ---------- */
 function svRefresh(){ var o=obra(); if(!o)return; var s=subvDe(o);
+ var cb=document.getElementById('svCae'); if(cb&&document.activeElement&&document.activeElement.dataset&&document.activeElement.dataset.sv!=='supEnvolvente'){ cb.outerHTML=svCaeBloque(o,s); }
  var eco=document.getElementById('svEco');
  if(eco){ var e=subvEconomia(o,s);
   var accCoste=Math.min(num(s.costeAcc)||0,e.costeSubvencionable);
@@ -4765,8 +4865,11 @@ function svRefresh(){ var o=obra(); if(!o)return; var s=subvDe(o);
    (e.honAgente>0?'<tr><td>Honorarios agente rehabilitador (aparte) + IVA</td><td class="num">'+svEur(e.honAgenteConIva)+'</td></tr>':'')+
    '<tr class="total"><td>COSTE SUBVENCIONABLE</td><td class="num">'+svEur(e.costeSubvencionable)+'</td></tr>'+
    (accCoste>0?'<tr><td style="font-style:italic;color:var(--svgris)">— de los cuales, accesibilidad/ascensor</td><td class="num">'+svEur(accCoste)+'</td></tr>':'')+
-   '<tr><td>Tasas no subvencionables · ICIO+Tasas ('+loose(s.tasasPct)+' % PEM'+(e.tasasBonif>0?', bonif. '+loose(e.tasasBonif)+' %':'')+')</td><td class="num">'+svEur(e.tasasEur)+'</td></tr>'+
    '<tr class="total"><td>COSTE TOTAL PARA LA COMUNIDAD</td><td class="num">'+svEur(e.costeTotalComunidad)+'</td></tr>'+
+   /* las tasas van DEBAJO del total y fuera de la suma: informativas */
+   (e.tasasBruta>0?'<tr><td style="color:var(--svgris)">ICIO y tasas municipales ('+loose(s.tasasPct)+' % del PEM = '+svEur(e.tasasBruta)+')'+
+     (e.tasasBonif>0?' · bonificación '+loose(e.tasasBonif)+' % = −'+svEur(e.tasasAhorro):'')+
+     ' — <b>no incluidas</b>, las liquida el Ayuntamiento</td><td class="num">'+svEur(e.tasasEur)+'</td></tr>':'')+
    '</tbody></table>'; }
  /* stepper */
  var done=0;
@@ -5003,8 +5106,12 @@ function svInformeInner(o,pal){
   (r.e.honAgente>0?svRow('Agente rehabilitador + IVA',svEur(r.e.honAgenteConIva),svEur(r.e.honAgente)+' + IVA'):'')+
   '<tr class="total"><td>COSTE SUBVENCIONABLE</td><td class="num">'+svEur(r.e.costeSubvencionable)+'</td></tr>'+
   (hayAcc?'<tr><td style="font-style:italic;color:#5b6770">— de los cuales, accesibilidad/ascensor</td><td class="num">'+svEur(r.accCoste)+'</td></tr><tr><td style="font-style:italic;color:#5b6770">— resto, energía</td><td class="num">'+svEur(r.baseEnergia)+'</td></tr>':'')+
-  svRow('Tasas/ICIO ('+loose(num(r.s.tasasPct))+' % PEM'+(r.e.tasasBonif>0?', bonificado '+loose(r.e.tasasBonif)+' %':'')+')',svEur(r.e.tasasEur),svEur(r.e.pem)+' × '+loose(num(r.s.tasasPct))+'%'+(r.e.tasasBonif>0?' × (1 − '+loose(r.e.tasasBonif)+' %) = '+svEur(r.e.tasasEur):''))+
   '<tr class="total"><td>COSTE TOTAL COMUNIDAD</td><td class="num">'+svEur(r.costeReal)+'</td></tr>'+
+  /* ICIO y tasas: se enseñan para que vean a cuánto se les quedan con la bonificación,
+     pero NO suman — las liquida el Ayuntamiento y no van en nuestro presupuesto. */
+  (r.e.tasasBruta>0?'<tr><td style="font-size:11px;color:#5b6770">ICIO y tasas municipales: '+svEur(r.e.tasasBruta)+
+    (r.e.tasasBonif>0?' − '+loose(r.e.tasasBonif)+' % de bonificación = <b>'+svEur(r.e.tasasEur)+'</b>':'')+
+    '<br><i>No incluidas en el total: las liquida directamente el Ayuntamiento.</i></td><td class="num">'+svEur(r.e.tasasEur)+'</td></tr>':'')+
   '</tbody></table></div><div>'+
   '<div class="sv-sub">A) Plan Estatal · Eficiencia energética (Anexo II / Art. 99.3)</div>'+
   '<table class="svt"><thead><tr><th>Concepto</th><th class="num">Importe</th></tr></thead><tbody>'+
@@ -6366,7 +6473,7 @@ window.PRESTON={state:function(){return state;},obra:obra,ficha:function(){var o
  med:{parcial:parcialLinea,suma:sumaLineas,open:function(id){openDock(id);},close:function(){closeDock();},dock:function(){return {open:dockOpen,id:dockId};}},
  carp:{ir:abrirCarpeta,equipo:EQUIPO,de:carpetaDe,lista:obrasCarpeta,abierta:carpetaAbierta},
  ver:compruebaVersion,
- version:'v144-recargo-20 (LAB · copia de pruebas)'};
+ version:'v145-cae-ficha-miteco (LAB · copia de pruebas)'};
 try{var th0=localStorage.getItem('prestonLAB_theme'); if(th0)document.documentElement.setAttribute('data-theme',th0);}catch(e){}
 var _bd=document.getElementById('brandDode'); if(_bd&&typeof PBRAND!=='undefined')_bd.src=PBRAND.dode;
 try{ var _rv=document.getElementById('railVer'); if(_rv)_rv.textContent='Versión '+(PRESTON.version||'').split(' ')[0]; }catch(e){}
