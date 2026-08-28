@@ -279,7 +279,7 @@ table.data{width:100%;border-collapse:collapse}
   /* el reflejo que recorre la esfera: un brillo suave y muy tenue */
   .eq-hero::after{content:'';position:absolute;left:0;top:0;right:0;bottom:0;pointer-events:none;
     background:radial-gradient(38% 30% at 46% 52%,rgba(255,255,255,.5),rgba(255,255,255,0) 70%);
-    mix-blend-mode:screen;opacity:.28;animation:eqBrillo 11s ease-in-out infinite}
+    mix-blend-mode:screen;opacity:calc(.28*var(--eqb,1));animation:eqBrillo 11s ease-in-out infinite}
 }
 /* flotacion vertical, minima */
 @keyframes eqFlota{from{transform:translateY(-3px)}to{transform:translateY(3px)}}
@@ -291,9 +291,9 @@ table.data{width:100%;border-collapse:collapse}
 }
 /* el brillo se desplaza un pelin y cambia de intensidad, como el reflejo del video */
 @keyframes eqBrillo{
-  0%{opacity:.20;transform:translate3d(-1.2%,.6%,0)}
-  50%{opacity:.34;transform:translate3d(1.4%,-.8%,0)}
-  100%{opacity:.20;transform:translate3d(-1.2%,.6%,0)}
+  0%{opacity:calc(.20*var(--eqb,1));transform:translate3d(-1.2%,.6%,0)}
+  50%{opacity:calc(.34*var(--eqb,1));transform:translate3d(1.4%,-.8%,0)}
+  100%{opacity:calc(.20*var(--eqb,1));transform:translate3d(-1.2%,.6%,0)}
 }
 /* zonas clicables invisibles con el nombre SIEMPRE visible bajo su carpeta;
    nada de recuadros: el iman del mousemove cambia el cursor y aviva el nombre */
@@ -301,11 +301,33 @@ table.data{width:100%;border-collapse:collapse}
 .eq-spot:focus,.eq-spot:focus-visible,.eq-spot:active{outline:none;box-shadow:none;background:transparent}
 .eq-lbl{position:absolute;left:50%;top:96%;transform:translateX(-50%);font-size:12.5px;font-weight:800;letter-spacing:.02em;color:var(--ink-2);white-space:nowrap;text-shadow:0 1px 0 rgba(255,255,255,.7);transition:.15s}
 .eq-spot.on .eq-lbl{color:var(--eqc);transform:translateX(-50%) scale(1.12)}
+/* EN OSCURO. El reflejo blanco se mezcla en «screen»: sobre papel blanco no se nota, pero
+   sobre el fondo oscuro levanta una nube gris justo encima de la figura. Se baja a un tercio.
+   El realce blanco bajo los nombres hace lo mismo en pequeno, asi que fuera — y hay que
+   apagarlo TAMBIEN cuando el oscuro viene del sistema y no de haber pulsado el boton. */
+:root[data-theme="dark"] .eq-hero{--eqb:.3}
 :root[data-theme="dark"] .eq-lbl{text-shadow:none}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]) .eq-hero{--eqb:.3}
+  :root:not([data-theme="light"]) .eq-lbl{text-shadow:none}
+}
 .eq-chips{display:none}
 /* panel Equipo (derecha) */
 .eq-panel{background:var(--panel);border:1px solid var(--line);border-radius:var(--r-lg);box-shadow:var(--shadow);padding:8px;position:sticky;top:40px;margin-top:34px}
 .eq-ph{display:flex;align-items:center;gap:8px;font-size:15px;font-weight:800;letter-spacing:-.01em;padding:10px 10px 8px}
+/* carpetas creadas por el usuario: acciones que solo asoman al pasar por encima */
+.eq-prow-wrap:hover .eq-acc{opacity:1}
+.eq-acc{position:absolute;right:30px;top:50%;transform:translateY(-50%);display:flex;gap:3px;
+  opacity:0;transition:opacity .15s}
+.eq-mini{border:0;background:var(--bg-sunken);color:var(--ink-2);cursor:pointer;font-size:12px;
+  line-height:1;width:26px;height:26px;border-radius:7px;display:grid;place-items:center;
+  transition:background .14s,color .14s}
+.eq-mini:hover{background:var(--brand-tint);color:var(--brand)}
+.eq-nueva{display:block;width:calc(100% - 8px);margin:6px 4px 4px;padding:11px;cursor:pointer;
+  border:1px dashed var(--line-2);background:none;border-radius:11px;color:var(--muted);
+  font:inherit;font-size:13px;font-weight:700;transition:border-color .15s,color .15s,background .15s}
+.eq-nueva:hover{border-color:var(--brand);color:var(--brand);background:var(--brand-tint)}
+@media (hover:none){ .eq-acc{opacity:1;position:static;transform:none;margin:0 4px 6px 52px} }
 .eq-pn{margin-left:auto;font-size:11px;font-weight:800;color:var(--muted);display:inline-flex;align-items:center;gap:5px}
 .eq-pn .g{width:14px;height:14px}
 .eq-prow{display:flex;align-items:center;gap:11px;width:100%;text-align:left;font:inherit;background:none;border:0;border-top:1px solid var(--line);padding:11px 10px;cursor:pointer;border-radius:8px;transition:background .13s,transform .13s}
@@ -3886,6 +3908,36 @@ var EQUIPO=[{id:'MARIA',nom:'María',ini:'MA',col:'#b8365c'},
  {id:'PACO', nom:'Paco', ini:'PA',col:'#6c4bb6'},
  {id:'TELLO',nom:'Tello',ini:'TE',col:'#167c80'}];
 var SIN={id:'SIN',nom:'Sin asignar',ini:'··',col:'#8a817d'};
+/* Carpetas que crea el usuario. Las seis de arriba son fijas porque tienen su sitio
+   marcado sobre el dodecaedro de la portada; estas viven en los ajustes (viajan al
+   servidor con el resto de params) y salen en el panel lateral. */
+var EQ_COLORES=['#6c4bb6','#167c80','#b8365c','#2c6e9b','#2e7d57','#b7791f','#a4553a','#4a5568'];
+function carpetasExtra(){ try{ var c=state.params.carpetas; return Array.isArray(c)?c:[]; }catch(e){ return []; } }
+function equipoTodo(){ return EQUIPO.concat(carpetasExtra()); }
+/* id estable a partir del nombre, sin chocar con las que ya existen */
+function carpetaIdNuevo(nom){
+ var base=(comSlug(nom)||'carpeta').toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,12)||'CARPETA';
+ var id=base, n=2, usados=equipoTodo().map(function(e){return e.id;}).concat([SIN.id]);
+ while(usados.indexOf(id)>=0){ id=base+n; n++; }
+ return id; }
+function carpetaCrear(nom){
+ nom=String(nom||'').trim(); if(!nom)return null;
+ var extra=carpetasExtra();
+ var e={id:carpetaIdNuevo(nom), nom:nom,
+   ini:nom.replace(/[^A-Za-zÁÉÍÓÚÑáéíóúñ]/g,'').slice(0,2).toUpperCase()||'··',
+   col:EQ_COLORES[extra.length%EQ_COLORES.length]};
+ extra.push(e); state.params.carpetas=extra; save(); return e; }
+function carpetaRenombrar(id,nom){
+ nom=String(nom||'').trim(); if(!nom)return false;
+ var extra=carpetasExtra(), hit=null;
+ extra.forEach(function(e){ if(e.id===id)hit=e; });
+ if(!hit)return false;
+ hit.nom=nom; hit.ini=nom.replace(/[^A-Za-zÁÉÍÓÚÑáéíóúñ]/g,'').slice(0,2).toUpperCase()||'··';
+ state.params.carpetas=extra; save(); return true; }
+/* borrar solo si esta vacia: una carpeta con presupuestos dentro no se tira sin avisar */
+function carpetaBorrar(id){
+ var extra=carpetasExtra().filter(function(e){ return e.id!==id; });
+ state.params.carpetas=extra; save(); }
 /* Las 4 carpetas de dentro, en el orden de trabajo real: llega el presupuesto,
    se hace, queda a la espera de algo y por fin se envia. Van en o.fase; el
    estado comercial (borrador/enviada/aceptada/perdida) sigue existiendo para el
@@ -3907,7 +3959,7 @@ var cpQ='';   /* búsqueda dentro de la carpeta (no se guarda: es de un vistazo)
 var cpSub='';  /* subcarpeta abierta: '' = se ven las subcarpetas, no la lista */
 var cpCom='';  /* comunidad abierta dentro de la subcarpeta */
 
-function eqDe(id){ if(id===SIN.id)return SIN; for(var i=0;i<EQUIPO.length;i++)if(EQUIPO[i].id===id)return EQUIPO[i]; return null; }
+function eqDe(id){ if(id===SIN.id)return SIN; var T=equipoTodo();for(var i=0;i<T.length;i++)if(T[i].id===id)return T[i]; return null; }
 function autorDe(o){ var e=(o&&o.autor)?eqDe(o.autor):null; return (e&&e.id!==SIN.id)?e.id:''; }
 function carpetaDe(o){ return autorDe(o)||SIN.id; }
 function obrasCarpeta(k){ return state.obras.filter(function(o){ return carpetaDe(o)===k; }); }
@@ -3938,7 +3990,7 @@ var SVG_LUPA='<svg class="g" viewBox="0 0 24 24" fill="none" stroke="currentColo
 /* asignar carpeta desde la vista "Todas las obras": es la unica forma de repartir
    los presupuestos que aun no tienen dueno (la portada ya no los lista) */
 function ocMvOpts(actual){ var h='<option value="SIN"'+(actual===SIN.id?' selected':'')+'>Sin carpeta</option>';
- EQUIPO.forEach(function(e){ h+='<option value="'+e.id+'"'+(actual===e.id?' selected':'')+'>'+esc(e.nom)+'</option>'; });
+ equipoTodo().forEach(function(e){ h+='<option value="'+e.id+'"'+(actual===e.id?' selected':'')+'>'+esc(e.nom)+'</option>'; });
  return h; }
 document.addEventListener('change',function(ev){ var s=ev.target&&ev.target.closest?ev.target.closest('.oc-mv'):null; if(!s)return;
  var card=s.closest('.ocard'); if(!card)return;
@@ -3955,28 +4007,91 @@ function eqPos(id){ return EQ_SPOTS[id]||[50,50]; }
 /* Quita el fondo rellenando DESDE LOS BORDES: solo lo neutro conectado al exterior
    desaparece (lo claro) o queda como sombra suave (lo medio). Los blancos DENTRO
    de las carpetas y del objeto no se tocan. */
+/* el color de fondo REAL de la pagina, para remapear contra el la foto del estudio */
+function eqFondoRGB(){ try{
+ var v=getComputedStyle(document.documentElement).getPropertyValue('--bg').trim();
+ var m=v.match(/^#([0-9a-fA-F]{6})$/);
+ if(m){ var n=parseInt(m[1],16); return [(n>>16)&255,(n>>8)&255,n&255]; }
+ }catch(e){}
+ return [22,21,26]; }
+/* El recorte NO puede ser el mismo en los dos temas, y por eso en modo noche se veia mal.
+   La foto es un render de estudio: fondo blanco y una sombra gris debajo del objeto.
+   - En CLARO se quita el blanco y la sombra se deja como sombra: encaja con el papel.
+   - En OSCURO eso sale al reves. La sombra clara ILUMINA el fondo negro (113.000 pixeles
+     de neblina gris) y su nucleo, que ni siquiera llegaba a entrar en el recorte, se
+     quedaba de gris opaco: una media luna clara bajo la figura.
+   Asi que en oscuro el fondo no se hace transparente, se REMAPEA: el blanco del estudio
+   pasa a ser exactamente el fondo de la pagina y todo lo que alli era mas oscuro sale mas
+   oscuro todavia — que es como se comporta una sombra de verdad. Bajar el umbral a 96 mete
+   el nucleo de la sombra en el recorte; comprobado que aun asi el relleno no alcanza la
+   esfera negra por ningun hueco del dodecaedro (0 pixeles, medido con umbral hasta 80). */
 function eqRecorta(g,w,h){ try{
+ var oscuro=(temaActual()==='dark'), bg=eqFondoRGB();
+ var umbral=oscuro?96:176, spread=oscuro?20:16;
  var id=g.getImageData(0,0,w,h), d=id.data;
  var vis=new Uint8Array(w*h), cola=new Int32Array(w*h), lo=0, hi=0;
  function esFondo(p){ var i=p*4, r=d[i], gg=d[i+1], b=d[i+2];
-  if(Math.abs(r-gg)>=16||Math.abs(gg-b)>=16||Math.abs(r-b)>=16)return false;
-  return (r+gg+b)/3>=176; }
+  if(Math.abs(r-gg)>=spread||Math.abs(gg-b)>=spread||Math.abs(r-b)>=spread)return false;
+  return (r+gg+b)/3>=umbral; }
  function mete(p){ if(!vis[p]&&esFondo(p)){ vis[p]=1; cola[hi++]=p; } }
  for(var x=0;x<w;x++){ mete(x); mete((h-1)*w+x); }
  for(var y=0;y<h;y++){ mete(y*w); mete(y*w+w-1); }
  while(lo<hi){ var p=cola[lo++], px=p%w, py=(p/w)|0;
   if(px>0)mete(p-1); if(px<w-1)mete(p+1); if(py>0)mete(p-w); if(py<h-1)mete(p+w); }
- for(var q=0;q<w*h;q++){ if(!vis[q])continue; var i=q*4;
-  var lum=(d[i]+d[i+1]+d[i+2])/3;
-  if(lum>=228){ d[i+3]=0; }
-  else { d[i]=d[i+1]=d[i+2]=70; d[i+3]=Math.round(Math.min(1,(228-lum)/52)*85); }
+ if(!oscuro){
+  for(var q=0;q<w*h;q++){ if(!vis[q])continue; var i=q*4;
+   var lum=(d[i]+d[i+1]+d[i+2])/3;
+   if(lum>=228){ d[i+3]=0; }
+   else { d[i]=d[i+1]=d[i+2]=70; d[i+3]=Math.round(Math.min(1,(228-lum)/52)*85); }
+  }
+ } else {
+  /* Las cinco ventanas del dodecaedro estan CERRADAS por el tubo rojo: el relleno que entra
+     por el borde no llega a ellas, asi que se quedaban blancas — sobre papel blanco no se
+     nota, sobre fondo negro son cinco manchas. Hay que buscarlas una a una.
+     Se admite como fondo la mancha grande y practicamente blanca. Medido en esta imagen:
+     los cuatro huecos van de 56.575 a 89.014 pixeles; lo siguiente en tamano es el papel
+     blanco de las carpetas, que no pasa de 6.898 — mas las letras (1.100-2.900) y las
+     flechitas (unos 200), que TAMBIEN son blancas y hay que respetarlas porque son el icono.
+     El corte va en 20.000: ocho veces por debajo del hueco mas pequeno y tres veces por
+     encima del papel mas grande. La luz minima de 210 deja fuera las zonas grises de la
+     esfera negra, que rondan 110. */
+  var comp=new Uint8Array(w*h);
+  for(var s=0;s<w*h;s++){
+   if(vis[s]||comp[s]||!esFondo(s))continue;
+   var ini=0, fin=0, suma=0; cola[fin++]=s; comp[s]=1;
+   while(ini<fin){ var c=cola[ini++], ic=c*4; suma+=(d[ic]+d[ic+1]+d[ic+2])/3;
+    var cx=c%w, cy=(c/w)|0;
+    if(cx>0&&!comp[c-1]&&!vis[c-1]&&esFondo(c-1)){comp[c-1]=1;cola[fin++]=c-1;}
+    if(cx<w-1&&!comp[c+1]&&!vis[c+1]&&esFondo(c+1)){comp[c+1]=1;cola[fin++]=c+1;}
+    if(cy>0&&!comp[c-w]&&!vis[c-w]&&esFondo(c-w)){comp[c-w]=1;cola[fin++]=c-w;}
+    if(cy<h-1&&!comp[c+w]&&!vis[c+w]&&esFondo(c+w)){comp[c+w]=1;cola[fin++]=c+w;}
+   }
+   if(fin>=20000&&suma/fin>=210){ for(var t=0;t<fin;t++)vis[cola[t]]=1; }
+  }
+  /* 238 y no 255 porque el JPEG no da el blanco limpio: por encima de ahi se clava el
+     color de la pagina y el fondo queda liso, sin el moteado de la compresion. */
+  for(var q2=0;q2<w*h;q2++){ if(!vis[q2])continue; var i2=q2*4;
+   var k=(d[i2]+d[i2+1]+d[i2+2])/3/238; if(k>1)k=1;
+   d[i2]=Math.round(bg[0]*k); d[i2+1]=Math.round(bg[1]*k); d[i2+2]=Math.round(bg[2]*k); d[i2+3]=255;
+  }
+  /* el filo del objeto viene mezclado con el blanco del estudio (5.441 pixeles, uno de cada
+     cuatro por encima de 200 de luz): sobre negro eso deja un reborde claro alrededor del
+     rojo. Se apaga mezclandolo hacia el fondo, solo en el pixel que toca el fondo. */
+  for(var y2=1;y2<h-1;y2++)for(var x2=1;x2<w-1;x2++){ var p2=y2*w+x2; if(vis[p2])continue;
+   if(!(vis[p2-1]||vis[p2+1]||vis[p2-w]||vis[p2+w]))continue;
+   var i3=p2*4, L=(d[i3]+d[i3+1]+d[i3+2])/3; if(L<170)continue;
+   var f=Math.min(1,(L-170)/70)*0.8;
+   d[i3]=Math.round(d[i3]*(1-f)+bg[0]*f);
+   d[i3+1]=Math.round(d[i3+1]*(1-f)+bg[1]*f);
+   d[i3+2]=Math.round(d[i3+2]*(1-f)+bg[2]*f);
+  }
  }
  g.putImageData(id,0,0); }catch(e){} }
 /* quien soy: en el servidor lo dice la sesion; en local/enlace se elige una vez */
 function eqQuien(){
  if(USA_SERVIDOR&&window.PRESTON_USUARIO){ var n=String(window.PRESTON_USUARIO.nombre||window.PRESTON_USUARIO.usuario||'').trim();
   if(n){ var slug=comSlug(n); var hit=null;
-   EQUIPO.forEach(function(e){ if(comSlug(e.nom)===slug||slug.indexOf(comSlug(e.nom))===0)hit=e; });
+   equipoTodo().forEach(function(e){ if(comSlug(e.nom)===slug||slug.indexOf(comSlug(e.nom))===0)hit=e; });
    if(hit)return hit.id; return '~'+n; } }
  try{ return localStorage.getItem('prestonLAB_quien')||''; }catch(e){ return ''; } }
 function eqSaludo(){ var h=new Date().getHours(); return h<7?'Buenas noches':(h<14?'Buenos días':(h<21?'Buenas tardes':'Buenas noches')); }
@@ -3991,24 +4106,45 @@ function renderEquipo(){ var host=document.getElementById('equipoView'); if(!hos
  var h1=nomYo?(eqSaludo()+', <span class="eq-nom">'+esc(nomYo)+'</span>'):(eqSaludo()+' 👋');
  var quienHtml=nomYo
   ?(USA_SERVIDOR?'':'<div class="eq-quien"><button class="eq-cambiar" id="eqCambiar">cambiar de usuario</button></div>')
-  :'<div class="eq-quien">¿Quién eres? '+EQUIPO.map(function(e){
+  :'<div class="eq-quien">¿Quién eres? '+equipoTodo().map(function(e){
      return '<button class="eq-mchip" data-quien="'+e.id+'" style="cursor:pointer">'+esc(e.nom)+'</button>'; }).join('')+'</div>';
  /* panel Equipo con contadores reales */
- var filas=EQUIPO.map(function(e){ var l=obrasCarpeta(e.id);
+ var propias=carpetasExtra();
+ var filas=equipoTodo().map(function(e){ var l=obrasCarpeta(e.id);
    var enCurso=l.filter(function(o){ return o.estado==='borrador'||o.estado==='enviada'; }).length;
-   return '<button class="eq-prow" data-carpeta="'+e.id+'" style="--eqc:'+e.col+'">'+
-    '<span class="eq-pav">'+e.ini+'</span>'+
+   /* las creadas por el usuario llevan lápiz y papelera; las seis del equipo no */
+   var mia=propias.some(function(x){ return x.id===e.id; });
+   return '<div class="eq-prow-wrap" style="position:relative">'+
+    '<button class="eq-prow" data-carpeta="'+e.id+'" style="--eqc:'+e.col+'">'+
+    '<span class="eq-pav">'+esc(e.ini)+'</span>'+
     '<span class="eq-pinfo"><b>'+esc(e.nom)+'</b><small>'+l.length+' presupuesto'+(l.length===1?'':'s')+'</small></span>'+
     (enCurso?'<span class="eq-pcur">'+enCurso+' en curso</span>':'')+
-    '<span class="eq-pgo">›</span></button>'; }).join('');
+    '<span class="eq-pgo">›</span></button>'+
+    (mia?'<span class="eq-acc">'+
+      '<button class="eq-mini" data-renombrar="'+e.id+'" title="Cambiar el nombre">✎</button>'+
+      '<button class="eq-mini" data-borrar="'+e.id+'" title="Borrar la carpeta">🗑</button></span>':'')+
+    '</div>'; }).join('');
+ filas+='<button class="eq-nueva" id="eqNueva">+ Nueva carpeta</button>';
  host.innerHTML='<div class="eq-wrap"><div class="eq-main">'+
    '<div class="eq-head"><h1>'+h1+'</h1>'+
    quienHtml+'</div>'+
    '<div class="eq-hero"><div class="eq-float">'+
    '<canvas class="eq-lienzo" width="'+EQ_IMG.w+'" height="'+EQ_IMG.h+'"></canvas></div>'+
    spots+'</div></div>'+
-  '<aside class="eq-panel"><div class="eq-ph">Equipo<span class="eq-pn">'+g('obras','g')+EQUIPO.length+'</span></div>'+filas+'</aside></div>';
+  '<aside class="eq-panel"><div class="eq-ph">Equipo<span class="eq-pn">'+g('obras','g')+equipoTodo().length+'</span></div>'+filas+'</aside></div>';
  host.querySelectorAll('[data-carpeta]').forEach(function(b){ b.onclick=function(){ abrirCarpeta(b.dataset.carpeta); }; });
+ var bn=document.getElementById('eqNueva');
+ if(bn)bn.onclick=function(){ pedirTexto('Nueva carpeta','¿Cómo se llama?','','Crear',function(nom){
+   var e=carpetaCrear(nom); if(!e)return; renderEquipo(); toast('Carpeta «'+e.nom+'» creada'); }); };
+ host.querySelectorAll('[data-renombrar]').forEach(function(b){ b.onclick=function(ev){ ev.stopPropagation();
+   var id=b.dataset.renombrar, act=eqDe(id);
+   pedirTexto('Cambiar el nombre','Nombre de la carpeta',act?act.nom:'','Guardar',function(nom){
+     if(carpetaRenombrar(id,nom)){ renderEquipo(); toast('Carpeta renombrada'); } }); }; });
+ host.querySelectorAll('[data-borrar]').forEach(function(b){ b.onclick=function(ev){ ev.stopPropagation();
+   var id=b.dataset.borrar, e=eqDe(id), dentro=obrasCarpeta(id).length;
+   if(dentro){ toast('«'+(e?e.nom:'')+'» tiene '+dentro+' presupuesto'+(dentro===1?'':'s')+' dentro: muévelos antes de borrarla'); return; }
+   confirmar('¿Borrar la carpeta «'+(e?e.nom:'')+'»? Está vacía, así que no se pierde ningún presupuesto.',
+     function(){ carpetaBorrar(id); renderEquipo(); toast('Carpeta borrada'); },'Borrar'); }; });
  host.querySelectorAll('[data-quien]').forEach(function(b){ b.onclick=function(){
    try{ localStorage.setItem('prestonLAB_quien',b.dataset.quien); }catch(e){} renderEquipo(); }; });
  var cb=host.querySelector('#eqCambiar');
@@ -4043,7 +4179,7 @@ function renderEquipo(){ var host=document.getElementById('equipoView'); if(!hos
 
 /* ---- dentro de una carpeta ---- */
 function cpMvOpts(actual){ var h='<option value="">Mover a…</option>';
- EQUIPO.concat([SIN]).forEach(function(e){ if(e.id!==actual)h+='<option value="'+e.id+'">'+esc(e.nom)+'</option>'; });
+ equipoTodo().concat([SIN]).forEach(function(e){ if(e.id!==actual)h+='<option value="'+e.id+'">'+esc(e.nom)+'</option>'; });
  return h; }
 /* Dentro de una carpeta se navega como en el Dropbox, sin listas de golpe:
    subcarpetas de estado (Por hacer / Enviados / Contratados / Perdidos), dentro
@@ -4942,14 +5078,10 @@ function svShellHtml(o,s){
  h+='</div></section>';
 
  /* 5 · Vulnerabilidad + CAE */
- h+='<section class="sv-card" data-sec="4"><h2 class="sv-head"><span class="n">5</span> ♿ Vulnerabilidad económica y CAE</h2><div class="sv-body"><div class="sv-grid">'+
-  '<div class="sv-field"><label>Vulnerabilidad económica de propietarios</label><select class="sv-in" data-sv="vuln">'+
-   '<option value="no"'+(s.vuln==='no'?' selected':'')+'>No</option>'+
-   '<option value="parcial"'+(s.vuln==='parcial'?' selected':'')+'>Parcial (algunas viviendas)</option>'+
-   '<option value="si"'+(s.vuln==='si'?' selected':'')+'>Sí (generalizada)</option></select>'+
-   '<span class="sv-hint">Puede elevar la ayuda hasta el 100 % en casos justificados.</span></div>'+
-  '<div class="sv-field" id="svVulnViv"'+(s.vuln==='parcial'?'':' style="display:none"')+'><label>Nº de viviendas vulnerables</label><input class="sv-in" data-sv="vulnViv" inputmode="numeric" value="'+esc(loose(s.vulnViv))+'"></div>'+
-  '</div>'+svCaeBloque(o,s)+'</div></section>';
+ /* Fuera el bloque de vulnerabilidad económica: no se usaba y ensuciaba la hoja.
+    La tarjeta queda solo para el CAE. */
+ h+='<section class="sv-card" data-sec="4"><h2 class="sv-head"><span class="n">5</span> ⚡ CAE · Certificados de Ahorro Energético</h2><div class="sv-body">'+
+  svCaeBloque(o,s)+'</div></section>';
 
  /* 6 · Financiación */
  h+='<section class="sv-card" data-sec="5"><h2 class="sv-head"><span class="n">6</span> 🏦 Financiación (opcional)</h2><div class="sv-body">'+
@@ -5078,16 +5210,15 @@ function svSyncNums(){ var o=obra(); if(!o)return; var s=subvDe(o);
 
 /* bloque CAE de la pantalla de trabajo: enseña de dónde sale cada kWh para poder
    defenderlo delante del verificador (y para cazar una superficie mal puesta). */
+/* Bloque CAE reducido a lo que se usa de verdad: cómo se estima, el %, el importe
+   forzado y si entra en el total. El cálculo por ficha del MITECO (zona climática,
+   envolvente, tabla de elementos) sigue existiendo en caeRD36 y se puede elegir en
+   "Cómo se estima", pero ya no ocupa la pantalla. */
 function svCaeBloque(o,s){ var f=caeRD36(o,s);
  var r=null; try{ r=subvCalcular(o); }catch(e){}
  var base=r?r.baseEnergia:0, pct=(s.caePct!=null&&s.caePct!==''?num(s.caePct):6);
  var porPct=base*(pct/100);
- var equiv=(base>0&&f.kwh>0)?r2(f.neto/base*100):0;
  var esFicha=(s.caeModo==='ficha');
- var opts=['A3','A4','B3','B4','C1','C2','C3','C4','D1','D2','D3','E1'].map(function(z){
-   return '<option value="'+z+'"'+(f.zc===z?' selected':'')+'>'+z+' — G '+CAE_G[z]+'</option>'; }).join('');
- var filas=f.elems.map(function(e){
-   return '<tr><td>'+esc(e.n)+'</td><td class="num">'+loose(r2(e.sup))+' m²</td><td class="num">'+loose(e.ui)+'</td><td class="num">'+loose(e.uf)+'</td><td class="num">'+loose(e.dU)+'</td></tr>'; }).join('');
  return '<div id="svCae">'+
   '<div class="sv-sub" style="margin-top:16px">Certificados de Ahorro Energético (CAE)</div>'+
   '<div class="sv-grid">'+
@@ -5099,31 +5230,12 @@ function svCaeBloque(o,s){ var f=caeRD36(o,s);
     '<span class="sv-hint">'+svEur(base)+' × '+loose(pct)+' % = <b>'+svEur(porPct)+'</b>'+(base>0&&r&&r.accCoste>0?' (base sin la parte de accesibilidad, que no ahorra energía)':'')+'</span></div>'+
   '</div>'+
   /* contraste: a cuánto equivale el % frente a lo que dice la ficha oficial */
-  (f.kwh>0?'<div class="avisobox" style="margin-top:10px"><div><b>Contraste con la ficha oficial.</b> Por la ficha '+f.ficha+' salen <b>'+svEur(f.neto)+'</b>, que sobre esta obra es un <b>'+loose(equiv)+' %</b>. '+
-    (Math.abs(equiv-pct)<=1?'Vuestro '+loose(pct)+' % encaja.':(equiv>pct?'Os estáis quedando cortos: la ficha da '+loose(r2(equiv-pct))+' puntos más.':'Ojo, la ficha da '+loose(r2(pct-equiv))+' puntos menos que vuestro '+loose(pct)+' %.'))+'</div></div>':'')+
-  '<div class="sv-grid" style="margin-top:10px">'+
-   '<div class="sv-field"><label>Zona climática (CTE)</label><select class="sv-in" data-sv="zc">'+opts+'</select>'+
-    '<span class="sv-hint">Madrid capital es <b>D3</b>. G sale del Anexo II de la ficha, en miles de horas·K/año.</span></div>'+
-   '<div class="sv-field"><label>Superficie total de la envolvente térmica (m²)</label><input class="sv-in" data-sv="supEnvolvente" inputmode="decimal" value="'+esc(s.supEnvolvente?loose(s.supEnvolvente):'')+'">'+
-    '<span class="sv-hint">'+(f.envEstimada?'<b>Estimada en '+loose(f.supEnv)+' m²</b> (fachada + cubierta + suelo). Ponla del proyecto: cambia el resultado.':'Del proyecto.')+'</span></div>'+
-  '</div>'+
-  '<div class="sv-hint" style="margin-top:6px">Un CAE = 1 kWh de energía final ahorrada al año (RD 36/2023). '+
-   (f.ficha==='RES010'?'<b>RES010</b>: se toca más del 25 % de la envolvente → AE = (Ki − Kf) × S × G, con K global de toda la envolvente.'
-                      :'<b>RES020</b>: se toca el 25 % o menos → AE = Σ (Ui − Uf) × Sj × G, elemento a elemento.')+'</div>'+
-  (f.elems.length
-   ?'<table class="svt" style="margin-top:8px"><thead><tr><th>Elemento</th><th class="num">Superficie</th><th class="num">U antes</th><th class="num">U después</th><th class="num">ΔU</th></tr></thead><tbody>'+filas+
-     '<tr class="total"><td>Superficie rehabilitada</td><td class="num">'+loose(f.supRehab)+' m²</td><td class="num" colspan="3">'+loose(f.pctEnv)+' % de la envolvente → ficha <b>'+f.ficha+'</b></td></tr>'+
-     '<tr><td>Ahorro anual de energía final</td><td class="num" colspan="4"><b>'+loose(Math.round(f.kwh))+' kWh/año</b> = '+(f.ficha==='RES010'?'(Ki−Kf) × S × G':'Σ (Ui−Uf) × Sj × G')+'</td></tr>'+
-     '<tr><td>Valor de los CAE</td><td class="num" colspan="4">'+loose(Math.round(f.kwh))+' kWh × '+loose(f.eur)+' €/kWh = '+svEur(f.bruto)+' − '+loose(f.fee)+' % de gestión → <b>'+svEur(f.neto)+'</b></td></tr>'+
-     '</tbody></table>'
-   :'<p class="sv-hint">Esta obra no tiene partidas con medida energética etiquetada (SATE, cubierta, ventanas), así que no se puede calcular el ahorro por ficha. Se usa el % de respaldo.</p>')+
   '<div class="sv-grid" style="margin-top:10px">'+
    '<div class="sv-field"><label>CAE importe (€) — forzar</label><input class="sv-in" data-sv="cae" inputmode="decimal" value="'+(s.cae?esc(loose(s.cae)):'')+'">'+
     '<span class="sv-hint">Vacío = el calculado arriba. Rellénalo solo si ya tienes oferta cerrada del gestor de CAE.</span></div>'+
    '<div class="sv-field"><label>&nbsp;</label><label class="sv-chk'+(s.caeInc!==false?' on':'')+'"><input type="checkbox" data-sv="caeInc"'+(s.caeInc!==false?' checked':'')+' style="width:auto"> Incluir CAE en el total</label>'+
     '<span class="sv-hint">Compatibles con el Plan Estatal (fondos MRR). Solo chocan con ayudas del FNEE.</span></div>'+
   '</div>'+
-  '<p class="sv-hint" style="margin-top:8px">Las transmitancias son <b>orientativas</b> para la oferta. Las que valen para emitir los CAE salen del certificado energético y las firma la dirección de obra; además hay que aportar la declaración responsable del Anexo I con las ayudas solicitadas u obtenidas.</p>'+
  '</div>'; }
 
 /* ---------- refresco en vivo: resumen económico + stepper + badge ---------- */
@@ -6719,6 +6831,23 @@ function confirmar(msg,cb,txt,cb2,txt2){ pickOpen('Un momento',
  document.getElementById('cfNo').onclick=pickClose;
  if(cb2){ var alt=document.getElementById('cfAlt'); if(alt)alt.onclick=function(){ pickClose(); cb2(); }; }
  document.getElementById('cfSi').onclick=function(){ pickClose(); cb(); }; }
+/* Pedir un texto. No existía: confirmar() solo da sí o no, y crear una carpeta
+   necesita que el usuario escriba el nombre. Enter acepta, Escape cancela. */
+function pedirTexto(titulo,etiqueta,valor,txtOk,cb){
+ pickOpen(titulo,
+  '<label style="display:block;font-size:12px;color:var(--muted);font-weight:600;margin:0 0 6px">'+esc(etiqueta)+'</label>'+
+  '<input id="ptVal" value="'+esc(valor||'')+'" maxlength="40" autocomplete="off" '+
+   'style="width:100%;font:inherit;font-size:15px;padding:10px 12px;border:1px solid var(--line-2);border-radius:9px;background:var(--panel);color:var(--ink)">'+
+  '<div style="display:flex;gap:10px;justify-content:flex-end;margin-top:14px">'+
+  '<button class="mini acc" id="ptNo">Cancelar</button>'+
+  '<button class="btn" id="ptSi">'+esc(txtOk||'Crear')+'</button></div>');
+ var i=document.getElementById('ptVal');
+ var ok=function(){ var v=i.value.trim(); if(!v){ i.focus(); return; } pickClose(); cb(v); };
+ document.getElementById('ptNo').onclick=pickClose;
+ document.getElementById('ptSi').onclick=ok;
+ i.addEventListener('keydown',function(e){ if(e.key==='Enter'){ e.preventDefault(); ok(); } });
+ setTimeout(function(){ i.focus(); i.select(); },40);
+}
 document.getElementById('pickClose').onclick=pickClose;
 document.getElementById('pickModalBg').addEventListener('click',function(e){ if(e.target===this)pickClose(); });
 
@@ -6789,7 +6918,17 @@ function pintaThemeBtn(){ var b=document.getElementById('themeBtn'); var dark=te
   :'<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.8A9 9 0 1111.2 3a7 7 0 009.8 9.8z"/></svg>';
  b.title=dark?'Cambiar a tema claro':'Cambiar a tema oscuro'; b.setAttribute('aria-label',b.title); }
 document.getElementById('themeBtn').onclick=function(){ var next=temaActual()==='dark'?'light':'dark';
- document.documentElement.setAttribute('data-theme',next); try{localStorage.setItem('prestonLAB_theme',next);}catch(e){} pintaThemeBtn(); };
+ document.documentElement.setAttribute('data-theme',next); try{localStorage.setItem('prestonLAB_theme',next);}catch(e){} pintaThemeBtn();
+ /* la portada lleva la imagen YA revelada sobre el fondo del tema, asi que hay que volver
+    a pintarla: si no, al cambiar de tema se queda el recorte del tema anterior */
+ if(view==='equipo')renderEquipo(); };
+/* lo mismo si el oscuro lo cambia el sistema y aqui no se ha elegido tema a mano */
+try{ var _mqOsc=window.matchMedia('(prefers-color-scheme:dark)');
+ var _alCambiar=function(){ if(document.documentElement.getAttribute('data-theme'))return;
+   pintaThemeBtn(); if(view==='equipo')renderEquipo(); };
+ if(_mqOsc.addEventListener)_mqOsc.addEventListener('change',_alCambiar);
+ else if(_mqOsc.addListener)_mqOsc.addListener(_alCambiar);
+}catch(e){}
 document.addEventListener('keydown',function(e){ var el=document.activeElement;
  var enGrid=el instanceof HTMLInputElement&&el.matches('input.ce,input.ci')&&gridOf(el);
  if(!enGrid){ if(e.key==='Escape'){document.getElementById('modalBg').classList.remove('show');document.getElementById('catModalBg').classList.remove('show');document.getElementById('pickModalBg').classList.remove('show');} return; }
@@ -7024,7 +7163,7 @@ window.PRESTON={state:function(){return state;},obra:obra,ficha:function(){var o
  qr:{matriz:qrMatriz,cw:qrCodewords,ec:qrEC,png:qrDataURL,svg:qrSvgDe},
  pub:{url:pubURL,qr:pubQR,pagina:paginaPublica,publica:publicaObra,token:pubDe,auto:autoPublica,hash:pubHash},
  dir:{bonita:dirBonita,muni:muniBonito,parse:parseDireccion},
- version:'v160-latido-portada (LAB · copia de pruebas)'};
+ version:'v161-portada-en-oscuro (LAB · copia de pruebas)'};
 try{var th0=localStorage.getItem('prestonLAB_theme'); if(th0)document.documentElement.setAttribute('data-theme',th0);}catch(e){}
 var _bd=document.getElementById('brandDode'); if(_bd&&typeof PBRAND!=='undefined')_bd.src=PBRAND.dode;
 try{ var _rv=document.getElementById('railVer'); if(_rv)_rv.textContent='Versión '+(PRESTON.version||'').split(' ')[0]; }catch(e){}
