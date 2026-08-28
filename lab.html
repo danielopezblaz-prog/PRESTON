@@ -3634,11 +3634,15 @@ function comSlug(s){ s=String(s||'').replace(/\s*\([^)]*\)\s*$/,'');
  try{ s=s.normalize('NFD').replace(/[̀-ͯ]/g,''); }catch(e){}
  return s.toLowerCase().replace(/[^a-z0-9]/g,''); }
 function nombreBase(s){ return String(s||'').replace(/\s*\((?:v\s*\d[^)]*|variante[^)]*)\)\s*$/i,''); }
+/* clave de comunidad de una obra: la guardada o, si aun no la tiene (recien creada),
+   la del nombre. Agrupar y buscar DEBEN usar la misma, o la carpeta se queda sin
+   grupo y revienta al entrar. */
+function comKey(o){ return (o&&o.com)||comSlug((o&&(o.nombre||o.dir))||'')||('c_'+(o&&o.id)); }
 function comunidadesDe(rows){ var by={},orden=[];
- rows.forEach(function(o){ var k=o.com||comSlug(o.nombre||o.dir)||('c_'+o.id);
+ rows.forEach(function(o){ var k=comKey(o);
    if(!by[k]){ by[k]=[]; orden.push(k); } by[k].push(o); });
  return orden.map(function(k){ return {k:k,obras:by[k]}; }); }
-function comDe(carpK,slug){ return obrasCarpeta(carpK).filter(function(o){ return (o.com||'')===slug; }); }
+function comDe(carpK,slug){ return obrasCarpeta(carpK).filter(function(o){ return comKey(o)===slug; }); }
 function comNombre(l){ var u=l.slice().sort(function(a,b){ return (b.creada||0)-(a.creada||0); })[0];
  return nombreBase((u&&(u.nombre||u.dir))||'Comunidad'); }
 function verNum(grupo,o){ var asc=grupo.slice().sort(function(a,b){ return (a.creada||0)-(b.creada||0); });
@@ -3679,7 +3683,9 @@ function renderCarpeta(){ var host=document.getElementById('carpetaView'); if(!h
     return !q||(comNombre(todasCom)+' '+(todasCom[0].dir||'')+' '+(todasCom[0].muni||'')).toLowerCase().indexOf(q)>=0; });
   coms.sort(function(a,b){ return cpUltimo(b.obras)-cpUltimo(a.obras); });
   var body=coms.length?coms.map(function(c2){ var grupo=comDe(k,c2.k);
+    if(!grupo.length)grupo=c2.obras;                   /* nunca dejar el grupo vacio */
     var ult=grupo.slice().sort(function(a,b){ return (b.creada||0)-(a.creada||0); })[0];
+    if(!ult)return '';
     var t=totalesDe(ult), d=diasDesde(cpUltimo(c2.obras));
     var alerta=(sec.k==='enviada'&&d>10);
     return '<div class="cp-row com" data-com="'+c2.k+'">'+
@@ -3719,7 +3725,7 @@ function renderCarpeta(){ var host=document.getElementById('carpetaView'); if(!h
    else if(a==='clon'){ abrePickClon(); }
    else if(a==='blank'){ var o=obraVacia('Nueva obra');
      o.capitulos=[{id:uid('c'),cod:'01',res:'Capítulo 01',cert:0,partidas:[]}];
-     asignaCarpeta(o); state.obras.unshift(o); state.activeId=o.id; selected=null; collapsed={}; save(); go('presupuesto'); }
+     asignaCarpeta(o); normObra(o); state.obras.unshift(o); state.activeId=o.id; selected=null; collapsed={}; save(); go('presupuesto'); }
    else if(a==='pdf'){ var i1=document.getElementById('pdfFile'); if(i1)i1.click(); }
    else if(a==='bc3'){ var i2=document.getElementById('bc3File'); if(i2)i2.click(); } }; });
  var nv=host.querySelector('#cpNuevaVer');
@@ -3809,7 +3815,7 @@ function renderWiz(){ if(!wizData)wizData=wizDefaults();
  var back=host.querySelector('#wizBack'), next=host.querySelector('#wizNext'), create=host.querySelector('#wizCreate');
  if(back)back.onclick=function(){wizStep=Math.max(1,wizStep-1);renderWiz();};
  if(next)next.onclick=function(){ if(wizStep===2){ wizData=wizAutos(wizData); wizGen=generaPartidas(wizData); wizCapOpen={}; } wizStep=Math.min(3,wizStep+1); renderWiz(); };
- if(create)create.onclick=function(){ var o=creaObraDeWizard(wizData,wizGen.partidas); state.obras.unshift(asignaCarpeta(o)); state.activeId=o.id;
+ if(create)create.onclick=function(){ var o=creaObraDeWizard(wizData,wizGen.partidas); normObra(asignaCarpeta(o)); state.obras.unshift(o); state.activeId=o.id;
    wizStep=1; wizData=null; wizGen=null; selected=null; collapsed={}; save(); go('presupuesto'); toast('Obra creada con '+o.capitulos.length+' capítulos'); };
 }
 function fr(l,k,val,suf,hint,wide){ return '<div class="fr'+(wide?' wide':'')+'"><label>'+l+'</label><div class="ib"><input data-w="'+k+'" '+(typeof val==='string'?'data-txt="1" value="'+esc(val)+'"':'inputmode="decimal" value="'+loose(val)+'"')+'><span class="suf">'+(suf||'')+'</span></div>'+(hint?'<span class="fhint">'+hint+'</span>':'')+'</div>'; }
@@ -6164,7 +6170,7 @@ window.PRESTON={state:function(){return state;},obra:obra,ficha:function(){var o
  pres:{payload:function(){var o=obra();return o?presPayload(o):null;},url:function(){var o=obra();return o?presUrl(o):null;}},
  med:{parcial:parcialLinea,suma:sumaLineas,open:function(id){openDock(id);},close:function(){closeDock();},dock:function(){return {open:dockOpen,id:dockId};}},
  carp:{ir:abrirCarpeta,equipo:EQUIPO,de:carpetaDe,lista:obrasCarpeta,abierta:carpetaAbierta},
- version:'v130-fluidez (LAB · copia de pruebas)'};
+ version:'v131-arreglo-crear (LAB · copia de pruebas)'};
 try{var th0=localStorage.getItem('prestonLAB_theme'); if(th0)document.documentElement.setAttribute('data-theme',th0);}catch(e){}
 var _bd=document.getElementById('brandDode'); if(_bd&&typeof PBRAND!=='undefined')_bd.src=PBRAND.dode;
 if(USA_SERVIDOR){ state={v:3,activeId:null,params:defParams(),obras:[]}; } else { state=load(); }
