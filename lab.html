@@ -4193,6 +4193,15 @@ function renderWiz(){ if(!wizData)wizData=wizDefaults();
    return '<div class="ws '+(n===wizStep?'on':(n<wizStep?'done':''))+'"><span class="n">'+(n<wizStep?'✓':n)+'</span><span>'+s+'</span></div>';}).join('');
  var host=document.getElementById('wizBody');
  if(wizStep===1)host.innerHTML=wizPaso1(); else if(wizStep===2)host.innerHTML=wizPaso2(); else host.innerHTML=wizPaso3();
+ /* Al salir del campo, la dirección y el municipio se dejan bien escritos solos. Se
+    hace al SALIR y no mientras se teclea: reescribir bajo los dedos mueve el cursor. */
+ host.querySelectorAll('[data-w="dir"],[data-w="muni"],[data-w="nombre"]').forEach(function(el){
+   el.addEventListener('blur',function(){ var k=el.dataset.w, v=el.value;
+     var lim=(k==='muni')?muniBonito(v):dirBonita(v);
+     if(lim&&lim!==v){ el.value=lim; wizData[k]=lim;
+       /* el nombre de la obra suele ser la dirección: si iban a la par, se actualiza */
+       if(k==='dir'&&(!wizData.nombre||wizData.nombre===v)){ wizData.nombre=lim;
+         var nEl=host.querySelector('[data-w="nombre"]'); if(nEl)nEl.value=lim; } } }); });
  host.querySelectorAll('[data-w]').forEach(function(el){ el.addEventListener('input',function(){ var k=el.dataset.w;
    wizData[k]=el.type==='checkbox'?el.checked:(el.tagName==='SELECT'||el.dataset.txt?el.value:num(el.value));
    if(k==='plantas'){wizData.altura=wizData.plantas*3;var h=host.querySelector('[data-w="altura"]');if(h)h.value=wizData.altura;}
@@ -4261,7 +4270,57 @@ function parseDireccion(s){ s=(s||'').trim(); var tv='CL';
  else if(/^(camino|cmno)/.test(pref))tv='CM'; else if(/^(carretera|ctra)/.test(pref))tv='CR'; else if(/^(ronda|rda)/.test(pref))tv='RD';
  else if(/^(glorieta|gta)/.test(pref))tv='GL'; else if(/^tr/.test(pref))tv='TR';
  return {tv:tv, nv:m[2].replace(/[,.]+$/,'').trim().toUpperCase().replace(/\s+/g,' '), num:m[3]}; }
+/* ================= direcciones bien escritas =================
+   Lo que se teclea deprisa ("c/ velez blanco 46", "AVDA. DE AMERICA 12") se deja
+   presentable solo: tipo de vía con su palabra entera, nombre en mayúscula inicial
+   respetando las partículas del castellano, y el número limpio.
+   OJO con lo que NO se puede hacer: poner tildes que no vengan escritas. "Velez"
+   no se convierte en "Vélez" adivinando, porque no hay forma de saberlo del texto.
+   Para eso está el Catastro, que devuelve el nombre oficial ya acentuado. */
+/* Cada tipo con sus abreviaturas, de la más larga a la más corta. El separador se
+   exige aparte (SEP) para que "cl" no se coma "Clara" ni "c" se coma "Colón":
+   detrás del tipo tiene que venir un espacio, una barra o un punto/coma. */
+var DIR_SEP='(?:\\s*[.,]?\\s*\\/\\s*|\\s*[.,]\\s*|\\s+)';
+var DIR_TIPOS=[
+ ['avenida|avda|avd|aven|av','Avenida'],      ['plaza|plza|pza|plz|pl','Plaza'],
+ ['paseo|pso|pº|ps','Paseo'],                 ['carretera|ctra|crta|cr','Carretera'],
+ ['camino|cmno|cno|cm','Camino'],             ['ronda|rda','Ronda'],
+ ['glorieta|gta|gl','Glorieta'],              ['travesía|travesia|trva|trv|tr','Travesía'],
+ ['bulevar|boulevard|blvr','Bulevar'],        ['callejón|callejon|cjon','Callejón'],
+ ['calle|cl|c','Calle']                       /* Calle al final: "c" es lo más ambiguo */
+].map(function(t){ return [new RegExp('^(?:'+t[0]+')'+DIR_SEP,'i'), t[1]]; });
+/* partículas que van en minúscula salvo si abren el nombre */
+var DIR_MINUS={'de':1,'del':1,'la':1,'las':1,'el':1,'los':1,'y':1,'e':1,'en':1,'a':1,'al':1,'con':1};
+function dirPalabra(p,primera){
+ if(!p)return p;
+ var bajo=p.toLocaleLowerCase('es');
+ if(!primera&&DIR_MINUS[bajo])return bajo;
+ if(/^[IVXLC]+$/.test(p)&&p.length>1)return p.toUpperCase();      /* Alfonso XII */
+ if(/^\d/.test(p))return bajo;                                     /* 2 de Mayo */
+ /* guiones y apóstrofes: cada trozo con su mayúscula (Sainz-Baranda) */
+ return bajo.replace(/(^|[-'’])([a-záéíóúñüç])/g,function(_,s,c){ return s+c.toLocaleUpperCase('es'); });
+}
+/* primeraMinus: cuando ya hay tipo de vía delante, la primera palabra del nombre SÍ
+   puede ser partícula y va en minúscula — "Avenida de América", no "Avenida De". */
+function dirTitulo(s,primeraMinus){ var w=String(s||'').trim().split(/\s+/);
+ return w.map(function(p,i){ return dirPalabra(p,i===0&&!primeraMinus); }).join(' '); }
+function dirBonita(s){
+ var t=String(s==null?'':s).replace(/\s+/g,' ').trim();
+ if(!t)return '';
+ /* tipo de vía al principio */
+ var tipo='';
+ for(var i=0;i<DIR_TIPOS.length;i++){ var m=t.match(DIR_TIPOS[i][0]);
+   if(m){ tipo=DIR_TIPOS[i][1]; t=t.slice(m[0].length).replace(/^[\s,.]+/,''); break; } }
+ /* número al final: "nº 46", "num. 46", "46-48", "46 bis", "s/n" */
+ var num='', mn=t.match(/[,\s]+(?:n[ºo°]?\.?\s*|n[uú]m\.?\s*)?(\d+[a-zA-Z]?(?:\s*[-\/]\s*\d+[a-zA-Z]?)?(?:\s+bis)?)\s*$/i);
+ if(mn){ num=mn[1].replace(/\s*([-\/])\s*/g,'$1').replace(/\s+/g,' ').toLowerCase(); t=t.slice(0,mn.index); }
+ else { var sn=t.match(/[,\s]+s\/?\s*n\.?\s*$/i); if(sn){ num='s/n'; t=t.slice(0,sn.index); } }
+ var nombre=dirTitulo(t.replace(/[,\s.]+$/,''),!!tipo);
+ return [tipo,nombre].filter(Boolean).join(' ')+(num?' '+num:'');
+}
 function muniNorm(s){ return (s||'MADRID').replace(/\(.*?\)/g,'').trim().toUpperCase()||'MADRID'; }
+/* el municipio, para enseñar: "madrid" -> "Madrid", "SAN SEBASTIAN DE LOS REYES" -> ... */
+function muniBonito(s){ var t=String(s==null?'':s).replace(/\s+/g,' ').trim(); return t?dirTitulo(t):''; }
 function catBlock(w){ if(!w._cat){ var d0=parseDireccion(w.dir||w.nombre); w._cat={tv:d0.tv,nv:d0.nv,num:d0.num,muni:muniNorm(w.muni),prov:'MADRID',rc:''}; }
  var c=w._cat;
  var h='<div class="catrow">'+
@@ -6114,6 +6173,10 @@ function renderAjustes(){ var host=document.getElementById('cfgView'); var p=sta
  var fq=document.getElementById('fotoQuitar'); if(fq)fq.onclick=function(){ state.params.fotoPortada=null; save(); renderAjustes(); toast('Se usará la foto estándar'); };
  host.querySelectorAll('[data-o]').forEach(function(el){ el.addEventListener('change',function(){ var oo=obra(); if(!oo)return;
    var k=el.dataset.o; if(k==='gg'||k==='bi'||k==='iva')oo.config[k]=num(el.value);
+   /* dirección, municipio y nombre se guardan ya bien escritos */
+   else if(k==='dir'||k==='nombre'||k==='muni'){
+     var lim=(k==='muni')?muniBonito(el.value):dirBonita(el.value);
+     if(lim)el.value=lim; oo[k]=el.value; save(); toast('Obra actualizada'); return; }
    else if(k==='viviendas'||k==='locales'||k==='plantas'||k==='recPct'||k==='recAgentePct'||k==='ivaAgentePct')oo[k]=num(el.value);
    else oo[k]=el.value; save(); toast('Obra actualizada'); }); });
  /* importar UNA obra: nunca borra nada. Si ya existe esa misma obra pregunta si se
@@ -6882,7 +6945,8 @@ window.PRESTON={state:function(){return state;},obra:obra,ficha:function(){var o
  ver:compruebaVersion,
  qr:{matriz:qrMatriz,cw:qrCodewords,ec:qrEC,png:qrDataURL,svg:qrSvgDe},
  pub:{url:pubURL,qr:pubQR,pagina:paginaPublica,publica:publicaObra,token:pubDe,auto:autoPublica,hash:pubHash},
- version:'v156-pagina-publica-responsive (LAB · copia de pruebas)'};
+ dir:{bonita:dirBonita,muni:muniBonito,parse:parseDireccion},
+ version:'v157-direcciones-bien-escritas (LAB · copia de pruebas)'};
 try{var th0=localStorage.getItem('prestonLAB_theme'); if(th0)document.documentElement.setAttribute('data-theme',th0);}catch(e){}
 var _bd=document.getElementById('brandDode'); if(_bd&&typeof PBRAND!=='undefined')_bd.src=PBRAND.dode;
 try{ var _rv=document.getElementById('railVer'); if(_rv)_rv.textContent='Versión '+(PRESTON.version||'').split(' ')[0]; }catch(e){}
