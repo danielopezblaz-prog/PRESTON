@@ -5899,11 +5899,10 @@ function pubDe(o){ if(!o)return '';
 function pubURL(o){ return (o&&o.pub)?PUB_BASE+o.pub:''; }
 /* hash barato del documento: evita resubir 1,4 MB cuando no ha cambiado nada */
 function pubHash(s){ var h=5381; for(var i=0;i<s.length;i++)h=((h*33)^s.charCodeAt(i))>>>0; return h.toString(36)+'-'+s.length; }
-/* QR propio de la obra. En local y en el artifact NO hay dónde publicar, así que se
-   deja el de marca: más vale el QR general que uno que lleve a una página que no
-   existe. En el servidor toda obra tiene el suyo desde el primer momento. */
+/* QR propio de la obra, SIEMPRE y en todas. El código es el mismo se abra donde se
+   abra (va guardado con la obra), así que el QR impreso desde cualquier copia sirve
+   en cuanto esa obra se haya publicado alguna vez desde el servidor. */
 function pubQR(o){ if(!o)return PBRAND.qr;
- if(!USA_SERVIDOR)return PBRAND.qr;
  pubDe(o);
  var u=pubURL(o); if(!u)return PBRAND.qr;
  try{ if(!o._qrCache||o._qrCache.u!==u)o._qrCache={u:u,png:qrSvgDe(u)}; return o._qrCache.png; }
@@ -5965,7 +5964,7 @@ function publicaObra(o,callado,cb){
    la última vez, sube la versión nueva. Sin preguntar nada. */
 function autoPublica(o){ if(!o||!USA_SERVIDOR)return; try{ publicaObra(o,true); }catch(e){} }
 function pintaPubEstado(o){ var el=document.getElementById('pubEstado'); if(!el)return;
- if(!USA_SERVIDOR){ el.textContent='El QR del enlace solo funciona en la versión del servidor'; return; }
+ if(!USA_SERVIDOR){ el.innerHTML='<b style="color:var(--brand)">Esta copia no puede publicar.</b> El QR ya lleva el código de la obra, pero la página se sube abriendo el dossier en <b>proyecton.es/preston/lab.php</b>'; return; }
  if(!o.pub){ el.textContent='Preparando el enlace…'; return; }
  var f=''; if(o.pubFecha){ var d=new Date(o.pubFecha);
    f='el '+('0'+d.getDate()).slice(-2)+'/'+('0'+(d.getMonth()+1)).slice(-2)+' a las '+('0'+d.getHours()).slice(-2)+':'+('0'+d.getMinutes()).slice(-2); }
@@ -6778,7 +6777,7 @@ window.PRESTON={state:function(){return state;},obra:obra,ficha:function(){var o
  ver:compruebaVersion,
  qr:{matriz:qrMatriz,cw:qrCodewords,ec:qrEC,png:qrDataURL,svg:qrSvgDe},
  pub:{url:pubURL,qr:pubQR,pagina:paginaPublica,publica:publicaObra,token:pubDe,auto:autoPublica,hash:pubHash},
- version:'v150-qr-automatico (LAB · copia de pruebas)'};
+ version:'v151-qr-en-todas (LAB · copia de pruebas)'};
 try{var th0=localStorage.getItem('prestonLAB_theme'); if(th0)document.documentElement.setAttribute('data-theme',th0);}catch(e){}
 var _bd=document.getElementById('brandDode'); if(_bd&&typeof PBRAND!=='undefined')_bd.src=PBRAND.dode;
 try{ var _rv=document.getElementById('railVer'); if(_rv)_rv.textContent='Versión '+(PRESTON.version||'').split(' ')[0]; }catch(e){}
