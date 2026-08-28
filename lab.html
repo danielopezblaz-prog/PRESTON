@@ -1732,6 +1732,8 @@ PBRAND.qr=qrSvg(PBRAND.qrData,PBRAND.qrN);
       <section class="view" data-view="dossier"><div class="scroller"><div class="doss-wrap">
         <div class="doss-actions">
           <button class="btn" id="btnPrint"><svg class="g" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9V3h12v6M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2M6 14h12v7H6z"/></svg>Imprimir / Guardar PDF</button>
+          <button class="btn" id="btnPublicar" title="Crea la página a la que lleva el QR del PDF. El cliente escanea y ve este mismo dossier."><svg class="g" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h2v2h-2zM18 14h2v2h-2zM14 18h2v2h-2zM18 18h2v2h-2z"/></svg>Publicar enlace del QR</button>
+          <span id="pubEstado" style="margin-left:10px;font-size:12px;color:var(--muted)"></span>
           <label class="doss-ciego" style="display:inline-flex;align-items:center;gap:7px;margin-left:14px;font-size:13px;color:var(--ink-2);cursor:pointer" title="Genera el presupuesto sin precios: solo códigos, conceptos y mediciones"><input type="checkbox" id="dossCiego" style="width:16px;height:16px;cursor:pointer">Ocultar precios (presupuesto ciego)</label>
         </div>
         <div id="dossBody"></div>
@@ -2464,6 +2466,141 @@ function svSetZona(s){
  var z=SUBV_CUANTIAS.rehabilita.zonas[s.zona]||SUBV_CUANTIAS.rehabilita.zonas.ZIRE;
  s.pctRehab=r2((z[s.presetRehab||'una_letra']||0)*100); s.topeVivRehab=SUBV_CUANTIAS.rehabilita.topeViv; }
 function svSetAccMayor(s){ var si=s.accMayor==='si'; s.pctAccEstatal=si?80:70; s.nivelAcc=si?'mayor':'general'; }
+
+/* ================= generador de QR =================
+   Hace falta uno propio: el QR de marca (PBRAND.qr) es una imagen fija y aquí cada
+   obra necesita el suyo, apuntando a su enlace. No se puede cargar una librería de
+   CDN (el artifact lo bloquea y el servidor va sin dependencias), así que va a mano.
+   Modo BYTE, corrección M, versiones 1-6 (hasta 106 caracteres: de sobra para la URL
+   y así no hay que meter los bloques de información de versión, que solo existen de
+   la 7 en adelante). */
+var QR_CAP={1:{tot:26,dat:16,ec:10,bl:1},2:{tot:44,dat:28,ec:16,bl:1},3:{tot:70,dat:44,ec:26,bl:1},
+ 4:{tot:100,dat:64,ec:18,bl:2},5:{tot:134,dat:86,ec:24,bl:2},6:{tot:172,dat:108,ec:16,bl:4}};
+var QR_ALIN={1:[],2:[6,18],3:[6,22],4:[6,26],5:[6,30],6:[6,34]};
+/* cadenas de información de formato para nivel M, una por máscara (tabla del estándar;
+   se ponen tal cual en vez de calcular el BCH: menos código y menos donde fallar) */
+var QR_FMT=['101010000010010','101000100100101','101111001111100','101101101001011',
+            '100010111111001','100000011001110','100111110010111','100101010100000'];
+/* aritmética en GF(256) con el polinomio 0x11D, que es el que usa QR */
+var QR_EXP=new Array(512), QR_LOG=new Array(256);
+(function(){ var x=1; for(var i=0;i<255;i++){ QR_EXP[i]=x; QR_LOG[x]=i; x<<=1; if(x&256)x^=0x11D; }
+ for(var j=255;j<512;j++)QR_EXP[j]=QR_EXP[j-255]; })();
+function qrMul(a,b){ return (a===0||b===0)?0:QR_EXP[QR_LOG[a]+QR_LOG[b]]; }
+function qrGenPoly(n){ var g=[1];
+ for(var i=0;i<n;i++){ var ng=new Array(g.length+1); for(var k=0;k<ng.length;k++)ng[k]=0;
+  for(var j=0;j<g.length;j++){ ng[j]^=qrMul(g[j],1); ng[j+1]^=qrMul(g[j],QR_EXP[i]); } g=ng; }
+ return g; }
+function qrEC(datos,n){ var g=qrGenPoly(n), res=datos.slice().concat(new Array(n).fill(0));
+ for(var i=0;i<datos.length;i++){ var c=res[i]; if(!c)continue;
+  for(var j=0;j<g.length;j++)res[i+j]^=qrMul(g[j],c); }
+ return res.slice(datos.length); }
+function qrBytes(txt){ var u=unescape(encodeURIComponent(txt)), a=[];
+ for(var i=0;i<u.length;i++)a.push(u.charCodeAt(i)&255); return a; }
+function qrCodewords(txt){
+ var datos=qrBytes(txt), v=0;
+ for(var k=1;k<=6;k++){ /* 4 bits de modo + 8 de longitud + los datos */
+   if(datos.length+2<=QR_CAP[k].dat){ v=k; break; } }
+ if(!v)throw new Error('texto demasiado largo para QR v6');
+ var C=QR_CAP[v], bits=[];
+ var push=function(val,n){ for(var i=n-1;i>=0;i--)bits.push((val>>i)&1); };
+ push(4,4); push(datos.length,8);
+ datos.forEach(function(b){ push(b,8); });
+ var cap=C.dat*8;
+ for(var t=0;t<4&&bits.length<cap;t++)bits.push(0);      /* terminador */
+ while(bits.length%8)bits.push(0);
+ var cw=[]; for(var i=0;i<bits.length;i+=8){ var b=0; for(var j=0;j<8;j++)b=(b<<1)|bits[i+j]; cw.push(b); }
+ var relleno=[0xEC,0x11], r=0;
+ while(cw.length<C.dat)cw.push(relleno[r++%2]);
+ /* reparto en bloques y entrelazado */
+ var porBloque=C.dat/C.bl, bloques=[], ecs=[];
+ for(var b=0;b<C.bl;b++){ var d=cw.slice(b*porBloque,(b+1)*porBloque); bloques.push(d); ecs.push(qrEC(d,C.ec)); }
+ var salida=[];
+ for(var i=0;i<porBloque;i++)for(var b=0;b<C.bl;b++)salida.push(bloques[b][i]);
+ for(var i=0;i<C.ec;i++)for(var b=0;b<C.bl;b++)salida.push(ecs[b][i]);
+ return {v:v,cw:salida};
+}
+function qrMatriz(txt){
+ var r=qrCodewords(txt), v=r.v, n=17+4*v;
+ var m=[], res=[];   /* res marca los módulos reservados (patrones), que no llevan datos */
+ for(var i=0;i<n;i++){ m.push(new Array(n).fill(0)); res.push(new Array(n).fill(0)); }
+ var pon=function(y,x,val){ m[y][x]=val; res[y][x]=1; };
+ /* patrones de localización + separadores */
+ [[0,0],[0,n-7],[n-7,0]].forEach(function(p){ var y0=p[0],x0=p[1];
+  for(var y=-1;y<8;y++)for(var x=-1;x<8;x++){ var Y=y0+y,X=x0+x; if(Y<0||X<0||Y>=n||X>=n)continue;
+   var dentro=(y>=0&&y<7&&x>=0&&x<7);
+   var negro=dentro&&((y===0||y===6||x===0||x===6)||(y>=2&&y<=4&&x>=2&&x<=4));
+   pon(Y,X,negro?1:0); } });
+ /* patrones de alineación */
+ var al=QR_ALIN[v];
+ for(var a=0;a<al.length;a++)for(var b=0;b<al.length;b++){ var cy=al[a],cx=al[b];
+  if((cy<9&&cx<9)||(cy<9&&cx>n-10)||(cy>n-10&&cx<9))continue;
+  for(var y=-2;y<=2;y++)for(var x=-2;x<=2;x++)
+   pon(cy+y,cx+x,(Math.max(Math.abs(y),Math.abs(x))!==1)?1:0); }
+ /* patrones de sincronismo */
+ for(var i=8;i<n-8;i++){ pon(6,i,i%2===0?1:0); pon(i,6,i%2===0?1:0); }
+ pon(n-8,8,1);                                   /* módulo oscuro fijo */
+ /* reserva de la información de formato */
+ for(var i=0;i<9;i++){ if(!res[8][i])pon(8,i,0); if(!res[i][8])pon(i,8,0); }
+ for(var i=0;i<8;i++){ pon(8,n-1-i,0); pon(n-1-i,8,0); }
+ /* colocación de datos en zigzag de abajo a la derecha hacia arriba */
+ var bits=[]; r.cw.forEach(function(c){ for(var i=7;i>=0;i--)bits.push((c>>i)&1); });
+ var idx=0, arriba=true;
+ for(var col=n-1;col>0;col-=2){ if(col===6)col--;   /* la columna 6 es de sincronismo */
+  for(var f=0;f<n;f++){ var y=arriba?(n-1-f):f;
+   for(var c=0;c<2;c++){ var x=col-c;
+    if(res[y][x])continue;
+    m[y][x]=idx<bits.length?bits[idx]:0; idx++; } }
+  arriba=!arriba; }
+ /* máscaras: se prueban las 8 y gana la de menor penalización */
+ var mask=function(k,y,x){ switch(k){
+   case 0: return (y+x)%2===0; case 1: return y%2===0; case 2: return x%3===0;
+   case 3: return (y+x)%3===0; case 4: return (Math.floor(y/2)+Math.floor(x/3))%2===0;
+   case 5: return ((y*x)%2)+((y*x)%3)===0; case 6: return (((y*x)%2)+((y*x)%3))%2===0;
+   default: return (((y+x)%2)+((y*x)%3))%2===0; } };
+ var mejor=null, mejorP=Infinity;
+ for(var k=0;k<8;k++){
+  var t=m.map(function(f){return f.slice();});
+  for(var y=0;y<n;y++)for(var x=0;x<n;x++)if(!res[y][x]&&mask(k,y,x))t[y][x]^=1;
+  /* información de formato de ESTA máscara */
+  var f=QR_FMT[k];
+  for(var i=0;i<15;i++){ var bit=+f[14-i];
+   if(i<6)t[8][i]=bit; else if(i===6)t[8][7]=bit; else if(i===7)t[8][8]=bit;
+   else if(i===8)t[7][8]=bit; else t[14-i][8]=bit;
+   if(i<8)t[n-1-i][8]=bit; else t[8][n-15+i]=bit; }
+  t[n-8][8]=1;
+  var p=qrPenal(t,n);
+  if(p<mejorP){ mejorP=p; mejor=t; } }
+ return mejor;
+}
+/* las 4 reglas de penalización del estándar */
+function qrPenal(m,n){ var p=0,y,x,i,run,ant;
+ for(y=0;y<n;y++){ run=1; ant=m[y][0]; for(x=1;x<n;x++){ if(m[y][x]===ant)run++; else {if(run>=5)p+=3+(run-5); run=1; ant=m[y][x];} } if(run>=5)p+=3+(run-5); }
+ for(x=0;x<n;x++){ run=1; ant=m[0][x]; for(y=1;y<n;y++){ if(m[y][x]===ant)run++; else {if(run>=5)p+=3+(run-5); run=1; ant=m[y][x];} } if(run>=5)p+=3+(run-5); }
+ for(y=0;y<n-1;y++)for(x=0;x<n-1;x++){ var a=m[y][x]; if(a===m[y][x+1]&&a===m[y+1][x]&&a===m[y+1][x+1])p+=3; }
+ var pat=[1,0,1,1,1,0,1,0,0,0,0], pat2=[0,0,0,0,1,0,1,1,1,0,1];
+ var casa=function(get,largo){ for(var s=0;s+11<=largo;s++){ var ok1=true,ok2=true;
+   for(var t=0;t<11;t++){ var v=get(s+t); if(v!==pat[t])ok1=false; if(v!==pat2[t])ok2=false; }
+   if(ok1)p+=40; if(ok2)p+=40; } };
+ for(y=0;y<n;y++)casa(function(i){return m[y][i];},n);
+ for(x=0;x<n;x++)casa(function(i){return m[i][x];},n);
+ var osc=0; for(y=0;y<n;y++)for(x=0;x<n;x++)osc+=m[y][x];
+ var pct=osc*100/(n*n); p+=Math.floor(Math.abs(pct-50)/5)*10;
+ return p; }
+/* la matriz como SVG data-URI: igual que qrSvg (el del QR de marca) pero partiendo de
+   la matriz que acabamos de calcular. En SVG imprime nítido a cualquier tamaño. */
+function qrSvgDe(txt,margen){
+ var m=qrMatriz(txt), n=m.length, q=(margen==null?4:margen), lado=n+q*2, r='';
+ for(var y=0;y<n;y++)for(var x=0;x<n;x++)if(m[y][x])r+='<rect x="'+(x+q)+'" y="'+(y+q)+'" width="1" height="1"/>';
+ var svg='<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 '+lado+' '+lado+'" shape-rendering="crispEdges">'+
+  '<rect width="'+lado+'" height="'+lado+'" fill="#fff"/><g fill="#000">'+r+'</g></svg>';
+ return 'data:image/svg+xml;base64,'+btoa(svg); }
+/* el QR como PNG data-URI, listo para <img> y para imprimir */
+function qrDataURL(txt,px){ var m=qrMatriz(txt), n=m.length, quiet=4, tot=n+quiet*2;
+ var esc=Math.max(1,Math.floor((px||320)/tot)), lado=tot*esc;
+ var c=document.createElement('canvas'); c.width=c.height=lado;
+ var g=c.getContext('2d'); g.fillStyle='#fff'; g.fillRect(0,0,lado,lado); g.fillStyle='#ae0b0b';
+ for(var y=0;y<n;y++)for(var x=0;x<n;x++)if(m[y][x])g.fillRect((x+quiet)*esc,(y+quiet)*esc,esc,esc);
+ return c.toDataURL('image/png'); }
 
 /* ================= CAE · Certificados de Ahorro Energético (RD 36/2023) =================
    Un CAE = UN kWh de energía final ahorrada AL AÑO. No es un % del presupuesto: se
@@ -5740,7 +5877,76 @@ function ajustaPaginasA4(cont){
  });
  if(oculto){ if(prev===null)cont.removeAttribute('style'); else cont.setAttribute('style',prev); }
 }
+/* ===== página pública del QR =====
+   El QR de cada obra lleva a proyecton.es/preston/v.php?p=<token>, donde se ve ESTE
+   mismo dossier y se puede descargar. No se sube ningún PDF: se publica el dossier ya
+   maquetado por la app, así que lo que ve el cliente es siempre lo último. El token
+   es largo y aleatorio (lo genera el servidor) y la página va con noindex: quien no
+   tenga el QR no llega. */
+var PUB_BASE='https://proyecton.es/preston/v.php?p=';
+function pubURL(o){ return (o&&o.pub)?PUB_BASE+o.pub:''; }
+/* QR de la obra si está publicada; si no, el de marca de siempre */
+function pubQR(o){ var u=pubURL(o); if(!u)return PBRAND.qr;
+ try{ if(!o._qrCache||o._qrCache.u!==u)o._qrCache={u:u,png:qrSvgDe(u)}; return o._qrCache.png; }
+ catch(e){ return PBRAND.qr; } }
+function pubCss(){ return '.pubbar{position:sticky;top:0;z-index:10;display:flex;align-items:center;gap:12px;'+
+ 'padding:10px 16px;background:#fff;border-bottom:1px solid #e6ded9;box-shadow:0 2px 10px -6px rgba(0,0,0,.25)}'+
+ '.pubbar b{font:700 14px Arial,sans-serif;color:#1a1a1a;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}'+
+ '.pubbar button{font:700 13px Arial,sans-serif;cursor:pointer;background:#ae0b0b;color:#fff;border:0;'+
+ 'border-radius:9px;padding:9px 16px;flex:none}'+
+ 'body.pubdoc{margin:0;background:#f2eeec}'+
+ '.pubwrap{display:flex;flex-direction:column;align-items:center;gap:14px;padding:14px}'+
+ '.pubwrap .a4{box-shadow:0 10px 30px -14px rgba(0,0,0,.45);margin:0}'+
+ '.pubpie{font:12px Arial,sans-serif;color:#6b615c;text-align:center;padding:6px 16px 26px}'+
+ '@media print{ .pubbar,.pubpie{display:none!important} body.pubdoc{background:#fff}'+
+ ' .pubwrap{padding:0;gap:0} .pubwrap .a4{box-shadow:none;border:0;margin:0;break-after:page}'+
+ ' *{-webkit-print-color-adjust:exact;print-color-adjust:exact} @page{size:A4;margin:0} }'; }
+function paginaPublica(o){
+ var css=[].slice.call(document.querySelectorAll('style')).map(function(s){return s.textContent;}).join('\n');
+ var tit=(o.nombre||o.dir||'Presupuesto')+' · Revestimientos Proyecton';
+ /* el script del visor se corta en trozos: un '</'+'script>' literal cerraría ESTE script */
+ var js='var z=function(){var w=document.querySelector(".pubwrap");if(!w)return;'+
+  'var e=Math.min(1,(window.innerWidth-20)/794);w.style.zoom=e>0.25?e:0.25;};'+
+  'z();window.addEventListener("resize",z);'+
+  'document.getElementById("pubDesc").onclick=function(){window.print();};';
+ return '<!DOCTYPE html><html lang="es"><head><meta charset="utf-8">'+
+  '<meta name="viewport" content="width=device-width,initial-scale=1">'+
+  '<meta name="robots" content="noindex,nofollow">'+
+  '<title>'+esc(tit)+'</title><style>'+css+'</style><style>'+pubCss()+'</style></head>'+
+  '<body class="pubdoc"><div class="pubbar"><b>'+esc(o.nombre||o.dir||'Presupuesto')+'</b>'+
+   '<button id="pubDesc">Descargar PDF</button></div>'+
+  '<div class="pubwrap">'+dossierHtml(o)+'</div>'+
+  '<div class="pubpie">Revestimientos Proyecton Rehabilitaciones S.L.U. · 91 693 15 40 · info@proyecton.es<br>'+
+   'Documento orientativo generado el '+esc(hoy())+'.</div>'+
+  '<scr'+'ipt>'+js+'</scr'+'ipt></body></html>';
+}
+function publicaObra(o,cb){
+ if(!USA_SERVIDOR){ toast('Publicar el enlace solo funciona en la versión del servidor'); return; }
+ var html;
+ try{ html=paginaPublica(o); }catch(e){ toast('No se pudo generar la página: '+e.message); return; }
+ setTxt('pubEstado','Publicando…');
+ fetch('publicar.php?op=publicar',{method:'POST',headers:{'Content-Type':'application/json'},
+  body:JSON.stringify({id:o.id,token:o.pub||'',html:html})})
+  .then(function(r){return r.json();})
+  .then(function(j){ if(!j||!j.ok)throw new Error((j&&j.error)||'respuesta no válida');
+    var nuevo=!o.pub; o.pub=j.token; o.pubFecha=Date.now(); save();
+    renderDossier();   /* el QR del dossier pasa a ser el de la obra */
+    toast(nuevo?'Enlace creado: ya puedes imprimir el PDF con su QR':'Enlace actualizado');
+    if(cb)cb(j); })
+  .catch(function(e){ setTxt('pubEstado','No se pudo publicar'); toast('No se pudo publicar: '+e.message); });
+}
+function pintaPubEstado(o){ var el=document.getElementById('pubEstado'); if(!el)return;
+ if(!o.pub){ el.textContent=USA_SERVIDOR?'Sin publicar — el QR aún lleva a la web general':'Solo en la versión del servidor'; return; }
+ var f=''; if(o.pubFecha){ var d=new Date(o.pubFecha);
+   f='el '+('0'+d.getDate()).slice(-2)+'/'+('0'+(d.getMonth()+1)).slice(-2)+' a las '+('0'+d.getHours()).slice(-2)+':'+('0'+d.getMinutes()).slice(-2); }
+ el.innerHTML='Publicado '+esc(f)+' · <a href="'+esc(pubURL(o))+'" target="_blank" rel="noopener" style="color:var(--brand)">ver la página</a>'; }
+
 function renderDossier(){ var o=obra(); if(!o)return;
+ var bp=document.getElementById('btnPublicar');
+ if(bp)bp.onclick=function(){ var oo=obra(); if(!oo)return;
+   if(oo.pub)publicaObra(oo);
+   else confirmar('Se va a crear una página pública con este dossier. Cualquiera que escanee el QR del PDF podrá verlo y descargarlo, sin contraseña. ¿Seguimos?',function(){ publicaObra(oo); },'Crear el enlace'); };
+ pintaPubEstado(o);
  var dc=document.getElementById('dossCiego');
  if(dc){ dc.checked=!!(typeof UI2!=='undefined'&&UI2&&UI2.ciego);
    dc.onchange=function(){ if(typeof UI2!=='undefined'){UI2.ciego=dc.checked;saveUI2();} renderDossier(); }; }
@@ -6470,7 +6676,7 @@ function dossierHtml(o){ var f=fichaDe(o), t=f.t, opt=f.opt, p=state.params;
   '<div class="dk-card"><div style="flex:1;min-width:0"><div class="l">Presupuesto y mediciones</div>'+
    '<h2 class="dk-black">'+esc(o.nombre||'Presupuesto de rehabilitación')+'</h2>'+
    '<div class="m">'+esc(o.promotor||('Com. Prop. '+(o.dir||'')))+(o.dir?' · '+esc(o.dir):'')+(o.muni?' · '+esc(o.muni):'')+'<br>En Madrid, a '+hoy()+(o.exp?' · Ref. '+esc(o.exp):'')+'</div></div>'+
-   '<img class="qr" src="'+PBRAND.qr+'" alt="QR Proyecton"></div>'+
+   '<img class="qr" src="'+pubQR(o)+'" alt="QR del presupuesto"></div>'+
   '<div class="dk-cfoot"><span><b>'+esc(p.tel||'')+'</b> · '+esc(p.email||'')+' · '+esc(p.web||'')+'</span><span>'+(p.cif?'CIF '+esc(p.cif)+' · ':'')+esc(p.dirEmp||'')+'</span></div>'+
  '</div>';
  /* P2 · EMPRESA */
@@ -6518,7 +6724,9 @@ function dossierHtml(o){ var f=fichaDe(o), t=f.t, opt=f.opt, p=state.params;
  h+='<div class="a4">'+dkHead(p,o,'Contacto')+'<div class="dk-pad" style="display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;min-height:360px;gap:18px">'+
   '<img src="'+PBRAND.logoDatos+'" style="height:120px;width:auto;max-width:100%" alt="Revestimientos Proyecton">'+
   '<div class="dk-lema dk-black" style="margin:0">'+esc(p.lema||'EXPERIENCIA · RESPONSABILIDAD · COMPROMISO')+'</div>'+
-  '<div style="display:flex;align-items:center;gap:14px;margin-top:6px"><div style="font-size:10px;color:#666;text-align:right">Escanea el código<br>para conocernos mejor:<br><b style="color:#ae0b0b">'+esc(p.web||'www.proyecton.es')+'</b></div><img src="'+PBRAND.qr+'" style="width:84px;height:84px" alt="QR"></div>'+
+  '<div style="display:flex;align-items:center;gap:14px;margin-top:6px"><div style="font-size:10px;color:#666;text-align:right">'+
+   (o.pub?'Escanea el código<br>para ver este presupuesto<br>y descargarlo:':'Escanea el código<br>para conocernos mejor:')+
+   '<br><b style="color:#ae0b0b">'+esc(o.pub?'proyecton.es':(p.web||'www.proyecton.es'))+'</b></div><img src="'+pubQR(o)+'" style="width:84px;height:84px" alt="QR"></div>'+
  '</div>'+dkFoot(p)+'</div>';
  return h; }
 
@@ -6536,7 +6744,9 @@ window.PRESTON={state:function(){return state;},obra:obra,ficha:function(){var o
  med:{parcial:parcialLinea,suma:sumaLineas,open:function(id){openDock(id);},close:function(){closeDock();},dock:function(){return {open:dockOpen,id:dockId};}},
  carp:{ir:abrirCarpeta,equipo:EQUIPO,de:carpetaDe,lista:obrasCarpeta,abierta:carpetaAbierta},
  ver:compruebaVersion,
- version:'v148-recuadro-titulo-un-clic (LAB · copia de pruebas)'};
+ qr:{matriz:qrMatriz,cw:qrCodewords,ec:qrEC,png:qrDataURL,svg:qrSvgDe},
+ pub:{url:pubURL,qr:pubQR,pagina:paginaPublica,publica:publicaObra},
+ version:'v149-qr-por-obra (LAB · copia de pruebas)'};
 try{var th0=localStorage.getItem('prestonLAB_theme'); if(th0)document.documentElement.setAttribute('data-theme',th0);}catch(e){}
 var _bd=document.getElementById('brandDode'); if(_bd&&typeof PBRAND!=='undefined')_bd.src=PBRAND.dode;
 try{ var _rv=document.getElementById('railVer'); if(_rv)_rv.textContent='Versión '+(PRESTON.version||'').split(' ')[0]; }catch(e){}
