@@ -5927,9 +5927,32 @@ function aplicaRelleno(col,srcIds){ var all=rangeList(), targets=all.slice(srcId
    resumen, ud) exige doble clic o F2. Las celdas sin data-col (biblioteca, asistente,
    asistente) son numéricas y conservan la edición directa. */
 function celdaNum(el){ var c=el.dataset?el.dataset.col:null; return c?(c==='can'||c==='pre'):true; }
-function navMode(el){ el.readOnly=true; el._edit=false; }
+/* El recuadro de editar el TÍTULO se ajusta a lo escrito y crece según escribes, en
+   vez de ocupar la celda entera. Se mide con un span oculto que copia la tipografía
+   del input (medir con canvas no cuadra: no respeta letter-spacing ni la fuente real).
+   Fuera de edición el input vuelve a estirarse, que es lo que evita que el título
+   se corte al leerlo. */
+function medidorTxt(){ var m=document.getElementById('_mideTxt');
+ if(!m){ m=document.createElement('span'); m.id='_mideTxt';
+  m.style.cssText='position:absolute;left:-9999px;top:-9999px;white-space:pre;visibility:hidden;pointer-events:none';
+  document.body.appendChild(m); }
+ return m; }
+function resAncho(el){ if(!el||!el.dataset||el.dataset.col!=='res')return;
+ var cs=getComputedStyle(el), m=medidorTxt();
+ m.style.fontFamily=cs.fontFamily; m.style.fontSize=cs.fontSize;
+ m.style.fontWeight=cs.fontWeight; m.style.fontStyle=cs.fontStyle;
+ m.style.letterSpacing=cs.letterSpacing;
+ m.textContent=el.value||'';
+ var pad=(parseFloat(cs.paddingLeft)||0)+(parseFloat(cs.paddingRight)||0);
+ var td=el.closest('td'), tope=1e5;
+ if(td){ var rt=td.getBoundingClientRect(), re=el.getBoundingClientRect(); tope=Math.max(80,rt.right-re.left-8); }
+ /* +14 px de holgura para que el cursor no quede pegado al borde al escribir */
+ var w=Math.min(Math.max(m.offsetWidth+pad+14,80),tope);
+ el.style.flex='0 0 auto'; el.style.width=w+'px'; }
+function resAnchoReset(el){ if(el&&el.dataset&&el.dataset.col==='res'){ el.style.width=''; el.style.flex=''; } }
+function navMode(el){ el.readOnly=true; el._edit=false; resAnchoReset(el); }
 function editMode(el){ if(el.classList&&el.classList.contains('calc')){ if(!dockOpen)openDock(el.closest('tr').dataset.id); toast('Cantidad por medición — edítala en el panel de abajo'); return; }
- el.readOnly=false; el._edit=true; placeFill(null); try{el.select();}catch(_){} }
+ el.readOnly=false; el._edit=true; placeFill(null); try{el.select();}catch(_){} resAncho(el); }
 function commitCell(el){ el.dispatchEvent(new Event('change',{bubbles:true})); navMode(el); el.dataset.orig=el.value; }
 function setupNav(el){ if(el._edit)return;
  el.dataset.orig=el.value; navMode(el);
@@ -5963,7 +5986,10 @@ document.addEventListener('focusin',function(e){ var el=e.target;
 /* al salir de una celda por cualquier vía (click, Tab nativo, modal…) vuelve a modo navegación:
    sin esto, _edit/orig residuales permiten que un Esc posterior revierta datos ya confirmados */
 document.addEventListener('focusout',function(e){ var el=e.target;
- if(el instanceof HTMLInputElement&&el.matches('input.ce,input.ci')&&gridOf(el)){ el._edit=false; el.readOnly=true; } });
+ if(el instanceof HTMLInputElement&&el.matches('input.ce,input.ci')&&gridOf(el)){ el._edit=false; el.readOnly=true; resAnchoReset(el); } });
+/* mientras escribes el título, el recuadro se va ampliando */
+document.addEventListener('input',function(e){ var el=e.target;
+ if(el instanceof HTMLInputElement&&el._edit&&el.dataset&&el.dataset.col==='res')resAncho(el); });
 document.addEventListener('dblclick',function(e){ var el=e.target;
  if(el instanceof HTMLInputElement&&el.matches('input.ce,input.ci')&&gridOf(el)){
    var prow=el.closest('#treeBody tr.t-par');
@@ -6504,7 +6530,7 @@ window.PRESTON={state:function(){return state;},obra:obra,ficha:function(){var o
  med:{parcial:parcialLinea,suma:sumaLineas,open:function(id){openDock(id);},close:function(){closeDock();},dock:function(){return {open:dockOpen,id:dockId};}},
  carp:{ir:abrirCarpeta,equipo:EQUIPO,de:carpetaDe,lista:obrasCarpeta,abierta:carpetaAbierta},
  ver:compruebaVersion,
- version:'v146-cae-pct-con-contraste (LAB · copia de pruebas)'};
+ version:'v147-recuadro-titulo-ajustado (LAB · copia de pruebas)'};
 try{var th0=localStorage.getItem('prestonLAB_theme'); if(th0)document.documentElement.setAttribute('data-theme',th0);}catch(e){}
 var _bd=document.getElementById('brandDode'); if(_bd&&typeof PBRAND!=='undefined')_bd.src=PBRAND.dode;
 try{ var _rv=document.getElementById('railVer'); if(_rv)_rv.textContent='Versión '+(PRESTON.version||'').split(' ')[0]; }catch(e){}
