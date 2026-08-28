@@ -4971,7 +4971,7 @@ function svInformeInner(o,pal){
   '<table class="svt"><thead><tr><th>Concepto</th><th class="num">Importe</th></tr></thead><tbody>'+
   o.capitulos.map(function(c){return '<tr><td>'+esc(c.cod)+' · '+esc(c.res)+'</td><td class="num">'+svEur(capTotal(c))+'</td></tr>';}).join('')+
   ((r.e.t.gg+r.e.t.bi)>0?'<tr><td>Gastos generales ('+loose(o.config.gg)+' %) y beneficio industrial ('+loose(o.config.bi)+' %)</td><td class="num">'+svEur(r.e.t.gg+r.e.t.bi)+'</td></tr>':'')+
-  ((r.e.t.agente>0)?'<tr><td>Honorarios de agente rehabilitador ('+loose(recAgP(o))+' % sobre la obra a coste '+svEur(r.e.t.pemBase)+')</td><td class="num">'+svEur(r.e.t.agente)+'</td></tr>':'')+
+  ((r.e.t.agente>0)?'<tr><td>Honorarios de agente rehabilitador</td><td class="num">'+svEur(r.e.t.agente)+'</td></tr>':'')+
   '<tr class="subtot"><td>PEM de contrata</td><td class="num">'+svEur(r.e.pem)+'</td></tr>'+
   svRow('IVA obra ('+loose(r.e.ivaObraPct)+' %)',svEur(r.e.ivaObraEur),svEur(r.e.pem)+' × '+loose(r.e.ivaObraPct)+'%')+
   svRow('Honorarios téc. + IVA',svEur(r.e.honTecConIva),svEur(r.e.honTec)+' + IVA '+loose(r.e.ivaHon)+'%')+
@@ -6302,7 +6302,7 @@ function dossierHtml(o){ var f=fichaDe(o), t=f.t, opt=f.opt, p=state.params;
    if(!ciego)h+='<tr class="sub"><td class="l" colspan="4">TOTAL C'+esc(c.cod)+' — '+esc(c.res.toUpperCase())+'</td><td>'+m2(capTotal(c,o))+'</td></tr>'; });
  if(!ciego){ h+='<tr class="fin"><td class="l" colspan="4">PRESUPUESTO DE EJECUCIÓN MATERIAL (PEM)</td><td>'+m2(t.pem)+'</td></tr>';
   if(t.gg+t.bi>0)h+='<tr class="fin"><td class="l" colspan="4">Gastos generales ('+o.config.gg+' %) y beneficio industrial ('+o.config.bi+' %)</td><td>'+m2(t.gg+t.bi)+'</td></tr>';
-  if(t.agente>0)h+='<tr class="fin"><td class="l" colspan="4">Honorarios de agente rehabilitador ('+recAgP(o)+' % sobre el PEM sin recargo: '+m2(t.pemBase)+' €)</td><td>'+m2(t.agente)+'</td></tr>';
+  if(t.agente>0)h+='<tr class="fin"><td class="l" colspan="4">Honorarios de agente rehabilitador</td><td>'+m2(t.agente)+'</td></tr>';
   h+='<tr class="fin"><td class="l" colspan="4">IVA ('+o.config.iva+' %)</td><td>'+m2(t.iva)+'</td></tr>';
   if(t.honTecConIva>0)h+='<tr class="fin"><td class="l" colspan="4">Honorarios técnicos (arquitecto) + IVA '+t.ivaHon+' %</td><td>'+m2(t.honTecConIva)+'</td></tr>'; }
  h+='</tbody></table>'+
@@ -6338,7 +6338,7 @@ window.PRESTON={state:function(){return state;},obra:obra,ficha:function(){var o
  med:{parcial:parcialLinea,suma:sumaLineas,open:function(id){openDock(id);},close:function(){closeDock();},dock:function(){return {open:dockOpen,id:dockId};}},
  carp:{ir:abrirCarpeta,equipo:EQUIPO,de:carpetaDe,lista:obrasCarpeta,abierta:carpetaAbierta},
  ver:compruebaVersion,
- version:'v139-agente-en-hoja (LAB · copia de pruebas)'};
+ version:'v140-agente-solo-interno (LAB · copia de pruebas)'};
 try{var th0=localStorage.getItem('prestonLAB_theme'); if(th0)document.documentElement.setAttribute('data-theme',th0);}catch(e){}
 var _bd=document.getElementById('brandDode'); if(_bd&&typeof PBRAND!=='undefined')_bd.src=PBRAND.dode;
 try{ var _rv=document.getElementById('railVer'); if(_rv)_rv.textContent='Versión '+(PRESTON.version||'').split(' ')[0]; }catch(e){}
