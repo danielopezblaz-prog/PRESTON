@@ -941,6 +941,20 @@ table.dkt{width:100%;border-collapse:collapse;font-size:10.4px;margin:6px 0}
   .cbtn .cb-tx small{display:none}
   .cbtn.pri .cb-tx small{display:block}
 }
+/* aviso de version nueva */
+.vernueva{position:fixed;left:50%;bottom:18px;transform:translate(-50%,140%);z-index:3000;
+  display:flex;align-items:center;gap:12px;max-width:min(560px,92vw);
+  background:var(--chrome);color:var(--chrome-fg);border:1px solid var(--chrome-line);
+  border-radius:14px;padding:12px 14px;box-shadow:0 18px 44px -12px rgba(0,0,0,.5);
+  transition:transform .28s cubic-bezier(.2,.7,.2,1)}
+.vernueva.on{transform:translate(-50%,0)}
+.vernueva b{font-size:13px}
+.vernueva span{font-size:11.5px;color:var(--chrome-muted);flex:1;min-width:0}
+.vernueva button{font:inherit;font-size:12px;font-weight:700;cursor:pointer;flex:none;
+  background:var(--brand);color:#fff;border:0;border-radius:9px;padding:8px 14px;
+  transition:transform .13s,filter .15s}
+.vernueva button:hover{transform:translateY(-1px);filter:brightness(1.08)}
+@media (max-width:560px){ .vernueva{flex-wrap:wrap;gap:8px} .vernueva span{width:100%;flex:none} }
 /* ===== tacto: va al final para mandar sobre las medidas de raton ===== */
 @media (hover:none){
   .ocard .oc-foot .acts button{width:36px;height:36px;border-radius:8px}
@@ -6307,10 +6321,38 @@ window.PRESTON={state:function(){return state;},obra:obra,ficha:function(){var o
  pres:{payload:function(){var o=obra();return o?presPayload(o):null;},url:function(){var o=obra();return o?presUrl(o):null;}},
  med:{parcial:parcialLinea,suma:sumaLineas,open:function(id){openDock(id);},close:function(){closeDock();},dock:function(){return {open:dockOpen,id:dockId};}},
  carp:{ir:abrirCarpeta,equipo:EQUIPO,de:carpetaDe,lista:obrasCarpeta,abierta:carpetaAbierta},
- version:'v136-guardado-visible (LAB · copia de pruebas)'};
+ ver:compruebaVersion,
+ version:'v137-aviso-version (LAB · copia de pruebas)'};
 try{var th0=localStorage.getItem('prestonLAB_theme'); if(th0)document.documentElement.setAttribute('data-theme',th0);}catch(e){}
 var _bd=document.getElementById('brandDode'); if(_bd&&typeof PBRAND!=='undefined')_bd.src=PBRAND.dode;
 try{ var _rv=document.getElementById('railVer'); if(_rv)_rv.textContent='Versión '+(PRESTON.version||'').split(' ')[0]; }catch(e){}
+/* Aviso de version nueva: el navegador guarda copias de la pagina y es facil
+   quedarse trabajando con una vieja sin enterarse ("no se actualiza"). Se pide
+   el propio fichero saltandose la cache y, si la version publicada no es la que
+   esta corriendo, se avisa con un boton para recargar de verdad. */
+function compruebaVersion(){
+ try{
+  if(location.protocol==='file:')return;
+  fetch(location.pathname+'?vchk='+Date.now(),{cache:'no-store'})
+   .then(function(r){ return r.ok?r.text():null; })
+   .then(function(t){ if(!t)return;
+     var m=t.match(/version:'([^']+)'/); if(!m)return;
+     var pub=m[1].split(' ')[0], mia=(PRESTON.version||'').split(' ')[0];
+     if(!pub||pub===mia)return;
+     var b=document.createElement('div'); b.className='vernueva';
+     b.innerHTML='<b>Hay una versión nueva de Prestón</b><span>Tienes la '+esc(mia)+' y ya está la '+esc(pub)+'.</span>'+
+       '<button type="button">Actualizar ahora</button>';
+     b.querySelector('button').onclick=function(){
+       var u=location.pathname+'?v='+encodeURIComponent(pub)+(location.hash||'');
+       location.replace(u); };
+     document.body.appendChild(b);
+     setTimeout(function(){ b.classList.add('on'); },50);
+   }).catch(function(){});
+ }catch(e){}
+}
+setTimeout(compruebaVersion,2500);
+/* y otra vez al volver a la pestaña: es facil dejarla abierta todo el dia */
+document.addEventListener('visibilitychange',function(){ if(!document.hidden&&!document.querySelector('.vernueva'))compruebaVersion(); });
 if(USA_SERVIDOR){ state={v:3,activeId:null,params:defParams(),obras:[]}; } else { state=load(); }
 /* siembra de una sola vez por navegador: los 3 presupuestos del Preston de la web
    (Velez Blanco 46, Dolores Barranco 44 y Rio Manzanares 33) se meten en la
