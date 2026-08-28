@@ -5938,6 +5938,9 @@ function medidorTxt(){ var m=document.getElementById('_mideTxt');
   document.body.appendChild(m); }
  return m; }
 function resAncho(el){ if(!el||!el.dataset||el.dataset.col!=='res')return;
+ /* el ancho va atado a TENER EL FOCO, no al modo: si la celda no está enfocada el
+    input vuelve a estirarse para que el título se lea entero en la lista. */
+ if(document.activeElement!==el){ resAnchoReset(el); return; }
  var cs=getComputedStyle(el), m=medidorTxt();
  m.style.fontFamily=cs.fontFamily; m.style.fontSize=cs.fontSize;
  m.style.fontWeight=cs.fontWeight; m.style.fontStyle=cs.fontStyle;
@@ -5950,7 +5953,7 @@ function resAncho(el){ if(!el||!el.dataset||el.dataset.col!=='res')return;
  var w=Math.min(Math.max(m.offsetWidth+pad+14,80),tope);
  el.style.flex='0 0 auto'; el.style.width=w+'px'; }
 function resAnchoReset(el){ if(el&&el.dataset&&el.dataset.col==='res'){ el.style.width=''; el.style.flex=''; } }
-function navMode(el){ el.readOnly=true; el._edit=false; resAnchoReset(el); }
+function navMode(el){ el.readOnly=true; el._edit=false; resAncho(el); }
 function editMode(el){ if(el.classList&&el.classList.contains('calc')){ if(!dockOpen)openDock(el.closest('tr').dataset.id); toast('Cantidad por medición — edítala en el panel de abajo'); return; }
  el.readOnly=false; el._edit=true; placeFill(null); try{el.select();}catch(_){} resAncho(el); }
 function commitCell(el){ el.dispatchEvent(new Event('change',{bubbles:true})); navMode(el); el.dataset.orig=el.value; }
@@ -5982,7 +5985,10 @@ function moveCell(el,dr,dc,wrap){ if(!gridOf(el))return false;
  return false; }
 document.addEventListener('focusin',function(e){ var el=e.target;
  if(!(el instanceof HTMLInputElement)||!el.matches('input.ce,input.ci')||!gridOf(el))return;
- setupNav(el); });
+ setupNav(el);
+ /* el recuadro se ciñe al título en cuanto pinchas (modo navegación), no solo al
+    entrar en edición: es el recuadro que se ve con UN clic. */
+ resAncho(el); });
 /* al salir de una celda por cualquier vía (click, Tab nativo, modal…) vuelve a modo navegación:
    sin esto, _edit/orig residuales permiten que un Esc posterior revierta datos ya confirmados */
 document.addEventListener('focusout',function(e){ var el=e.target;
@@ -6530,7 +6536,7 @@ window.PRESTON={state:function(){return state;},obra:obra,ficha:function(){var o
  med:{parcial:parcialLinea,suma:sumaLineas,open:function(id){openDock(id);},close:function(){closeDock();},dock:function(){return {open:dockOpen,id:dockId};}},
  carp:{ir:abrirCarpeta,equipo:EQUIPO,de:carpetaDe,lista:obrasCarpeta,abierta:carpetaAbierta},
  ver:compruebaVersion,
- version:'v147-recuadro-titulo-ajustado (LAB · copia de pruebas)'};
+ version:'v148-recuadro-titulo-un-clic (LAB · copia de pruebas)'};
 try{var th0=localStorage.getItem('prestonLAB_theme'); if(th0)document.documentElement.setAttribute('data-theme',th0);}catch(e){}
 var _bd=document.getElementById('brandDode'); if(_bd&&typeof PBRAND!=='undefined')_bd.src=PBRAND.dode;
 try{ var _rv=document.getElementById('railVer'); if(_rv)_rv.textContent='Versión '+(PRESTON.version||'').split(' ')[0]; }catch(e){}
