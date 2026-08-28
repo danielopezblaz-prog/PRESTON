@@ -1,0 +1,4 @@
+# Estas paginas llevan presupuestos y datos de comunidades reales.
+# El repositorio es publico, asi que al menos que no acaben en los buscadores.
+User-agent: *
+Disallow: /

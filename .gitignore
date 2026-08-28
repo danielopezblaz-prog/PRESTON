@@ -1,5 +1,5 @@
 # Repositorio Prestón — se versionan preston.html (el que va a la web),
-# preston-lab.html (copia de pruebas, NO se despliega) y la Central de Obras.
+# lab.html (la copia de pruebas) y la Central de Obras.
 # Se ignora todo lo demás de la carpeta CLAUDE: otros proyectos, ZIPs,
 # el PDF de informe, assets y la configuración local de .claude.
 /*
@@ -9,3 +9,6 @@
 !proyecton-central.html
 !/fotos-obra
 !lab.html
+# el repositorio es público y estas páginas llevan datos de clientes:
+# al menos que no las indexen los buscadores
+!robots.txt
