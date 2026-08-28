@@ -1890,15 +1890,22 @@ var TRAMOS=[
 var KEY='prestonLAB';   /* COPIA DE PRUEBAS: datos propios, no toca los del Prestón normal */
 var state; /* se inicializa al final, cuando todas las tablas están definidas */
 function defParams(){return {caeEur:0.13,caeFee:15,tin:6,meses:60,gg:13,bi:6,iva:10,validez:60,irpf:true,
- recPct:20,recAgentePct:8,
+ recPct:19,recAgentePct:8,
  cif:'', dirEmp:'C/ Oviedo 6 · Leganés (Madrid)', tel:'91 693 15 40', email:'info@proyecton.es', web:'www.proyecton.es',
  lema:'EXPERIENCIA · RESPONSABILIDAD · COMPROMISO',
  cond:'Forma de pago: según calendario de certificaciones acordado con la comunidad. El presente presupuesto no incluye licencias, tasas municipales ni honorarios técnicos salvo indicación expresa en partidas. Cualquier trabajo no contemplado se presupuestará y aprobará por escrito antes de su ejecución.',
  fotoPortada:null};}
+/* migración v142: el recargo por adelanto estándar baja de 20 % a 19 %, porque
+   1,19 x 1,08 = 1,2852 (28,5 % sobre el coste) y antes era 1,20 x 1,08 = 1,296 (29,6 %).
+   Se aplica UNA sola vez y solo al DEFECTO global: las obras que tienen su propio %
+   guardado NO se tocan (un presupuesto ya enviado tiene que seguir cuadrando con el
+   PDF que salió). Si luego pones 20 a mano, la bandera impide que se vuelva a bajar. */
+function mig19(p){ if(p&&!p.mig19){ p.mig19=1; if(+p.recPct===20)p.recPct=19; } return p; }
 function load(){
   try{var s=localStorage.getItem(KEY); if(s){var st=JSON.parse(s); st.params=Object.assign(defParams(),st.params||{});
     /* migración: la dirección fiscal guardada con el valor antiguo pasa a la correcta (C/ Oviedo 6) */
     if(st.params.dirEmp==='C/ Tarragona · Leganés (Madrid)')st.params.dirEmp='C/ Oviedo 6 · Leganés (Madrid)';
+    mig19(st.params);
     (st.obras||[]).forEach(normObra); if(st.bdp)mergeBdp(st.bdp); aplicaBdpSpec(st.params); return st;}}catch(e){}
   var st={v:3,activeId:null,params:defParams(),obras:[]};
   try{ // migración desde la app anterior (preston_state_v2)
@@ -2079,7 +2086,7 @@ function cargarDelServidor(cb){
    .then(function(resp){
      if(!resp||!resp.ok||!resp.estado) throw new Error('respuesta no válida');
      var e=resp.estado;
-     state.params=Object.assign(defParams(), e.params||{});
+     state.params=mig19(Object.assign(defParams(), e.params||{}));
      state.obras=(e.obras||[]); state.obras.forEach(normObra);
      if(e.bdp)mergeBdp(e.bdp);
      aplicaBdpSpec(state.params);
@@ -2120,7 +2127,7 @@ function syncCantidad(p){ if(tieneLineas(p))p.cantidad=sumaLineas(p); return p; 
 
 /* ================= cálculo económico ================= */
 /* recargo por adelanto de ayudas: como Proyecton adelanta las subvenciones, se recarga el
-   presupuesto. recPct (20 %) va REPARTIDO en las partidas (sube el importe de cada una) y
+   presupuesto. recPct (19 %) va REPARTIDO en las partidas (sube el importe de cada una) y
    recAgentePct (8 %) va como honorarios de agente rehabilitador. Los precios BASE (coste) no
    se tocan: el recargo es un coeficiente, así que el original queda intacto y es reversible
    poniendo los % a 0. */
@@ -2137,7 +2144,8 @@ function capTotal(c,o){return c.partidas.reduce(function(s,p){return s+importe(p
 function pemDe(o){return (o.capitulos||[]).reduce(function(s,c){return s+capTotal(c,o);},0);}
 function totalesDe(o){ var pem=r2(pemDe(o)),cfg=o.config||{gg:0,bi:0,iva:10};
   var pemBase=r2(pem/recF(o));                      /* PEM sin el recargo de adelanto (coste real) */
-  /* el 8 % del agente va SOBRE el PEM ya recargado (encima del 20 %), no sobre el coste:
+  /* el 8 % del agente va SOBRE el PEM ya recargado (encima del 19 %), no sobre el coste:
+     coeficiente total sobre el coste = 1,19 x 1,08 = 1,2852 (28,52 % de margen).
      asi el importe cuadra con el % que se ve al lado del PEM del presupuesto */
   var agente=r2(pem*recAgP(o)/100);                 /* honorarios agente rehabilitador de ESTA obra */
   /* honorarios técnicos del arquitecto: euros que pone el usuario, con su IVA (21 % por defecto).
@@ -4231,7 +4239,7 @@ function renderEcon(){ var o=obra(); if(!o)return; var cfg=o.config;
   '<div class="erow total"><span class="k">Total presupuesto</span><span class="v" id="sTot">—</span></div>';
  var b=document.getElementById('btnAdelanto'); if(b)b.onclick=function(){ var oo=obra(); if(!oo)return;
    if(recPctDe(oo)>0||recAgPctDe(oo)>0){ oo.recPct=0; oo.recAgentePct=0; toast('Adelanto desactivado en esta obra'); }
-   else { oo.recPct=num(state.params.recPct)||20; oo.recAgentePct=num(state.params.recAgentePct)||8; toast('Adelanto activado: +'+oo.recPct+' % en partidas + '+oo.recAgentePct+' % agente'); }
+   else { oo.recPct=num(state.params.recPct)||19; oo.recAgentePct=num(state.params.recAgentePct)||8; toast('Adelanto activado: +'+oo.recPct+' % en partidas + '+oo.recAgentePct+' % agente'); }
    save(); renderTree(document.getElementById('search').value); renderEcon(); refreshDerived(); };
  var ht=document.getElementById('econHonTec'); if(ht)ht.addEventListener('change',function(){ var oo=obra(); if(!oo)return; subvDe(oo); oo.subv.honTec=num(ht.value); save(); renderEcon(); refreshDerived(); toast('Honorarios técnicos: '+eur0(num(ht.value))+' + '+ivaHonL+' % IVA'); });
  var hp=document.getElementById('econHonPct'); if(hp)hp.addEventListener('change',function(){ var oo=obra(); if(!oo)return; subvDe(oo); var pem=pemDe(oo); oo.subv.honTec=r2(pem*num(hp.value)/100); save(); renderEcon(); refreshDerived(); toast('Honorarios técnicos: '+loose(num(hp.value))+' % del PEM = '+eur0(oo.subv.honTec)+' + '+ivaHonL+' % IVA'); });
@@ -5211,7 +5219,7 @@ function presPayload(o){
  var modo=presModo(o);   /* el modo lo marca ESTA obra, no la activa */
  var oo=JSON.parse(JSON.stringify(o));
  if(modo==='info'){ oo.recPct=0; oo.recAgentePct=0; }
- else { oo.recPct=(o.recPct!=null&&o.recPct!==''?num(o.recPct):(num(state.params.recPct)||20));
+ else { oo.recPct=(o.recPct!=null&&o.recPct!==''?num(o.recPct):(num(state.params.recPct)||19));
         oo.recAgentePct=(o.recAgentePct!=null&&o.recAgentePct!==''?num(o.recAgentePct):(num(state.params.recAgentePct)||8)); }
  var s=subvDe(oo), r=subvCalcular(oo);
  var rd=function(x){return Math.round((+x||0)*100)/100;};
@@ -6340,7 +6348,7 @@ window.PRESTON={state:function(){return state;},obra:obra,ficha:function(){var o
  med:{parcial:parcialLinea,suma:sumaLineas,open:function(id){openDock(id);},close:function(){closeDock();},dock:function(){return {open:dockOpen,id:dockId};}},
  carp:{ir:abrirCarpeta,equipo:EQUIPO,de:carpetaDe,lista:obrasCarpeta,abierta:carpetaAbierta},
  ver:compruebaVersion,
- version:'v141-agente-sobre-pem (LAB · copia de pruebas)'};
+ version:'v142-recargo-19 (LAB · copia de pruebas)'};
 try{var th0=localStorage.getItem('prestonLAB_theme'); if(th0)document.documentElement.setAttribute('data-theme',th0);}catch(e){}
 var _bd=document.getElementById('brandDode'); if(_bd&&typeof PBRAND!=='undefined')_bd.src=PBRAND.dode;
 try{ var _rv=document.getElementById('railVer'); if(_rv)_rv.textContent='Versión '+(PRESTON.version||'').split(' ')[0]; }catch(e){}
