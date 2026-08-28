@@ -1732,7 +1732,7 @@ PBRAND.qr=qrSvg(PBRAND.qrData,PBRAND.qrN);
       <section class="view" data-view="dossier"><div class="scroller"><div class="doss-wrap">
         <div class="doss-actions">
           <button class="btn" id="btnPrint"><svg class="g" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9V3h12v6M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2M6 14h12v7H6z"/></svg>Imprimir / Guardar PDF</button>
-          <button class="btn" id="btnPublicar" title="Crea la página a la que lleva el QR del PDF. El cliente escanea y ve este mismo dossier."><svg class="g" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h2v2h-2zM18 14h2v2h-2zM14 18h2v2h-2zM18 18h2v2h-2z"/></svg>Publicar enlace del QR</button>
+          <button class="btn" id="btnPublicar" title="El enlace del QR se actualiza solo al abrir el dossier y al imprimir. Este botón lo fuerza."><svg class="g" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h2v2h-2zM18 14h2v2h-2zM14 18h2v2h-2zM18 18h2v2h-2z"/></svg>Actualizar enlace del QR</button>
           <span id="pubEstado" style="margin-left:10px;font-size:12px;color:var(--muted)"></span>
           <label class="doss-ciego" style="display:inline-flex;align-items:center;gap:7px;margin-left:14px;font-size:13px;color:var(--ink-2);cursor:pointer" title="Genera el presupuesto sin precios: solo códigos, conceptos y mediciones"><input type="checkbox" id="dossCiego" style="width:16px;height:16px;cursor:pointer">Ocultar precios (presupuesto ciego)</label>
         </div>
@@ -5884,9 +5884,28 @@ function ajustaPaginasA4(cont){
    es largo y aleatorio (lo genera el servidor) y la página va con noindex: quien no
    tenga el QR no llega. */
 var PUB_BASE='https://proyecton.es/preston/v.php?p=';
+/* El código lo genera la app, no el servidor: así el QR existe desde el primer
+   momento y no hay que esperar a ninguna respuesta para poder imprimir. 20 caracteres
+   de crypto.getRandomValues son lo único que protege la página, así que nada de
+   Math.random. */
+function pubToken(){ var abc='ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789', t='';
+ var a=new Uint8Array(20); (window.crypto||window.msCrypto).getRandomValues(a);
+ for(var i=0;i<20;i++)t+=abc[a[i]%abc.length]; return t; }
+/* el guardado se aplaza: pubDe() se llama desde dentro del pintado del dossier y no
+   conviene lanzar ahí una subida al servidor */
+function pubDe(o){ if(!o)return '';
+ if(!o.pub){ o.pub=pubToken(); setTimeout(function(){ try{save();}catch(e){} },0); }
+ return o.pub; }
 function pubURL(o){ return (o&&o.pub)?PUB_BASE+o.pub:''; }
-/* QR de la obra si está publicada; si no, el de marca de siempre */
-function pubQR(o){ var u=pubURL(o); if(!u)return PBRAND.qr;
+/* hash barato del documento: evita resubir 1,4 MB cuando no ha cambiado nada */
+function pubHash(s){ var h=5381; for(var i=0;i<s.length;i++)h=((h*33)^s.charCodeAt(i))>>>0; return h.toString(36)+'-'+s.length; }
+/* QR propio de la obra. En local y en el artifact NO hay dónde publicar, así que se
+   deja el de marca: más vale el QR general que uno que lleve a una página que no
+   existe. En el servidor toda obra tiene el suyo desde el primer momento. */
+function pubQR(o){ if(!o)return PBRAND.qr;
+ if(!USA_SERVIDOR)return PBRAND.qr;
+ pubDe(o);
+ var u=pubURL(o); if(!u)return PBRAND.qr;
  try{ if(!o._qrCache||o._qrCache.u!==u)o._qrCache={u:u,png:qrSvgDe(u)}; return o._qrCache.png; }
  catch(e){ return PBRAND.qr; } }
 function pubCss(){ return '.pubbar{position:sticky;top:0;z-index:10;display:flex;align-items:center;gap:12px;'+
@@ -5920,38 +5939,50 @@ function paginaPublica(o){
    'Documento orientativo generado el '+esc(hoy())+'.</div>'+
   '<scr'+'ipt>'+js+'</scr'+'ipt></body></html>';
 }
-function publicaObra(o,cb){
- if(!USA_SERVIDOR){ toast('Publicar el enlace solo funciona en la versión del servidor'); return; }
+/* Publica sin preguntar. callado=true para la publicación automática: no molesta con
+   avisos ni repinta el dossier, solo deja el enlace al día. */
+function publicaObra(o,callado,cb){
+ if(!USA_SERVIDOR){ if(!callado)toast('Publicar el enlace solo funciona en la versión del servidor'); return; }
  var html;
- try{ html=paginaPublica(o); }catch(e){ toast('No se pudo generar la página: '+e.message); return; }
- setTxt('pubEstado','Publicando…');
+ try{ html=paginaPublica(o); }catch(e){ if(!callado)toast('No se pudo generar la página: '+e.message); return; }
+ var h=pubHash(html);
+ if(callado&&o.pubHash===h)return;          /* no ha cambiado nada: no se resube */
+ pubDe(o);
+ if(!callado)setTxt('pubEstado','Publicando…');
+ else setTxt('pubEstado','Actualizando el enlace…');
  fetch('publicar.php?op=publicar',{method:'POST',headers:{'Content-Type':'application/json'},
-  body:JSON.stringify({id:o.id,token:o.pub||'',html:html})})
+  body:JSON.stringify({id:o.id,token:o.pub,html:html})})
   .then(function(r){return r.json();})
   .then(function(j){ if(!j||!j.ok)throw new Error((j&&j.error)||'respuesta no válida');
-    var nuevo=!o.pub; o.pub=j.token; o.pubFecha=Date.now(); save();
-    renderDossier();   /* el QR del dossier pasa a ser el de la obra */
-    toast(nuevo?'Enlace creado: ya puedes imprimir el PDF con su QR':'Enlace actualizado');
+    o.pub=j.token; o.pubFecha=Date.now(); o.pubHash=h; save();
+    pintaPubEstado(o);
+    if(!callado)toast('Enlace actualizado');
     if(cb)cb(j); })
-  .catch(function(e){ setTxt('pubEstado','No se pudo publicar'); toast('No se pudo publicar: '+e.message); });
+  .catch(function(e){ setTxt('pubEstado','No se pudo actualizar el enlace');
+    if(!callado)toast('No se pudo publicar: '+e.message); });
 }
+/* Se llama al abrir el dossier y antes de imprimir: si el documento ha cambiado desde
+   la última vez, sube la versión nueva. Sin preguntar nada. */
+function autoPublica(o){ if(!o||!USA_SERVIDOR)return; try{ publicaObra(o,true); }catch(e){} }
 function pintaPubEstado(o){ var el=document.getElementById('pubEstado'); if(!el)return;
- if(!o.pub){ el.textContent=USA_SERVIDOR?'Sin publicar — el QR aún lleva a la web general':'Solo en la versión del servidor'; return; }
+ if(!USA_SERVIDOR){ el.textContent='El QR del enlace solo funciona en la versión del servidor'; return; }
+ if(!o.pub){ el.textContent='Preparando el enlace…'; return; }
  var f=''; if(o.pubFecha){ var d=new Date(o.pubFecha);
    f='el '+('0'+d.getDate()).slice(-2)+'/'+('0'+(d.getMonth()+1)).slice(-2)+' a las '+('0'+d.getHours()).slice(-2)+':'+('0'+d.getMinutes()).slice(-2); }
  el.innerHTML='Publicado '+esc(f)+' · <a href="'+esc(pubURL(o))+'" target="_blank" rel="noopener" style="color:var(--brand)">ver la página</a>'; }
 
 function renderDossier(){ var o=obra(); if(!o)return;
  var bp=document.getElementById('btnPublicar');
- if(bp)bp.onclick=function(){ var oo=obra(); if(!oo)return;
-   if(oo.pub)publicaObra(oo);
-   else confirmar('Se va a crear una página pública con este dossier. Cualquiera que escanee el QR del PDF podrá verlo y descargarlo, sin contraseña. ¿Seguimos?',function(){ publicaObra(oo); },'Crear el enlace'); };
+ if(bp)bp.onclick=function(){ var oo=obra(); if(oo)publicaObra(oo,false); };
  pintaPubEstado(o);
  var dc=document.getElementById('dossCiego');
  if(dc){ dc.checked=!!(typeof UI2!=='undefined'&&UI2&&UI2.ciego);
    dc.onchange=function(){ if(typeof UI2!=='undefined'){UI2.ciego=dc.checked;saveUI2();} renderDossier(); }; }
  var b=document.getElementById('dossBody'); b.innerHTML=dossierHtml(o);
- ajustaPaginasA4(b); requestAnimationFrame(function(){ajustaPaginasA4(b);}); }
+ ajustaPaginasA4(b); requestAnimationFrame(function(){ajustaPaginasA4(b);});
+ /* el enlace del QR se pone al día solo, sin preguntar; si el documento no ha
+    cambiado desde la última vez, no se sube nada */
+ setTimeout(function(){ autoPublica(o); },60); }
 
 
 /* ================= biblioteca ================= */
@@ -6502,6 +6533,7 @@ document.getElementById('modalList').addEventListener('click',function(e){
  var p=e.target.closest('[data-pick]');
  if(p){ var sp=document.getElementById('pspec-'+p.dataset.pick); if(sp)sp.hidden=!sp.hidden; } });
 document.getElementById('btnPrint').onclick=function(){ var o=obra(); if(!o)return;
+ autoPublica(o);   /* el QR que va a salir impreso tiene que apuntar a algo que exista */
  var pd=document.getElementById('printdoc'); pd.innerHTML=dossierHtml(o); ajustaPaginasA4(pd); window.print(); };
 window.addEventListener('beforeprint',function(){ var o=obra(); if(!o)return;
  var pd=document.getElementById('printdoc');
@@ -6745,8 +6777,8 @@ window.PRESTON={state:function(){return state;},obra:obra,ficha:function(){var o
  carp:{ir:abrirCarpeta,equipo:EQUIPO,de:carpetaDe,lista:obrasCarpeta,abierta:carpetaAbierta},
  ver:compruebaVersion,
  qr:{matriz:qrMatriz,cw:qrCodewords,ec:qrEC,png:qrDataURL,svg:qrSvgDe},
- pub:{url:pubURL,qr:pubQR,pagina:paginaPublica,publica:publicaObra},
- version:'v149-qr-por-obra (LAB · copia de pruebas)'};
+ pub:{url:pubURL,qr:pubQR,pagina:paginaPublica,publica:publicaObra,token:pubDe,auto:autoPublica,hash:pubHash},
+ version:'v150-qr-automatico (LAB · copia de pruebas)'};
 try{var th0=localStorage.getItem('prestonLAB_theme'); if(th0)document.documentElement.setAttribute('data-theme',th0);}catch(e){}
 var _bd=document.getElementById('brandDode'); if(_bd&&typeof PBRAND!=='undefined')_bd.src=PBRAND.dode;
 try{ var _rv=document.getElementById('railVer'); if(_rv)_rv.textContent='Versión '+(PRESTON.version||'').split(' ')[0]; }catch(e){}
