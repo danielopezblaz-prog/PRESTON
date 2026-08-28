@@ -6052,10 +6052,18 @@ function renderAjustes(){ var host=document.getElementById('cfgView'); var p=sta
   af2('IVA de los honorarios de agente','ivaAgentePct',ivaAgPctDe(o),'%')+
   '<div class="fr wide"><label>&nbsp;</label><div class="ib"><span class="hint">Si en ESTA obra NO adelantáis las ayudas, pon los dos primeros a 0. Por defecto heredan el valor global (Parámetros de cálculo). El IVA del agente es 21 % porque es un servicio, no ejecución de obra: bájalo a 10 % solo si esa gestión se factura dentro del contrato de obra.</span></div></div>'+
  '</div></div>'; }
+ h+='<div class="panelbox" style="grid-column:1/-1"><div class="ph"><h2>Llevarse una obra a otro ordenador</h2></div><div style="padding:14px">'+
+  '<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">'+
+   '<button class="mini" data-action="exportObra">Exportar SOLO esta obra</button>'+
+   '<label class="mini" style="cursor:pointer">Importar una obra<input type="file" id="importObraFile" accept=".json" style="display:none"></label>'+
+  '</div>'+
+  '<p class="hint" style="margin:10px 0 0">Para pasar un presupuesto de la copia de GitHub (que guarda en ese ordenador) a <b>proyecton.es/preston/lab.php</b> (que guarda en el servidor y ve todo el equipo). Exporta la obra allí, importa aquí. No toca el resto de obras.</p>'+
+  '</div></div>';
  h+='<div class="panelbox" style="grid-column:1/-1"><div class="ph"><h2>Datos</h2></div><div style="padding:14px;display:flex;gap:10px;flex-wrap:wrap">'+
   '<button class="mini" data-action="exportJson">Exportar copia de seguridad (JSON)</button>'+
   '<label class="mini" style="cursor:pointer">Importar JSON<input type="file" id="importFile" accept=".json" style="display:none"></label>'+
-  '<button class="mini acc" data-action="reset">Restablecer datos de ejemplo</button></div></div></div>';
+  '<button class="mini acc" data-action="reset">Restablecer datos de ejemplo</button></div>'+
+  '<p class="hint" style="padding:0 14px 14px;margin:0"><b style="color:var(--brand)">Cuidado:</b> «Importar JSON» sustituye <b>TODAS</b> las obras por las del fichero. En la versión del servidor eso borraría el trabajo del resto del equipo. Para mover un presupuesto suelto usa el bloque de arriba.</p></div></div>';
  host.innerHTML=h;
  host.querySelectorAll('[data-p]').forEach(function(el){ el.addEventListener('change',function(){
    if(el.dataset.p==='irpf'){state.params.irpf=!!el.value;}
@@ -6068,6 +6076,28 @@ function renderAjustes(){ var host=document.getElementById('cfgView'); var p=sta
    var k=el.dataset.o; if(k==='gg'||k==='bi'||k==='iva')oo.config[k]=num(el.value);
    else if(k==='viviendas'||k==='locales'||k==='plantas'||k==='recPct'||k==='recAgentePct'||k==='ivaAgentePct')oo[k]=num(el.value);
    else oo[k]=el.value; save(); toast('Obra actualizada'); }); });
+ /* importar UNA obra: nunca borra nada. Si ya existe esa misma obra pregunta si se
+    sustituye (es la única forma de que el traspaso pise datos) o se añade aparte. */
+ var impO=document.getElementById('importObraFile');
+ if(impO)impO.addEventListener('change',function(){ var f=impO.files[0]; if(!f)return;
+   var rd=new FileReader();
+   rd.onload=function(){
+     var paq; try{ paq=JSON.parse(rd.result); }catch(e){ toast('Ese fichero no es JSON válido'); return; }
+     var ob=paq&&paq.obra;
+     if(!ob||!ob.capitulos){ toast('Ese fichero no lleva una obra dentro. Usa «Exportar SOLO esta obra».'); return; }
+     var mete=function(reemplaza){
+       var i=-1; state.obras.forEach(function(x,k){ if(x.id===ob.id)i=k; });
+       if(reemplaza&&i>=0){ state.obras[i]=ob; }
+       else { if(i>=0){ ob.id=uid('o'); ob.nombre=(ob.nombre||'Obra')+' (importada)'; delete ob.pub; delete ob.pubHash; delete ob.pubFecha; }
+              state.obras.push(ob); }
+       normObra(ob); state.activeId=ob.id; save();
+       go('obras'); toast('Obra importada: '+(ob.nombre||'')); };
+     var ya=state.obras.some(function(x){ return x.id===ob.id; });
+     if(!ya)mete(false);
+     else confirmar('«'+esc(ob.nombre||'')+'» ya existe aquí. ¿Sustituyes la que hay por la del fichero? Se pierde lo que tuviera esta copia.',
+        function(){ mete(true); }, 'Sustituir', function(){ mete(false); }, 'Añadir aparte');
+   };
+   rd.readAsText(f); impO.value=''; });
  var imp=document.getElementById('importFile'); if(imp)imp.addEventListener('change',function(){ var f=imp.files[0]; if(!f)return;
    var r=new FileReader(); r.onload=function(){ try{ var st=JSON.parse(r.result); if(!st.obras)throw 0;
      state=st; state.params=Object.assign(defParams(),st.params||{}); (state.obras||[]).forEach(normObra); if(st.bdp)mergeBdp(st.bdp);
@@ -6323,6 +6353,18 @@ document.addEventListener('click',function(e){
    else if(a==='renum'){ var oR=obra(); if(oR)confirmar('¿Renumerar los códigos de capítulos y partidas según el orden actual? Los códigos personalizados se sustituyen.',function(){
      oR.capitulos.forEach(function(c,i){ c.cod=('0'+(i+1)).slice(-2); c.partidas.forEach(function(p,j){ p.cod=c.cod+'.'+('0'+(j+1)).slice(-2); }); });
      afterStruct(selected); toast('Códigos renumerados'); },'Renumerar'); }
+   /* exporta UNA obra: es lo que hay que usar para pasar un presupuesto de la copia
+      local a la del servidor sin tocar el trabajo de los demás */
+   else if(a==='exportObra'){ var oE=obra();
+     if(!oE){ toast('Abre primero la obra que quieras exportar'); return; }
+     try{ var lim=JSON.parse(JSON.stringify(oE)); delete lim._qrCache;
+       var paq={tipo:'preston-obra',v:1,fecha:new Date().toISOString(),obra:lim};
+       var bl=new Blob([JSON.stringify(paq,null,2)],{type:'application/json'});
+       var uu=URL.createObjectURL(bl), ae=document.createElement('a'); ae.href=uu;
+       ae.download='obra-'+(oE.nombre||oE.dir||'presupuesto').replace(/[^\wáéíóúñÁÉÍÓÚÑ -]/g,'').slice(0,40)+'.json';
+       document.body.appendChild(ae); ae.click(); ae.remove(); URL.revokeObjectURL(uu);
+       toast('Obra exportada — impórtala en el otro Prestón'); }
+     catch(err){ toast('No se pudo exportar la obra'); } }
    else if(a==='exportJson'){ try{ var blob=new Blob([JSON.stringify(state,null,2)],{type:'application/json'});
      var u=URL.createObjectURL(blob),aa=document.createElement('a'); aa.href=u; aa.download='preston-copia.json'; document.body.appendChild(aa); aa.click(); aa.remove(); URL.revokeObjectURL(u); toast('Copia descargada'); }catch(err){toast('No se pudo exportar');} }
    else if(a==='reset'){ confirmar('¿Restablecer todos los datos al ejemplo inicial?',function(){ localStorage.removeItem(KEY); location.reload(); },'Restablecer'); }
@@ -6487,12 +6529,16 @@ function pickClose(){ document.getElementById('pickModalBg').classList.remove('s
 /* El confirm() del navegador NO funciona dentro del artefacto (iframe con sandbox
    sin permiso de dialogos): la pregunta nunca aparece y el clic "se pierde".
    Confirmacion propia sobre el modal generico, que funciona en todas partes. */
-function confirmar(msg,cb,txt){ pickOpen('Un momento',
+/* cb2/txt2 son opcionales: dan una TERCERA salida cuando no basta con sí o no
+   (por ejemplo importar una obra que ya existe: sustituir, añadir aparte o nada) */
+function confirmar(msg,cb,txt,cb2,txt2){ pickOpen('Un momento',
  '<p class="pick-intro">'+esc(msg)+'</p>'+
  '<div style="display:flex;gap:10px;justify-content:flex-end;margin-top:6px">'+
  '<button class="mini acc" id="cfNo">Cancelar</button>'+
+ (cb2?'<button class="mini" id="cfAlt">'+esc(txt2||'La otra opción')+'</button>':'')+
  '<button class="btn" id="cfSi" style="background:var(--bad)">'+esc(txt||'Eliminar')+'</button></div>');
  document.getElementById('cfNo').onclick=pickClose;
+ if(cb2){ var alt=document.getElementById('cfAlt'); if(alt)alt.onclick=function(){ pickClose(); cb2(); }; }
  document.getElementById('cfSi').onclick=function(){ pickClose(); cb(); }; }
 document.getElementById('pickClose').onclick=pickClose;
 document.getElementById('pickModalBg').addEventListener('click',function(e){ if(e.target===this)pickClose(); });
@@ -6796,7 +6842,7 @@ window.PRESTON={state:function(){return state;},obra:obra,ficha:function(){var o
  ver:compruebaVersion,
  qr:{matriz:qrMatriz,cw:qrCodewords,ec:qrEC,png:qrDataURL,svg:qrSvgDe},
  pub:{url:pubURL,qr:pubQR,pagina:paginaPublica,publica:publicaObra,token:pubDe,auto:autoPublica,hash:pubHash},
- version:'v152-qr-legible (LAB · copia de pruebas)'};
+ version:'v153-traspaso-de-obra (LAB · copia de pruebas)'};
 try{var th0=localStorage.getItem('prestonLAB_theme'); if(th0)document.documentElement.setAttribute('data-theme',th0);}catch(e){}
 var _bd=document.getElementById('brandDode'); if(_bd&&typeof PBRAND!=='undefined')_bd.src=PBRAND.dode;
 try{ var _rv=document.getElementById('railVer'); if(_rv)_rv.textContent='Versión '+(PRESTON.version||'').split(' ')[0]; }catch(e){}
