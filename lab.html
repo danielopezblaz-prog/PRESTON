@@ -4066,9 +4066,19 @@ var SVG_LUPA='<svg class="g" viewBox="0 0 24 24" fill="none" stroke="currentColo
 /* ---- portada: las carpetas ---- */
 /* asignar carpeta desde la vista "Todas las obras": es la unica forma de repartir
    los presupuestos que aun no tienen dueno (la portada ya no los lista) */
-function ocMvOpts(actual){ var h='<option value="SIN"'+(actual===SIN.id?' selected':'')+'>Sin carpeta</option>';
- equipoTodo().forEach(function(e){ h+='<option value="'+e.id+'"'+(actual===e.id?' selected':'')+'>'+esc(e.nom)+'</option>'; });
+/* El árbol entero con sangría: en una lista plana, «2026» no diría de quién cuelga, y
+   puede haber un «2026» en la carpeta de cada uno. El espacio es duro (no colapsable),
+   que el normal se lo come el navegador dentro de un desplegable. */
+function opcionesArbol(actual){ var h='';
+ (function baja(padre,nivel){
+   (padre?carpetaHijas(padre):carpetaRaices()).forEach(function(e){
+     h+='<option value="'+e.id+'"'+(actual===e.id?' selected':'')+'>'+
+       new Array(nivel+1).join('   ')+(nivel?'└ ':'')+esc(e.nom)+'</option>';
+     baja(e.id,nivel+1); });
+ })('',0);
  return h; }
+function ocMvOpts(actual){ return '<option value="SIN"'+(actual===SIN.id?' selected':'')+'>Sin carpeta</option>'+
+ opcionesArbol(actual); }
 document.addEventListener('change',function(ev){ var s=ev.target&&ev.target.closest?ev.target.closest('.oc-mv'):null; if(!s)return;
  var card=s.closest('.ocard'); if(!card)return;
  var o=state.obras.find(function(x){ return x.id===card.dataset.id; }); if(!o)return;
@@ -4260,17 +4270,8 @@ function renderEquipo(){ var host=document.getElementById('equipoView'); if(!hos
 }
 
 /* ---- dentro de una carpeta ---- */
-function cpMvOpts(actual){ var h='<option value="">Mover a…</option>';
- /* el árbol entero con sangría, para que se vea de quién cuelga cada una. La carpeta
-    donde ya está no sale, pero sus hijas sí: mover hacia dentro es lo normal. */
- (function baja(padre,nivel){
-   (padre?carpetaHijas(padre):carpetaRaices()).forEach(function(e){
-     if(e.id!==actual)h+='<option value="'+e.id+'">'+
-       new Array(nivel+1).join('   ')+(nivel?'└ ':'')+esc(e.nom)+'</option>';
-     baja(e.id,nivel+1); });
- })('',0);
- if(actual!==SIN.id)h+='<option value="'+SIN.id+'">'+esc(SIN.nom)+'</option>';
- return h; }
+/* (cpMvOpts se retiro: no lo llamaba nadie. El reparto de carpeta se hace desde
+   "Todas las obras", con ocMvOpts, que ya ensena el arbol entero con sangria.) */
 /* Dentro de una carpeta se navega como en el Dropbox, sin listas de golpe:
    subcarpetas de estado (Por hacer / Enviados / Contratados / Perdidos), dentro
    una CARPETA POR COMUNIDAD, y dentro de la comunidad sus presupuestos: la V1,
@@ -8197,7 +8198,7 @@ window.PRESTON={state:function(){return state;},obra:obra,ficha:function(){var o
  qr:{matriz:qrMatriz,cw:qrCodewords,ec:qrEC,png:qrDataURL,svg:qrSvgDe},
  pub:{url:pubURL,qr:pubQR,pagina:paginaPublica,publica:publicaObra,token:pubDe,auto:autoPublica,hash:pubHash},
  dir:{bonita:dirBonita,muni:muniBonito,parse:parseDireccion},
- version:'v167-carpetas-anidadas (LAB · copia de pruebas)'};
+ version:'v168-carpetas-arbol (LAB · copia de pruebas)'};
 try{var th0=localStorage.getItem('prestonLAB_theme'); if(th0)document.documentElement.setAttribute('data-theme',th0);}catch(e){}
 var _bd=document.getElementById('brandDode'); if(_bd&&typeof PBRAND!=='undefined')_bd.src=PBRAND.dode;
 try{ var _rv=document.getElementById('railVer'); if(_rv)_rv.textContent='Versión '+(PRESTON.version||'').split(' ')[0]; }catch(e){}
