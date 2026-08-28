@@ -5928,31 +5928,60 @@ function pubQR(o){ if(!o)return PBRAND.qr;
  var u=pubURL(o); if(!u)return PBRAND.qr;
  try{ if(!QR_CACHE[u])QR_CACHE[u]=qrSvgDe(u); return QR_CACHE[u]; }
  catch(e){ return PBRAND.qr; } }
-function pubCss(){ return '.pubbar{position:sticky;top:0;z-index:10;display:flex;align-items:center;gap:12px;'+
- 'padding:10px 16px;background:#fff;border-bottom:1px solid #e6ded9;box-shadow:0 2px 10px -6px rgba(0,0,0,.25)}'+
- '.pubbar b{font:700 14px Arial,sans-serif;color:#1a1a1a;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}'+
- '.pubbar button{font:700 13px Arial,sans-serif;cursor:pointer;background:#ae0b0b;color:#fff;border:0;'+
- 'border-radius:9px;padding:9px 16px;flex:none}'+
- 'body.pubdoc{margin:0;background:#f2eeec}'+
- '.pubwrap{display:flex;flex-direction:column;align-items:center;gap:14px;padding:14px}'+
- '.pubwrap .a4{box-shadow:0 10px 30px -14px rgba(0,0,0,.45);margin:0}'+
- '.pubpie{font:12px Arial,sans-serif;color:#6b615c;text-align:center;padding:6px 16px 26px}'+
+function pubCss(){ return ''+
+ /* barra fija tipo visor de PDF: nombre + zoom + descargar. La franja roja es la marca. */
+ '.pubbar{position:sticky;top:0;z-index:10;display:flex;align-items:center;gap:10px;'+
+ 'padding:10px 14px;background:#fff;border-bottom:3px solid #ae0b0b;box-shadow:0 2px 12px -6px rgba(0,0,0,.3)}'+
+ '.pubbar .t{flex:1;min-width:0}'+
+ '.pubbar .t b{display:block;font:700 15px/1.25 Arial,sans-serif;color:#1a1a1a;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}'+
+ '.pubbar .t small{display:block;font:11px/1.3 Arial,sans-serif;color:#8a7f79;letter-spacing:.03em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}'+
+ '.pubzoom{display:flex;align-items:center;gap:3px;flex:none}'+
+ '.pubzoom button{width:34px;height:34px;border:1px solid #e2d9d4;background:#fff;color:#1a1a1a;'+
+ 'border-radius:8px;font:700 17px/1 Arial,sans-serif;cursor:pointer;padding:0}'+
+ '.pubzoom button:active{background:#f6efec}'+
+ '#pubPct{font:11px Arial,sans-serif;color:#8a7f79;min-width:40px;text-align:center}'+
+ '#pubDesc{font:700 13px Arial,sans-serif;cursor:pointer;background:#ae0b0b;color:#fff;border:0;'+
+ 'border-radius:9px;padding:10px 15px;flex:none}'+
+ '#pubDesc:active{transform:translateY(1px)}'+
+ 'body.pubdoc{margin:0;background:#eae5e2;-webkit-text-size-adjust:100%;overflow-x:hidden}'+
+ /* las paginas A4 se escalan con zoom (afecta al layout, asi que el alto del scroll
+    queda bien; transform:scale dejaria un hueco enorme debajo) */
+ '.pubwrap{display:flex;flex-direction:column;align-items:center;gap:16px;padding:16px 10px}'+
+ '.pubwrap .a4{box-shadow:0 12px 32px -14px rgba(30,20,15,.5);margin:0;flex:none}'+
+ '.pubpie{font:12px/1.6 Arial,sans-serif;color:#6b615c;text-align:center;padding:4px 16px 28px}'+
+ '@media (max-width:560px){ .pubbar{padding:8px 10px;gap:7px} .pubbar .t b{font-size:13px}'+
+ ' .pubbar .t small{font-size:10px} #pubPct{display:none} .pubzoom button{width:31px;height:31px}'+
+ ' #pubDesc{padding:9px 12px;font-size:12px} }'+
  '@media print{ .pubbar,.pubpie{display:none!important} body.pubdoc{background:#fff}'+
- ' .pubwrap{padding:0;gap:0} .pubwrap .a4{box-shadow:none;border:0;margin:0;break-after:page}'+
+ ' .pubwrap{padding:0;gap:0;zoom:1!important} .pubwrap .a4{box-shadow:none;border:0;margin:0;break-after:page}'+
  ' *{-webkit-print-color-adjust:exact;print-color-adjust:exact} @page{size:A4;margin:0} }'; }
 function paginaPublica(o){
  var css=[].slice.call(document.querySelectorAll('style')).map(function(s){return s.textContent;}).join('\n');
  var tit=(o.nombre||o.dir||'Presupuesto')+' · Revestimientos Proyecton';
- /* el script del visor se corta en trozos: un '</'+'script>' literal cerraría ESTE script */
- var js='var z=function(){var w=document.querySelector(".pubwrap");if(!w)return;'+
-  'var e=Math.min(1,(window.innerWidth-20)/794);w.style.zoom=e>0.25?e:0.25;};'+
-  'z();window.addEventListener("resize",z);'+
+ /* el script del visor se corta en trozos: un '</'+'script>' literal cerraría ESTE script.
+    Ajuste al ancho como un visor de PDF: en el móvil la página entra entera y con los
+    botones +/− se amplía para leer; en ordenador se ve a tamaño natural (tope 100 %). */
+ var js='var m=1;'+
+  'function aj(){var w=document.querySelector(".pubwrap");if(!w)return;'+
+   'var fit=(window.innerWidth-20)/794;if(fit>1)fit=1;'+
+   'var z=fit*m;if(z<0.2)z=0.2;if(z>3)z=3;'+
+   'w.style.zoom=z;'+
+   'var p=document.getElementById("pubPct");if(p)p.textContent=Math.round(z*100)+"%";}'+
+  'aj();window.addEventListener("resize",aj);'+
+  'window.addEventListener("orientationchange",function(){setTimeout(aj,120);});'+
+  'document.getElementById("pubMenos").onclick=function(){m=m/1.2;aj();};'+
+  'document.getElementById("pubMas").onclick=function(){m=m*1.2;aj();};'+
   'document.getElementById("pubDesc").onclick=function(){window.print();};';
  return '<!DOCTYPE html><html lang="es"><head><meta charset="utf-8">'+
   '<meta name="viewport" content="width=device-width,initial-scale=1">'+
   '<meta name="robots" content="noindex,nofollow">'+
   '<title>'+esc(tit)+'</title><style>'+css+'</style><style>'+pubCss()+'</style></head>'+
-  '<body class="pubdoc"><div class="pubbar"><b>'+esc(o.nombre||o.dir||'Presupuesto')+'</b>'+
+  '<body class="pubdoc"><div class="pubbar">'+
+   '<div class="t"><b>'+esc(o.nombre||o.dir||'Presupuesto')+'</b>'+
+    '<small>Presupuesto · Revestimientos Proyecton · '+esc(hoy())+'</small></div>'+
+   '<div class="pubzoom"><button id="pubMenos" aria-label="Reducir">−</button>'+
+    '<span id="pubPct">100%</span>'+
+    '<button id="pubMas" aria-label="Ampliar">+</button></div>'+
    '<button id="pubDesc">Descargar PDF</button></div>'+
   '<div class="pubwrap">'+dossierHtml(o)+'</div>'+
   '<div class="pubpie">Revestimientos Proyecton Rehabilitaciones S.L.U. · 91 693 15 40 · info@proyecton.es<br>'+
@@ -6853,7 +6882,7 @@ window.PRESTON={state:function(){return state;},obra:obra,ficha:function(){var o
  ver:compruebaVersion,
  qr:{matriz:qrMatriz,cw:qrCodewords,ec:qrEC,png:qrDataURL,svg:qrSvgDe},
  pub:{url:pubURL,qr:pubQR,pagina:paginaPublica,publica:publicaObra,token:pubDe,auto:autoPublica,hash:pubHash},
- version:'v155-qr-formato-arreglado (LAB · copia de pruebas)'};
+ version:'v156-pagina-publica-responsive (LAB · copia de pruebas)'};
 try{var th0=localStorage.getItem('prestonLAB_theme'); if(th0)document.documentElement.setAttribute('data-theme',th0);}catch(e){}
 var _bd=document.getElementById('brandDode'); if(_bd&&typeof PBRAND!=='undefined')_bd.src=PBRAND.dode;
 try{ var _rv=document.getElementById('railVer'); if(_rv)_rv.textContent='Versión '+(PRESTON.version||'').split(' ')[0]; }catch(e){}
