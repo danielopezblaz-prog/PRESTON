@@ -904,6 +904,39 @@ table.dkt{width:100%;border-collapse:collapse;font-size:10.4px;margin:6px 0}
   .wfall .wr{grid-template-columns:110px 1fr 92px}
 }
 @media (hover:none){ .ocard .oc-foot .acts{opacity:1} .rowact{opacity:1} }
+/* ===== botonera de crear (dentro de la carpeta) ===== */
+.cp-crear{display:grid;grid-template-columns:repeat(auto-fit,minmax(196px,1fr));gap:10px;margin-bottom:16px}
+.cbtn{display:flex;align-items:center;gap:11px;text-align:left;font:inherit;cursor:pointer;
+  background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:11px 13px;
+  box-shadow:var(--shadow);color:var(--ink);position:relative;overflow:hidden;
+  transition:transform .14s cubic-bezier(.2,.7,.2,1),box-shadow .16s,border-color .16s}
+.cbtn:hover{transform:translateY(-2px);box-shadow:var(--shadow-md);border-color:var(--sel-line)}
+.cbtn:active{transform:translateY(0) scale(.99)}
+.cbtn .cb-ic{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;flex:none;
+  background:var(--bg-sunken);color:var(--ink-2);transition:background .16s,color .16s}
+.cbtn .cb-ic .g{width:17px;height:17px}
+.cbtn:hover .cb-ic{background:var(--brand-tint);color:var(--brand)}
+.cbtn .cb-tx{display:flex;flex-direction:column;gap:1px;min-width:0}
+.cbtn .cb-tx b{font-size:12.5px;font-weight:700;line-height:1.2}
+.cbtn .cb-tx small{font-size:10.5px;color:var(--muted);line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* el principal: fondo de marca y sin ayuda apagada */
+.cbtn.pri{background:linear-gradient(135deg,var(--brand),var(--brand-strong));border-color:transparent;color:var(--on-brand);box-shadow:0 2px 10px -2px rgba(190,47,39,.45)}
+.cbtn.pri:hover{box-shadow:0 8px 20px -6px rgba(190,47,39,.55);border-color:transparent}
+.cbtn.pri .cb-ic{background:rgba(255,255,255,.18);color:#fff}
+.cbtn.pri:hover .cb-ic{background:rgba(255,255,255,.26);color:#fff}
+.cbtn.pri .cb-tx small{color:rgba(255,255,255,.85)}
+@media (prefers-reduced-motion:no-preference){
+  #carpetaView .cp-crear{animation:navIn .3s cubic-bezier(.2,.7,.2,1) .04s backwards}
+  #carpetaView.atras .cp-crear{animation-name:navOut}
+}
+@media (max-width:640px){
+  .cp-crear{grid-template-columns:1fr 1fr;gap:8px}
+  .cbtn.pri{grid-column:1/-1}
+  .cbtn{padding:10px 11px;gap:9px}
+  .cbtn .cb-ic{width:30px;height:30px;border-radius:9px}
+  .cbtn .cb-tx small{display:none}
+  .cbtn.pri .cb-tx small{display:block}
+}
 /* ===== tacto: va al final para mandar sobre las medidas de raton ===== */
 @media (hover:none){
   .ocard .oc-foot .acts button{width:36px;height:36px;border-radius:8px}
@@ -3730,12 +3763,19 @@ function renderCarpeta(){ var host=document.getElementById('carpetaView'); if(!h
  var cab='<div class="cp-head"><button class="mini acc" id="cpBack">'+g('back','')+(com?sec.t:(sec?'Carpeta de '+esc(e.nom):'Carpetas'))+'</button>'+
    '<span class="eq-av" style="--eqc:'+e.col+'">'+e.ini+'</span>'+
    '<div><div class="cp-h1">'+miga+'</div><div class="cp-h2">'+sub2+'</div></div></div>';
- var tools='<div class="cp-tools">'+
-   '<button class="btn" data-cp="wizard">'+g('wand','g')+'Nueva obra con asistente</button>'+
-   '<button class="mini acc" data-cp="clon">'+g('copy','g')+'Como una anterior</button>'+
-   '<button class="mini acc" data-cp="blank">'+g('plus','g')+'Nueva vacía</button>'+
-   '<button class="mini acc" data-cp="pdf">'+g('doc','g')+'Importar PDF</button>'+
-   '<button class="mini acc" data-cp="bc3">'+g('tree','g')+'Importar BC3</button>'+
+ /* Botonera de crear: el principal destacado y los otros cuatro como fichas con
+    icono, titulo y una linea de ayuda — se lee de un vistazo lo que hace cada uno. */
+ var tools='<div class="cp-crear">'+
+   '<button class="cbtn pri" data-cp="wizard"><span class="cb-ic">'+g('wand','g')+'</span>'+
+     '<span class="cb-tx"><b>Nueva obra</b><small>Con el asistente, paso a paso</small></span></button>'+
+   '<button class="cbtn" data-cp="clon"><span class="cb-ic">'+g('copy','g')+'</span>'+
+     '<span class="cb-tx"><b>Basarse en una anterior</b><small>Copia partidas y precios de otra obra</small></span></button>'+
+   '<button class="cbtn" data-cp="pdf"><span class="cb-ic">'+g('doc','g')+'</span>'+
+     '<span class="cb-tx"><b>Importar PDF</b><small>Lee el presupuesto de un PDF</small></span></button>'+
+   '<button class="cbtn" data-cp="bc3"><span class="cb-ic">'+g('tree','g')+'</span>'+
+     '<span class="cb-tx"><b>Importar BC3</b><small>Desde Presto o Arquímedes</small></span></button>'+
+   '<button class="cbtn" data-cp="blank"><span class="cb-ic">'+g('plus','g')+'</span>'+
+     '<span class="cb-tx"><b>Obra vacía</b><small>Empezar de cero</small></span></button>'+
   '</div>';
 
 
@@ -6251,7 +6291,7 @@ window.PRESTON={state:function(){return state;},obra:obra,ficha:function(){var o
  pres:{payload:function(){var o=obra();return o?presPayload(o):null;},url:function(){var o=obra();return o?presUrl(o):null;}},
  med:{parcial:parcialLinea,suma:sumaLineas,open:function(id){openDock(id);},close:function(){closeDock();},dock:function(){return {open:dockOpen,id:dockId};}},
  carp:{ir:abrirCarpeta,equipo:EQUIPO,de:carpetaDe,lista:obrasCarpeta,abierta:carpetaAbierta},
- version:'v133-cuatro-fases (LAB · copia de pruebas)'};
+ version:'v134-botonera (LAB · copia de pruebas)'};
 try{var th0=localStorage.getItem('prestonLAB_theme'); if(th0)document.documentElement.setAttribute('data-theme',th0);}catch(e){}
 var _bd=document.getElementById('brandDode'); if(_bd&&typeof PBRAND!=='undefined')_bd.src=PBRAND.dode;
 if(USA_SERVIDOR){ state={v:3,activeId:null,params:defParams(),obras:[]}; } else { state=load(); }
