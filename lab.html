@@ -555,6 +555,11 @@ table.data{width:100%;border-collapse:collapse}
 .actc .ac-opts .ib{display:flex;align-items:center;gap:5px;background:var(--bg);border:1px solid var(--line);border-radius:4px;padding:3px 7px;font-size:11.5px}
 .actc .ac-opts input,.actc .ac-opts select{border:0;background:transparent;color:var(--ink);font:inherit;font-size:11.5px;width:58px;outline:none;font-variant-numeric:tabular-nums}
 .actc .ac-opts select{width:auto}
+/* Los selectores de modelo llevan nombres de partida largos ("CELOSÍA/REJILLAS CUBRE
+   AIRES ACONDICIONADOS — 400,00 €/M2") y con width:auto el desplegable crece hasta la
+   opción más larga y se sale de la tarjeta en el móvil. Que pueda encogerse. */
+.actc .ac-opts .ib{max-width:100%;min-width:0}
+.actc .ac-opts select{max-width:100%;min-width:0}
 /* lo que entra siempre: se ve QUE incluye, pero no se puede desmarcar */
 .actc.fija{cursor:default;border-style:dashed;background:var(--bg)}
 .actc.fija:hover{border-color:var(--line)}
@@ -8256,7 +8261,7 @@ window.PRESTON={state:function(){return state;},obra:obra,ficha:function(){var o
  qr:{matriz:qrMatriz,cw:qrCodewords,ec:qrEC,png:qrDataURL,svg:qrSvgDe},
  pub:{url:pubURL,qr:pubQR,pagina:paginaPublica,publica:publicaObra,token:pubDe,auto:autoPublica,hash:pubHash},
  dir:{bonita:dirBonita,muni:muniBonito,parse:parseDireccion},
- version:'v170-asistente-cubiertas (LAB · copia de pruebas)'};
+ version:'v171-asistente-cubiertas (LAB · copia de pruebas)'};
 try{var th0=localStorage.getItem('prestonLAB_theme'); if(th0)document.documentElement.setAttribute('data-theme',th0);}catch(e){}
 var _bd=document.getElementById('brandDode'); if(_bd&&typeof PBRAND!=='undefined')_bd.src=PBRAND.dode;
 try{ var _rv=document.getElementById('railVer'); if(_rv)_rv.textContent='Versión '+(PRESTON.version||'').split(' ')[0]; }catch(e){}
