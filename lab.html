@@ -2145,7 +2145,32 @@ function normObra(o){ if(!o.id)o.id=uid("o");
       saneaMedEnSpec(p);                                   /* quita mediciones pegadas al texto */
       saneaTextoPdf(p);                                    /* repara palabras rotas por el PDF */
       if(p.lineas&&p.lineas.length){ p.lineas.forEach(function(l){ if(!l.id)l.id=uid('l'); }); p.cantidad=sumaLineas(p); } }); }); }
-function mergeBdp(saved){ saved.forEach(function(s){ var b=bdpByCod(s.cod); if(b){b.pre=s.pre;b.lo=s.lo;b.hi=s.hi;} }); }
+/* Códigos que llegaron YA cambiados. Si luego se devuelven al precio de serie hay que
+   decírselo al servidor con un null, porque allí los precios se fusionan y si no se
+   quedarían cambiados para siempre. */
+var bdpCargados={};
+/* Acepta los dos formatos: la LISTA entera del banco (como se guardaba antes) y el MAPA de
+   solo lo cambiado (como se guarda ahora). */
+function mergeBdp(saved){
+ if(!saved)return;
+ var pon=function(cod,s){ var b=bdpByCod(cod); if(!b||!s)return;
+   if(s.pre!=null)b.pre=s.pre; if(s.lo!=null)b.lo=s.lo; if(s.hi!=null)b.hi=s.hi;
+   /* se apunta como "venía cambiado" SOLO si de verdad difiere del banco de serie, venga en
+      el formato que venga: así el volcado antiguo de 242 partidas no marca 242 cambios */
+   var o=BDP_ORIG[cod];
+   if(o&&(b.pre!==o.pre||b.lo!==o.lo||b.hi!==o.hi))bdpCargados[cod]=1; };
+ if(Array.isArray(saved)){ saved.forEach(function(s){ if(s)pon(s.cod,s); }); return; }
+ Object.keys(saved).forEach(function(c){ pon(c,saved[c]); });
+}
+/* SOLO lo que difiere del banco de serie. Antes se guardaba el banco ENTERO (242 partidas),
+   y como es compartido eso significaba que cualquiera que guardase cualquier cosa mandaba su
+   copia completa y devolvía a su valor de serie el precio que otro acabase de cambiar. */
+function bdpDeltas(){ var d={};
+ BDP.forEach(function(b){ var o=BDP_ORIG[b.cod]; if(!o)return;
+   if(b.pre!==o.pre||b.lo!==o.lo||b.hi!==o.hi)d[b.cod]={pre:b.pre,lo:b.lo,hi:b.hi}; });
+ /* lo que estaba cambiado y ha vuelto a su sitio viaja como null, para que se borre */
+ Object.keys(bdpCargados).forEach(function(c){ if(!d[c])d[c]=null; });
+ return d; }
 /* descripciones editadas del banco (solo las cambiadas), guardadas en params.bdpSpec
    para que viajen al servidor con el resto de params */
 function aplicaBdpSpec(p){ if(!p||!p.bdpSpec)return; Object.keys(p.bdpSpec).forEach(function(c){ var b=bdpByCod(c); if(b&&p.bdpSpec[c]!=null)b.spec=p.bdpSpec[c]; }); }
@@ -2155,7 +2180,7 @@ var saveTimer=null,saveTick=null;
    el momento, no al recargar y encontrarse el trabajo perdido. */
 var saveFallo=false;
 function save(){ var ok=true;
- try{ state.bdp=BDP.map(function(b){return {cod:b.cod,pre:b.pre,lo:b.lo,hi:b.hi};});
+ try{ state.bdp=bdpDeltas();
   localStorage.setItem(KEY,JSON.stringify(state));
   try{ if(state.activeId)localStorage.setItem('prestonLAB_activo',state.activeId); }catch(_){}
  }catch(e){ ok=false; }
@@ -2214,6 +2239,10 @@ function cargarDelServidor(cb){
      state.obras=(e.obras||[]); state.obras.forEach(normObra);
      if(e.bdp)mergeBdp(e.bdp);
      aplicaBdpSpec(state.params);
+     /* Faltaba: sin esto state.bdp seguía sin existir después de cargar, así que la primera
+        vez que alguien guardaba CUALQUIER cosa se enviaba el banco entero como si lo hubiera
+        cambiado él. Ahora queda con los mismos cambios que acaban de llegar. */
+     state.bdp=bdpDeltas();
      var act=null; try{ act=localStorage.getItem('prestonLAB_activo'); }catch(_){}
      state.activeId=(act&&state.obras.some(function(o){return o.id===act;}))?act:(state.obras[0]?state.obras[0].id:null);
      syncSent={}; state.obras.forEach(function(o){ syncSent[o.id]=JSON.stringify(o); });
@@ -3229,6 +3258,11 @@ var BDP_PRESTO=[
 /* SOLO las partidas reales de Proyecton: vacia la generica y puebla */
 BDP.length=0;
 BDP_PRESTO.forEach(function(b){ BDP.push(b); });
+/* Foto de los precios QUE TRAE EL CÓDIGO, antes de aplicar nada guardado. Con ella se sabe
+   qué ha cambiado el usuario de verdad, y así se guarda SOLO eso. Tiene que quedarse aquí,
+   después de poblar el banco y antes de que load() o el servidor apliquen lo suyo. */
+var BDP_ORIG={};
+BDP.forEach(function(b){ BDP_ORIG[b.cod]={pre:b.pre,lo:b.lo,hi:b.hi}; });
 
 /* ================= importador BC3 (FIEBDC-3 · Presto, Arquímedes, Menfis…) =================
    Códigos: acabar en '#' = capítulo, '##' = raíz. Subcapítulos se APLANAN (Prestón es de 2 niveles).
@@ -8261,7 +8295,7 @@ window.PRESTON={state:function(){return state;},obra:obra,ficha:function(){var o
  qr:{matriz:qrMatriz,cw:qrCodewords,ec:qrEC,png:qrDataURL,svg:qrSvgDe},
  pub:{url:pubURL,qr:pubQR,pagina:paginaPublica,publica:publicaObra,token:pubDe,auto:autoPublica,hash:pubHash},
  dir:{bonita:dirBonita,muni:muniBonito,parse:parseDireccion},
- version:'v171-asistente-cubiertas (LAB · copia de pruebas)'};
+ version:'v172-precios-que-se-guardan (LAB · copia de pruebas)'};
 try{var th0=localStorage.getItem('prestonLAB_theme'); if(th0)document.documentElement.setAttribute('data-theme',th0);}catch(e){}
 var _bd=document.getElementById('brandDode'); if(_bd&&typeof PBRAND!=='undefined')_bd.src=PBRAND.dode;
 try{ var _rv=document.getElementById('railVer'); if(_rv)_rv.textContent='Versión '+(PRESTON.version||'').split(' ')[0]; }catch(e){}
