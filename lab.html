@@ -537,29 +537,40 @@ table.data{width:100%;border-collapse:collapse}
 .frm .ib:focus-within{border-color:var(--brand);box-shadow:0 0 0 2px var(--brand-tint)}
 .frm .fhint{font-size:10px;color:var(--muted)}
 .actgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:10px;padding:14px}
-.actc{border:1px solid var(--line);border-radius:var(--r);padding:12px;cursor:pointer;background:var(--panel);display:flex;flex-direction:column;gap:8px;transition:.1s}
+.actc{border:1px solid var(--line);border-radius:var(--r);padding:14px;cursor:pointer;background:var(--panel);display:flex;flex-direction:column;gap:10px;transition:border-color .12s,background .12s,box-shadow .12s}
 .actc:hover{border-color:var(--sel-line)}
 .actc.on{border-color:var(--brand);background:var(--sel);box-shadow:inset 0 0 0 1px var(--brand)}
-.actc .ac-top{display:flex;align-items:center;gap:9px}
-.actc .ac-ico{width:30px;height:30px;border-radius:7px;background:var(--bg-sunken);color:var(--muted);display:grid;place-items:center;flex-shrink:0}
+.actc .ac-top{display:flex;align-items:center;gap:10px}
+.actc .ac-ico{width:32px;height:32px;border-radius:8px;background:var(--bg-sunken);color:var(--muted);display:grid;place-items:center;flex-shrink:0;transition:background .12s,color .12s}
 .actc.on .ac-ico{background:var(--brand);color:var(--on-brand)}
 .actc .ac-ico svg{width:16px;height:16px}
-.actc h5{margin:0;font-size:12.5px;flex:1}
-.actc .chk{width:17px;height:17px;border-radius:4px;border:1.5px solid var(--line-2);display:grid;place-items:center;color:transparent;flex-shrink:0}
+.actc h5{margin:0;font-size:13px;letter-spacing:-.01em;line-height:1.25;flex:1}
+/* la casilla es lo que se enciende y se apaga: que se vea que se puede pulsar */
+.actc .chk{width:20px;height:20px;border-radius:6px;border:1.5px solid var(--line-2);display:grid;place-items:center;color:transparent;flex-shrink:0;transition:.12s}
+.actc:not(.fija):hover .chk{border-color:var(--brand)}
 .actc.on .chk{background:var(--brand);border-color:var(--brand);color:var(--on-brand)}
-.actc .chk svg{width:11px;height:11px}
-.actc .ac-body{font-size:11px;color:var(--muted)}
-.actc .ac-opts{display:flex;gap:8px;flex-wrap:wrap}
+.actc .chk svg{width:12px;height:12px}
+.actc .ac-body{font-size:11.5px;line-height:1.45;color:var(--muted)}
 /* pista discreta dentro de un input-box (p.ej. "tu medición · en blanco = fachada sin descontar") */
 .ib .ib-hint{font-size:10px;color:var(--muted);white-space:nowrap}
-.actc .ac-opts .ib{display:flex;align-items:center;gap:5px;background:var(--bg);border:1px solid var(--line);border-radius:4px;padding:3px 7px;font-size:11.5px}
-.actc .ac-opts input,.actc .ac-opts select{border:0;background:transparent;color:var(--ink);font:inherit;font-size:11.5px;width:58px;outline:none;font-variant-numeric:tabular-nums}
-.actc .ac-opts select{width:auto}
-/* Los selectores de modelo llevan nombres de partida largos ("CELOSÍA/REJILLAS CUBRE
-   AIRES ACONDICIONADOS — 400,00 €/M2") y con width:auto el desplegable crece hasta la
-   opción más larga y se sale de la tarjeta en el móvil. Que pueda encogerse. */
-.actc .ac-opts .ib{max-width:100%;min-width:0}
-.actc .ac-opts select{max-width:100%;min-width:0}
+/* ZONA DE OPCIONES. Va separada por un filete, y pincharla NO enciende ni apaga la tarjeta:
+   antes, al fallar el tiro sobre el desplegable del SATE se apagaba la tarjeta entera y se
+   perdía lo que hubieras puesto. Ahora solo la cabecera y el texto hacen de interruptor. */
+.actc .ac-opts{display:flex;flex-direction:column;gap:10px;cursor:default;
+  margin-top:1px;padding-top:11px;border-top:1px solid var(--line)}
+.actc.on .ac-opts{border-top-color:var(--sel-line)}
+.ac-campo{display:flex;flex-direction:column;gap:5px}
+.ac-lbl{font-size:9.5px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.ac-campo select{width:100%;max-width:100%;min-width:0;font:inherit;font-size:12px;color:var(--ink);
+  background:var(--panel);border:1px solid var(--line-2);border-radius:8px;padding:7px 9px;cursor:pointer}
+.ac-campo select:hover{border-color:var(--brand)}
+.ac-num{display:flex;align-items:center;gap:7px;background:var(--panel);
+  border:1px solid var(--line-2);border-radius:8px;padding:0 10px}
+.ac-num:focus-within{border-color:var(--brand)}
+.ac-num input{flex:1;min-width:0;border:0;background:transparent;color:var(--ink);font:inherit;
+  font-size:12.5px;padding:7px 0;outline:none;font-variant-numeric:tabular-nums}
+.ac-num i{font-style:normal;font-size:11px;font-weight:700;color:var(--muted);flex:none}
+.ac-hint{font-size:10px;color:var(--muted);line-height:1.35}
 /* lo que entra siempre: se ve QUE incluye, pero no se puede desmarcar */
 .actc.fija{cursor:default;border-style:dashed;background:var(--bg)}
 .actc.fija:hover{border-color:var(--line)}
@@ -1464,9 +1475,10 @@ table.medt{width:100%;border-collapse:collapse;font-size:12px}
 .pre tr.wctog .wcn{font-size:10px;color:var(--muted);font-weight:400;margin-left:9px}
 
 /* selector visual de tipo de cubierta (asistente) */
-.ctwrap{display:flex;gap:8px;width:100%;margin:2px 0 8px;flex-wrap:wrap}
+.ctwrap{display:flex;gap:8px;width:100%;margin:0;flex-wrap:wrap}
 /* con tres tipos de cubierta cada botón necesita menos ancho para no romper la fila */
-.ctwrap.tres .ctbtn{flex:1 1 150px}
+.ctwrap.tres{flex-direction:column;gap:7px}
+.ctwrap.tres .ctbtn{flex:1 1 auto;width:100%}
 .ctbtn{flex:1 1 170px;display:flex;align-items:center;gap:10px;text-align:left;cursor:pointer;font-family:inherit;
  border:1.5px solid var(--line);border-radius:9px;padding:9px 11px;background:var(--panel);color:var(--ink);transition:border-color .12s,background .12s}
 .ctbtn:hover{border-color:var(--brand)}
@@ -4601,7 +4613,11 @@ function renderWiz(){ if(!wizData)wizData=wizDefaults();
  ['catTv','catNv','catNum','catMuni','catRc'].forEach(function(cid){ var el=document.getElementById(cid);
    if(el)el.addEventListener('input',function(){ wizData._catTouched=true;
      var map={catTv:'tv',catNv:'nv',catNum:'num',catMuni:'muni',catRc:'rc'}; if(wizData._cat)wizData._cat[map[cid]]=el.value; }); });
- host.querySelectorAll('.actc').forEach(function(c){ c.addEventListener('click',function(e){ if(e.target.closest('input,select,button'))return;
+ host.querySelectorAll('.actc').forEach(function(c){ c.addEventListener('click',function(e){
+   /* La zona de opciones NO es interruptor. Antes bastaba con fallar el tiro al ir a por el
+      desplegable del SATE para apagar la tarjeta entera y perder lo que hubieras puesto. */
+   if(e.target.closest('.ac-opts'))return;
+   if(e.target.closest('input,select,button,label'))return;
    var k=c.dataset.act; if(!k)return;   /* las tarjetas de lo que va siempre no llevan data-act */
    wizData[k]=!wizData[k]; renderWiz(); }); });
  host.querySelectorAll('select[data-rw]').forEach(function(s){ s.addEventListener('change',function(){ renderWiz(); }); });
@@ -4797,12 +4813,19 @@ function actc(k,ic,titulo,body,opts){ var on=wizData[k];
 function actfija(ic,titulo,body){
  return '<div class="actc fija"><div class="ac-top"><span class="ac-ico">'+g(ic,'')+'</span><h5>'+titulo+'</h5>'+
   '<span class="ac-siempre">siempre</span></div><div class="ac-body">'+body+'</div></div>'; }
-/* elegir el modelo de una partida entre varias del banco: se ve el precio de cada una */
+/* Campos de una tarjeta: etiqueta encima y control a todo el ancho. Antes iban como
+   pastillas en línea y con nombres de partida largos quedaba todo apretado y desigual. */
 function wizModelo(campo,codigos,actual,etiqueta,pista){
  var ops=codigos.map(function(c){ var b=bdpByCod(c); if(!b)return '';
    return '<option value="'+esc(c)+'"'+(actual===c?' selected':'')+'>'+esc(b.res)+' — '+m2(b.pre)+' €/'+esc(b.ud)+'</option>'; }).join('');
- return '<span class="ib" style="display:block">'+esc(etiqueta)+' <select data-w="'+campo+'">'+ops+'</select>'+
-  (pista?'<span class="ib-hint">'+esc(pista)+'</span>':'')+'</span>'; }
+ return '<label class="ac-campo"><span class="ac-lbl">'+esc(etiqueta)+'</span>'+
+  '<select data-w="'+campo+'">'+ops+'</select>'+
+  (pista?'<small class="ac-hint">'+esc(pista)+'</small>':'')+'</label>'; }
+function wizNum(campo,valor,unidad,etiqueta,pista,marca){
+ return '<label class="ac-campo"><span class="ac-lbl">'+esc(etiqueta)+'</span>'+
+  '<span class="ac-num"><input data-w="'+campo+'" inputmode="decimal" value="'+esc(valor)+'"'+
+   (marca?' placeholder="'+esc(marca)+'"':'')+'><i>'+esc(unidad)+'</i></span>'+
+  (pista?'<small class="ac-hint">'+esc(pista)+'</small>':'')+'</label>'; }
 function wizPaso2(){ var w=wizData;
  var viv=m0(num(w.viviendas)||0);
  return '<div class="panelbox"><div class="ph"><h2>¿Qué estamos interviniendo?</h2><span class="grow"></span><span class="sub">Solo partidas reales del banco Proyecton (Presto), con sus descripciones — el banco crecerá con cada archivo que se incorpore</span></div>'+
@@ -4811,14 +4834,14 @@ function wizPaso2(){ var w=wizData;
   actc('sate','sate','SATE en fachada','Revisión de paramentos, SATE, alfeizares, coronación, canaletas, juntas y rodapié.',
     wizModelo('sateCod',BDP.filter(function(b){return b.cap==='03'&&b.med&&b.med.indexOf('sate')===0&&(b.cod+'').indexOf('BAR')!==0;}).map(function(b){return b.cod;}),
       (w.sateCod||'E20'),'Sistema','marca y espesor del SATE de fachada')+
-    '<span class="ib" style="display:block;margin-top:6px">Superficie <input data-w="sateM2" inputmode="decimal" value="'+loose(w.sateM2||'')+'" placeholder="'+fEs(r2(w.bruta+(w.patios||0)))+'"> m²<span class="ib-hint">tu medición · en blanco = fachada sin descontar</span></span>')+
+    wizNum('sateM2',loose(w.sateM2||''),'m²','Superficie','tu medición · en blanco = la fachada sin descontar',fEs(r2(w.bruta+(w.patios||0)))))+
   actc('cubierta','roof','Cubierta','Rehabilitación de la cubierta. <b>Elige el tipo:</b>',
     '<div class="ctwrap tres">'+
      '<button type="button" class="ctbtn'+(w.cubTipo==='plana'||!w.cubTipo?' on':'')+'" data-cubtipo="plana"><span class="ct-ico">▭</span><span class="ct-t"><b>PLANA</b><small>Impermeabilización bicapa + losa Filtrón (11.xx)</small></span></button>'+
      '<button type="button" class="ctbtn'+(w.cubTipo==='inclinada'?' on':'')+'" data-cubtipo="inclinada"><span class="ct-ico">⌂</span><span class="ct-t"><b>INCLINADA</b><small>Ya lo es: panel sandwich sobre la pendiente actual (E29–E38)</small></span></button>'+
      '<button type="button" class="ctbtn'+(w.cubTipo==='plana2incli'?' on':'')+'" data-cubtipo="plana2incli"><span class="ct-ico">◺</span><span class="ct-t"><b>DE PLANA A INCLINADA</b><small>Lo mismo que la inclinada <b>más la subestructura de omegas</b> que crea la pendiente (E31)</small></span></button>'+
     '</div>'+
-    '<span class="ib">Superficie <input data-w="cubM2" inputmode="decimal" value="'+loose(w.cubM2||'')+'" placeholder="auto"> m²</span>')+
+    wizNum('cubM2',loose(w.cubM2||''),'m²','Superficie','en blanco = la estima el asistente','auto'))+
   '</div>'+
   /* ---- 2) ocultaciones: opcionales, una por vivienda ---- */
   '<div class="wiz-gtit">Ocultaciones en fachada <small>una por vivienda; el precio sale del modelo que elijas</small></div><div class="actgrid">'+
@@ -8299,7 +8322,7 @@ window.PRESTON={state:function(){return state;},obra:obra,ficha:function(){var o
  qr:{matriz:qrMatriz,cw:qrCodewords,ec:qrEC,png:qrDataURL,svg:qrSvgDe},
  pub:{url:pubURL,qr:pubQR,pagina:paginaPublica,publica:publicaObra,token:pubDe,auto:autoPublica,hash:pubHash},
  dir:{bonita:dirBonita,muni:muniBonito,parse:parseDireccion},
- version:'v173-precios-que-se-guardan (LAB · copia de pruebas)'};
+ version:'v175-actuaciones-ordenadas (LAB · copia de pruebas)'};
 try{var th0=localStorage.getItem('prestonLAB_theme'); if(th0)document.documentElement.setAttribute('data-theme',th0);}catch(e){}
 var _bd=document.getElementById('brandDode'); if(_bd&&typeof PBRAND!=='undefined')_bd.src=PBRAND.dode;
 try{ var _rv=document.getElementById('railVer'); if(_rv)_rv.textContent='Versión '+(PRESTON.version||'').split(' ')[0]; }catch(e){}
