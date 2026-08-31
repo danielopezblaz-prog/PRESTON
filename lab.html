@@ -2353,8 +2353,12 @@ function importe(p,o){return num(p.cantidad)*num(p.precio)*recF(o);}      /* imp
      sin etiqueta = común, cuenta en todas. Los totales, la subvención, el CAE, el dossier
      y la presentación salen de la mejora activa; lo demás se ve atenuado y no suma. */
 function mejorasDe(o){ o=o||obra(); return (o&&Array.isArray(o.mejoras))?o.mejoras:[]; }
+/* '' = PRESUPUESTO BASE: solo cuenta lo común, ninguna mejora. Es el estado por defecto al
+   crear mejoras a mano — así, al marcar un capítulo como «B», se apaga y el total baja EN EL
+   ACTO, que es lo que uno espera ver. (El primer arreglo caía aquí: la obra se ponía sola a
+   presupuestar la mejora recién creada y marcar un capítulo no cambiaba nada a la vista.) */
 function mejoraActiva(o){ o=o||obra(); var ms=mejorasDe(o); if(!ms.length)return '';
- var a=o.mejoraActiva; for(var i=0;i<ms.length;i++)if(ms[i].id===a)return a; return ms[0].id; }
+ var a=o.mejoraActiva; for(var i=0;i<ms.length;i++)if(ms[i].id===a)return a; return ''; }
 function enMejora(x,o){ var t=x&&x.mejoras; if(!t||!t.length)return true;
  var act=mejoraActiva(o); return !!act&&t.indexOf(act)>=0; }
 function cuentaP(c,p,o){ return enMejora(c,o)&&enMejora(p,o); }
@@ -5307,7 +5311,8 @@ function abreMejoraPicker(kind,id){ var o=obra(); if(!o)return;
   if(!Array.isArray(o.mejoras))o.mejoras=[];
   if(o.mejoras.some(function(m){return m.id===mId;})){ toast('La mejora «'+mId+'» ya existe'); return; }
   o.mejoras.push({id:mId,nom:/^MEJORA/i.test(v)?v:('MEJORA '+v)});
-  if(!o.mejoraActiva)o.mejoraActiva=o.mejoras[0].id;
+  /* la activa se queda en el PRESUPUESTO BASE: lo marcado como mejora se apaga y el total
+     baja al momento — para presupuestar CON la mejora ya está el selector de la cabecera */
   save(); pickClose(); abreMejoraPicker(kind,id);   /* reabrir ya con la nueva en la lista */
  };
  document.getElementById('mejpSi').onclick=function(){
@@ -5323,7 +5328,8 @@ function renderLivehead(){ var o=obra(); if(!o)return; var f=fichaDe(o);
  var ms=mejorasDe(o), selMej='';
  if(ms.length){ var act=mejoraActiva(o);
   selMej='<div class="lh lh-mej">'+g('copy')+'<span class="tx"><span class="l">Opción del presupuesto</span>'+
-   '<select id="lhMejora" title="Las partidas de otras mejoras se ven atenuadas y no suman">'+
+   '<select id="lhMejora" title="Lo marcado como mejora se ve atenuado y no suma salvo en su opción">'+
+   '<option value=""'+(act===''?' selected':'')+'>Base (sin mejoras) · '+eur0(totalesDePem(o,r2(pemDeOpcion(o,''))).total)+'</option>'+
    ms.map(function(m){ return '<option value="'+esc(m.id)+'"'+(m.id===act?' selected':'')+'>'+esc(m.nom||('Mejora '+m.id))+' · '+eur0(totalesDePem(o,r2(pemDeOpcion(o,m.id))).total)+'</option>'; }).join('')+
    '</select></span></div>'; }
  document.getElementById('livehead').innerHTML=selMej+
@@ -5340,7 +5346,8 @@ function renderLivehead(){ var o=obra(); if(!o)return; var f=fichaDe(o);
  var bt=document.getElementById('lhTerminar'); if(bt)bt.onclick=function(){ abrePickTerminar(); };
  var sm=document.getElementById('lhMejora');
  if(sm)sm.onchange=function(){ var oo=obra(); if(!oo)return; oo.mejoraActiva=sm.value; save(); renderEditor();
-   toast('Presupuestando la '+(mejorasDe(oo).filter(function(m){return m.id===sm.value;})[0]||{nom:sm.value}).nom); }; }
+   toast(sm.value===''?'Presupuestando el BASE, sin mejoras'
+     :('Presupuestando la '+(mejorasDe(oo).filter(function(m){return m.id===sm.value;})[0]||{nom:sm.value}).nom)); }; }
 function refreshDerived(){ var o=obra(); if(!o)return; var pem=0,maxT=0,tot=[];
  o.capitulos.forEach(function(c){ var ct=capTotal(c); tot.push(ct); pem+=ct; if(ct>maxT)maxT=ct; });
  o.capitulos.forEach(function(c,ci){ var ct=tot[ci];
@@ -8679,14 +8686,16 @@ function dossierHtml(o){ var f=fichaDe(o), t=f.t, opt=f.opt, p=state.params;
     presupuesto en papel */
  var msD=mejorasDe(o);
  if(!ciego&&msD.length){ var actD=mejoraActiva(o);
+  var filaOp=function(id,nom,desc){ var tm=totalesDePem(o,r2(pemDeOpcion(o,id)));
+    var esA=(id===actD);
+    return '<div style="display:flex;gap:10px;align-items:baseline;padding:7px 10px;border-top:1px solid #f0d0d0;font:11px Arial,sans-serif;color:#333'+(esA?';background:#f9f0f0':'')+'">'+
+     '<b style="color:#ae0b0b;flex:none">'+esc(nom)+(esA?' · PRESENTADA':'')+'</b>'+
+     '<span style="flex:1;min-width:0;color:#666">'+esc(String(desc||'').slice(0,150))+'</span>'+
+     '<b style="flex:none;white-space:nowrap">'+eur(tm.total)+'</b></div>'; };
   h+='<div style="margin-top:10px;border:1.5px solid #ae0b0b;border-radius:8px;overflow:hidden">'+
    '<div style="background:#ae0b0b;color:#fff;font:700 10.5px/1 Arial,sans-serif;letter-spacing:.06em;padding:7px 10px">OPCIONES DE ESTE PRESUPUESTO</div>'+
-   msD.map(function(m){ var tm=totalesDePem(o,r2(pemDeOpcion(o,m.id)));
-    var esA=(m.id===actD);
-    return '<div style="display:flex;gap:10px;align-items:baseline;padding:7px 10px;border-top:1px solid #f0d0d0;font:11px Arial,sans-serif;color:#333'+(esA?';background:#f9f0f0':'')+'">'+
-     '<b style="color:#ae0b0b;flex:none">'+esc(m.nom||('MEJORA '+m.id))+(esA?' · PRESENTADA':'')+'</b>'+
-     '<span style="flex:1;min-width:0;color:#666">'+esc(String(m.desc||'').slice(0,150))+'</span>'+
-     '<b style="flex:none;white-space:nowrap">'+eur(tm.total)+'</b></div>'; }).join('')+
+   filaOp('','PRESUPUESTO BASE','Sin las mejoras opcionales')+
+   msD.map(function(m){ return filaOp(m.id,m.nom||('MEJORA '+m.id),m.desc); }).join('')+
    '<div style="padding:6px 10px;font:9.5px Arial,sans-serif;color:#888;border-top:1px solid #f0d0d0">Importes con IVA incluido. La tabla superior desglosa la opción presentada; el resto se ofertan como alternativa.</div>'+
   '</div>'; }
  h+='</div>'+dkFoot(p)+'</div>';
@@ -8738,7 +8747,7 @@ window.PRESTON={state:function(){return state;},obra:obra,ficha:function(){var o
  qr:{matriz:qrMatriz,cw:qrCodewords,ec:qrEC,png:qrDataURL,svg:qrSvgDe},
  pub:{url:pubURL,qr:pubQR,pagina:paginaPublica,publica:publicaObra,token:pubDe,auto:autoPublica,hash:pubHash},
  dir:{bonita:dirBonita,muni:muniBonito,parse:parseDireccion},
- version:'v182-mejoras-capitulos (LAB · copia de pruebas)'};
+ version:'v183-mejoras-base (LAB · copia de pruebas)'};
 try{var th0=localStorage.getItem('prestonLAB_theme'); if(th0)document.documentElement.setAttribute('data-theme',th0);}catch(e){}
 var _bd=document.getElementById('brandDode'); if(_bd&&typeof PBRAND!=='undefined')_bd.src=PBRAND.dode;
 try{ var _rv=document.getElementById('railVer'); if(_rv)_rv.textContent='Versión '+(PRESTON.version||'').split(' ')[0]; }catch(e){}
