@@ -2462,16 +2462,21 @@ function generaPartidas(w){ w=wizAutos(Object.assign({},w));
     add('E27',0,'juntas de dilatación — a medir',null,true);
     add('E22',0,'rodapié en terrazas abiertas — a medir',null,true); }
   if(w.cubierta){
-    /* Tres caminos. Inclinada y «de plana a inclinada» comparten TODO menos una partida:
-       la subestructura de omegas (E31), que es justo lo que levanta la pendiente sobre una
-       cubierta que hoy es plana. Si el edificio ya está inclinado, esa pendiente existe y
-       la subestructura no se pone. */
+    /* Tres caminos. Son DOS cosas distintas, no una:
+         · 04.128 SUBESTRUCTURA — montantes C 37x37 fijados al forjado que FORMAN la
+           pendiente y sirven de apoyo a las correas. Solo hace falta cuando se convierte
+           una cubierta plana: si el edificio ya está inclinado, esa pendiente ya existe.
+         · E31 OMEGAS — se fijan «a las pendientes existentes» y son lo que sujeta el panel
+           sándwich (E35 dice literalmente que va «fijado sobre las omegas previamente
+           instaladas»). Hacen falta SIEMPRE, se venga de plana o de inclinada.
+       Por eso «de plana a inclinada» es la inclinada entera MÁS la subestructura. */
     var haciaInclinada=(w.cubTipo==='inclinada'||w.cubTipo==='plana2incli');
     if(haciaInclinada){ /* cubierta inclinada panel sandwich (E29-E38) */
       add('E29',w.cubM2,'levantado = superficie de cubierta');
       add('E30',w.cubM2,'preparación = superficie de cubierta');
       if(w.cubTipo==='plana2incli')
-        add('E31',w.cubM2,'omegas = superficie de cubierta · subestructura que da la pendiente');
+        add('04.128',w.cubM2,'formación de pendientes = superficie de cubierta · la estructura que convierte la plana en inclinada');
+      add('E31',w.cubM2,'omegas = superficie de cubierta · lo que sujeta el panel');
       add('E32',w.cubM2,'lana IBR 80 = superficie de cubierta');
       add('E35',w.cubM2,'panel sandwich 60 mm = superficie de cubierta');
       add('E33',w.longPlanta,'canalones ≈ aleros (longitud de planta) — ajustar');
@@ -4838,8 +4843,8 @@ function wizPaso2(){ var w=wizData;
   actc('cubierta','roof','Cubierta','Rehabilitación de la cubierta. <b>Elige el tipo:</b>',
     '<div class="ctwrap tres">'+
      '<button type="button" class="ctbtn'+(w.cubTipo==='plana'||!w.cubTipo?' on':'')+'" data-cubtipo="plana"><span class="ct-ico">▭</span><span class="ct-t"><b>PLANA</b><small>Impermeabilización bicapa + losa Filtrón (11.xx)</small></span></button>'+
-     '<button type="button" class="ctbtn'+(w.cubTipo==='inclinada'?' on':'')+'" data-cubtipo="inclinada"><span class="ct-ico">⌂</span><span class="ct-t"><b>INCLINADA</b><small>Ya lo es: panel sandwich sobre la pendiente actual (E29–E38)</small></span></button>'+
-     '<button type="button" class="ctbtn'+(w.cubTipo==='plana2incli'?' on':'')+'" data-cubtipo="plana2incli"><span class="ct-ico">◺</span><span class="ct-t"><b>DE PLANA A INCLINADA</b><small>Lo mismo que la inclinada <b>más la subestructura de omegas</b> que crea la pendiente (E31)</small></span></button>'+
+     '<button type="button" class="ctbtn'+(w.cubTipo==='inclinada'?' on':'')+'" data-cubtipo="inclinada"><span class="ct-ico">⌂</span><span class="ct-t"><b>INCLINADA</b><small>Ya lo es: omegas sobre la pendiente actual y panel sándwich (E29–E38)</small></span></button>'+
+     '<button type="button" class="ctbtn'+(w.cubTipo==='plana2incli'?' on':'')+'" data-cubtipo="plana2incli"><span class="ct-ico">◺</span><span class="ct-t"><b>DE PLANA A INCLINADA</b><small>La inclinada entera <b>más la subestructura</b> que forma la pendiente (04.128)</small></span></button>'+
     '</div>'+
     wizNum('cubM2',loose(w.cubM2||''),'m²','Superficie','en blanco = la estima el asistente','auto'))+
   '</div>'+
@@ -8322,7 +8327,7 @@ window.PRESTON={state:function(){return state;},obra:obra,ficha:function(){var o
  qr:{matriz:qrMatriz,cw:qrCodewords,ec:qrEC,png:qrDataURL,svg:qrSvgDe},
  pub:{url:pubURL,qr:pubQR,pagina:paginaPublica,publica:publicaObra,token:pubDe,auto:autoPublica,hash:pubHash},
  dir:{bonita:dirBonita,muni:muniBonito,parse:parseDireccion},
- version:'v175-actuaciones-ordenadas (LAB · copia de pruebas)'};
+ version:'v177-cubierta-subestructura (LAB · copia de pruebas)'};
 try{var th0=localStorage.getItem('prestonLAB_theme'); if(th0)document.documentElement.setAttribute('data-theme',th0);}catch(e){}
 var _bd=document.getElementById('brandDode'); if(_bd&&typeof PBRAND!=='undefined')_bd.src=PBRAND.dode;
 try{ var _rv=document.getElementById('railVer'); if(_rv)_rv.textContent='Versión '+(PRESTON.version||'').split(' ')[0]; }catch(e){}
