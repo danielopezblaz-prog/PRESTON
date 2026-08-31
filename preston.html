@@ -724,6 +724,25 @@ tr.t-cap .cell{font-weight:700;color:var(--ink)}
 .rtext[contenteditable]:hover{background:var(--panel);box-shadow:inset 0 0 0 1px var(--line-2)}
 .rtext[contenteditable]:focus{background:var(--panel);box-shadow:inset 0 0 0 2px var(--brand)}
 tr.t-cap .rtext{font-weight:700}
+/* ===== mejoras (opciones del presupuesto) ===== */
+/* fila fuera de la mejora activa: se ve, pero apagada — está en el documento, no en el total */
+tr.mej-fuera .cell,tr.mej-fuera input.ce{opacity:.45}
+tr.mej-fuera .capstripe{opacity:.3}
+.mejchip{flex:none;margin-left:6px;padding:2px 7px;border-radius:999px;font-size:9.5px;font-weight:800;
+  letter-spacing:.05em;background:var(--brand-tint);color:var(--brand);border:1px solid var(--sel-line)}
+.mejchip.off{background:var(--bg-sunken);color:var(--muted);border-color:var(--line)}
+.lh-mej select{font:inherit;font-size:12px;font-weight:700;color:var(--brand);background:var(--panel);
+  border:1px solid var(--sel-line);border-radius:7px;padding:3px 6px;max-width:240px;cursor:pointer}
+.mejp-row{display:flex;align-items:center;gap:9px;padding:8px 10px;border:1px solid var(--line);
+  border-radius:9px;margin-bottom:7px;cursor:pointer}
+.mejp-row:hover{border-color:var(--brand)}
+.mejp-id{width:26px;height:26px;border-radius:7px;background:var(--brand-tint);color:var(--brand);
+  display:grid;place-items:center;font-size:11px;font-weight:800;flex:none}
+.mejp-nom{font-size:12.5px;font-weight:600;min-width:0}
+.mejp-nom small{display:block;font-size:10.5px;font-weight:400;color:var(--muted)}
+.mejp-nueva{display:flex;gap:8px;margin-top:4px}
+.mejp-nueva input{flex:1;min-width:0;font:inherit;font-size:12px;padding:7px 9px;
+  border:1px solid var(--line-2);border-radius:8px;background:var(--panel);color:var(--ink)}
 .nat{width:18px;height:18px;display:grid;place-items:center;border-radius:4px;flex-shrink:0}
 .nat svg{width:11px;height:11px}
 .nat.cap{background:var(--brand-tint);color:var(--brand)}
@@ -2136,6 +2155,13 @@ function normObra(o){ if(!o.id)o.id=uid("o");
      obra y de ahí viajaba a la columna wizard de la base de datos */
   if(o._qrCache)delete o._qrCache;
   if(typeof o.autor!=='string')o.autor='';            /* carpeta del equipo (MARIA, DAVID...) */
+  /* mejoras: se sanea lo justo para que un dato roto no tire la app */
+  if(o.mejoras!=null&&!Array.isArray(o.mejoras))delete o.mejoras;
+  if(Array.isArray(o.mejoras)){ o.mejoras=o.mejoras.filter(function(m){return m&&m.id;});
+    if(!o.mejoras.length){ delete o.mejoras; delete o.mejoraActiva; } }
+  (o.capitulos||[]).forEach(function(c){ if(c.mejoras!=null&&!Array.isArray(c.mejoras))delete c.mejoras;
+    (c.partidas||[]).forEach(function(p){ if(p.mejoras!=null&&!Array.isArray(p.mejoras))delete p.mejoras; }); });
+  if(Array.isArray(o.mejoras))mejorasAplica(o);   /* del servidor los capítulos llegan sin etiqueta: el mapa las repone */
   /* La dirección se deja bien escrita venga de donde venga: del PDF, del BC3, de un
      JSON importado, del asistente o del servidor. Aquí y no en cada importador,
      porque normObra es el único punto por el que pasan TODAS las obras.
@@ -2197,6 +2223,9 @@ var saveTimer=null,saveTick=null;
 var saveFallo=false;
 function save(){ var ok=true;
  try{ state.bdp=bdpDeltas();
+  /* las etiquetas de mejora se espejan al mapa de la obra ANTES de persistir: es lo único
+     que sobrevive al servidor (los capítulos no tienen columna de extras) */
+  (state.obras||[]).forEach(function(o){ if(o&&(o.mejoras||o.mejorasMapa))mejorasSincroniza(o); });
   localStorage.setItem(KEY,JSON.stringify(state));
   try{ if(state.activeId)localStorage.setItem('prestonLAB_activo',state.activeId); }catch(_){}
  }catch(e){ ok=false; }
@@ -2314,9 +2343,54 @@ function recAgP(o){ return recAgPctDe(o); }
 function ivaAgPctDe(o){ o=o||obra(); if(o&&o.ivaAgentePct!=null&&o.ivaAgentePct!=='')return num(o.ivaAgentePct);
   try{ var v=state.params.ivaAgentePct; return (v!=null&&v!=='')?num(v):21; }catch(e){ return 21; } }
 function importe(p,o){return num(p.cantidad)*num(p.precio)*recF(o);}      /* importe de partida CON el recargo de SU obra */
-function capTotal(c,o){return c.partidas.reduce(function(s,p){return s+importe(p,o);},0);}
+/* ===== MEJORAS (opciones del presupuesto) =====
+   En las memorias reales hay partidas que a veces se contemplan y a veces no: el mismo
+   presupuesto se ofrece como MEJORA A / B / C (en Manzanares 72: A = envolvente, B = A +
+   fotovoltaica de zona común, C = A + fotovoltaica + aerotermia). El modelo:
+   - o.mejoras     = [{id:'A',nom:'MEJORA A',desc:'…'}, …]  las opciones que existen
+   - o.mejoraActiva= 'A'                                     la que se está presupuestando
+   - c.mejoras / p.mejoras = ['B','C']   el capítulo o la partida SOLO cuenta en esas;
+     sin etiqueta = común, cuenta en todas. Los totales, la subvención, el CAE, el dossier
+     y la presentación salen de la mejora activa; lo demás se ve atenuado y no suma. */
+function mejorasDe(o){ o=o||obra(); return (o&&Array.isArray(o.mejoras))?o.mejoras:[]; }
+/* '' = PRESUPUESTO BASE: solo cuenta lo común, ninguna mejora. Es el estado por defecto al
+   crear mejoras a mano — así, al marcar un capítulo como «B», se apaga y el total baja EN EL
+   ACTO, que es lo que uno espera ver. (El primer arreglo caía aquí: la obra se ponía sola a
+   presupuestar la mejora recién creada y marcar un capítulo no cambiaba nada a la vista.) */
+function mejoraActiva(o){ o=o||obra(); var ms=mejorasDe(o); if(!ms.length)return '';
+ var a=o.mejoraActiva; for(var i=0;i<ms.length;i++)if(ms[i].id===a)return a; return ''; }
+function enMejora(x,o){ var t=x&&x.mejoras; if(!t||!t.length)return true;
+ var act=mejoraActiva(o); return !!act&&t.indexOf(act)>=0; }
+function cuentaP(c,p,o){ return enMejora(c,o)&&enMejora(p,o); }
+/* PERSISTENCIA: el servidor guarda los extras de cada PARTIDA en su columna JSON, pero de
+   los CAPÍTULOS solo guarda código, nombre y certificación — una etiqueta puesta en un
+   capítulo moriría en el primer sincronizado. Por eso las etiquetas viajan ADEMÁS en un
+   mapa a nivel de obra (o.mejorasMapa, clave = id del capítulo o partida), que cae en la
+   columna wizard y sobrevive a todo; al cargar se vuelven a colocar. El mapa aguanta
+   incluso que un Prestón antiguo edite la obra: para él es un campo desconocido más. */
+function mejorasSincroniza(o){ if(!o)return; var m={},hay=false;
+ (o.capitulos||[]).forEach(function(c){ if(c.mejoras&&c.mejoras.length){m[c.id]=c.mejoras.slice();hay=true;}
+  (c.partidas||[]).forEach(function(p){ if(p.mejoras&&p.mejoras.length){m[p.id]=p.mejoras.slice();hay=true;} }); });
+ if(hay)o.mejorasMapa=m; else delete o.mejorasMapa; }
+function mejorasAplica(o){ if(!o)return; var m=o.mejorasMapa;
+ if(!m){ mejorasSincroniza(o); return; }   /* datos guardados antes del mapa: se construye */
+ (o.capitulos||[]).forEach(function(c){ if(m[c.id])c.mejoras=m[c.id].slice(); else delete c.mejoras;
+  (c.partidas||[]).forEach(function(p){ if(m[p.id])p.mejoras=m[p.id].slice(); else delete p.mejoras; }); }); }
+/* total del capítulo SIN el filtro de mejoras: lo que valdría si entrase */
+function capTotalBruto(c,o){return c.partidas.reduce(function(s,p){return s+importe(p,o);},0);}
+function capTotal(c,o){ if(!enMejora(c,o))return 0;
+ return c.partidas.reduce(function(s,p){return s+(enMejora(p,o)?importe(p,o):0);},0);}
 function pemDe(o){return (o.capitulos||[]).reduce(function(s,c){return s+capTotal(c,o);},0);}
-function totalesDe(o){ var pem=r2(pemDe(o)),cfg=o.config||{gg:0,bi:0,iva:10};
+/* PEM que tendría la obra con OTRA mejora activa (para comparar opciones sin cambiarla) */
+function pemDeOpcion(o,id){ var s=0;
+ (o.capitulos||[]).forEach(function(c){ var tc=c.mejoras;
+  if(tc&&tc.length&&tc.indexOf(id)<0)return;
+  c.partidas.forEach(function(p){ var tp=p.mejoras;
+   if(tp&&tp.length&&tp.indexOf(id)<0)return; s+=importe(p,o); }); });
+ return s; }
+function totalesDe(o){ return totalesDePem(o,r2(pemDe(o))); }
+/* mismo cálculo con un PEM dado: sirve para valorar OTRA mejora sin cambiar la activa */
+function totalesDePem(o,pem){ var cfg=o.config||{gg:0,bi:0,iva:10};
   var pemBase=r2(pem/recF(o));                      /* PEM sin el recargo de adelanto (coste real) */
   /* el 8 % del agente va SOBRE el PEM ya recargado (encima del 20 %), no sobre el coste:
      coeficiente total sobre el coste = 1,20 x 1,08 = 1,296 (29,6 % de margen).
@@ -2336,7 +2410,9 @@ function totalesDe(o){ var pem=r2(pemDe(o)),cfg=o.config||{gg:0,bi:0,iva:10};
 
 /* medidas presentes en la obra (por etiqueta med de partidas) */
 function medidasDe(o){ var acc={};
-  (o.capitulos||[]).forEach(function(c){ c.partidas.forEach(function(p){ if(p.med&&MEDIDAS[p.med]&&importe(p)>0){
+  /* las partidas fuera de la mejora activa NO computan: si la aerotermia es solo de la
+     opción C, la subvención y el CAE de la opción A no pueden contarla */
+  (o.capitulos||[]).forEach(function(c){ c.partidas.forEach(function(p){ if(cuentaP(c,p,o)&&p.med&&MEDIDAS[p.med]&&importe(p)>0){
     if(!acc[p.med])acc[p.med]={key:p.med,n:MEDIDAS[p.med].n,coste:0,cant:0};
     acc[p.med].coste+=importe(p); acc[p.med].cant+=num(p.cantidad); } }); });
   return Object.keys(acc).map(function(k){return acc[k];}); }
@@ -3335,6 +3411,15 @@ function obraDesdeBC3(nombre,px){
   o.capitulos.push(cap);
  });
  if(!o.capitulos.length)throw new Error('No se encontraron capítulos bajo el concepto raíz');
+ /* capítulos llamados "MEJORA B ..." en el BC3: se convierten en opciones de verdad —
+    quedan marcados, no suman entre sí, y la obra arranca presupuestando la primera */
+ var idsB=[];
+ o.capitulos.forEach(function(c){ var mb=String(c.res||'').match(/^MEJORA\s+([A-Z0-9]{1,3})\b/i);
+  if(mb){ var idb=mb[1].toUpperCase(); c.mejoras=[idb]; if(idsB.indexOf(idb)<0)idsB.push(idb); } });
+ if(idsB.length){ o.mejoras=idsB.map(function(id){ var nom='';
+   o.capitulos.forEach(function(c){ if(c.mejoras&&c.mejoras[0]===id&&!nom)nom=c.res; });
+   return {id:id,nom:nom||('MEJORA '+id)}; });
+  o.mejoraActiva=idsB[0]; mejorasSincroniza(o); }
  return o;
 }
 function importaBC3File(file){
@@ -3692,7 +3777,7 @@ function pdfDireccion(raw){
  }
  s=s.replace(/^[^A-Za-zÁÉÍÓÚÑáéíóúñ]*(?=[A-Za-zÁÉÍÓÚÑáéíóúñ])/,'')      /* basura inicial */
     .replace(/\bN[ºo°]\s*/gi,'').replace(/\s*,\s*/g,', ').trim();
- var mv=s.match(/(?:^|\s)(C\/|CL|CALLE|AVDA?\.?|AVENIDA|PZA?\.?|PLAZA|PS\.?|PASEO|CTRA\.?|CARRETERA|CAMINO|RONDA|GTA\.?|GLORIETA|TRAV\.?|TRAVES[IÍ]A)\.?\s*/i);
+ var mv=s.match(/(?:^|\s)(C\/|CL|CALLE|AVDA?\.?|AVENIDA|AV\.?|PZA?\.?|PLAZA|PS\.?|PASEO|CTRA\.?|CARRETERA|CAMINO|RONDA|GTA\.?|GLORIETA|TRAV\.?|TRAVES[IÍ]A)\.?\s*(?:DE\s+|DEL\s+|DE\s+LA\s+)?/i);
  var via='Calle', resto=s;
  if(mv){ var p=mv[1].toUpperCase().replace(/\./g,'');
   via=/^AV/.test(p)?'Avenida':/^(PZ|PLAZA)/.test(p)?'Plaza':/^(PS|PASEO)/.test(p)?'Paseo':
@@ -3709,6 +3794,47 @@ function pdfDireccion(raw){
  dir=dir.replace(/\s+/g,' ').replace(/[\s,.;:-]+$/,'').trim();
  muni=muni?bonito(muni.trim()):'';
  return {dir:dir, muni:muni, nombre:dir};
+}
+/* ===== resumen con MEJORAS en columnas =====
+   Formato real de la casa (Manzanares 72): una hoja "CAP. RESUMEN PRESUPUESTOS  MEJORA A
+   MEJORA B  MEJORA C" con la misma lista de capítulos y UN IMPORTE POR OPCIÓN; «- €» cuando
+   esa opción no lo lleva (la aerotermia solo está en C). De ahí salen: qué opciones existen,
+   su descripción, y qué filas son exclusivas de cuáles. */
+function detectaMejorasResumen(lines){
+ var L=lines.map(function(l){return String(l).replace(/\s+/g,' ').trim();});
+ var iCab=-1, ids=[];
+ for(var i=0;i<L.length;i++){
+  if(/^CAP\.?\s+RESUMEN\s+PRESUPUESTOS?\b/i.test(L[i])){
+   var mm=L[i].match(/MEJORA\s+([A-Z0-9]{1,3})\b/gi)||[];
+   if(mm.length>=2){ iCab=i; ids=mm.map(function(x){return x.replace(/MEJORA\s+/i,'').toUpperCase();}); break; } } }
+ if(iCab<0)return null;
+ var ops=ids.map(function(id){return {id:id,nom:'MEJORA '+id,desc:''};});
+ /* descripciones: en las ~14 líneas de encima, "MEJORA A <texto>" (o el texto en la línea
+    siguiente si la etiqueta va sola, como la B) */
+ for(var d=Math.max(0,iCab-14);d<iCab;d++){
+  var md=L[d].match(/^MEJORA\s+([A-Z0-9]{1,3})\b\s*(.*)$/i); if(!md)continue;
+  var op=null; ops.forEach(function(x){ if(x.id===md[1].toUpperCase())op=x; }); if(!op)continue;
+  var desc=(md[2]||'').trim();
+  if(!desc&&L[d+1]&&!/^(MEJORA\s|CAP\.)/i.test(L[d+1]))desc=L[d+1];
+  op.desc=desc.slice(0,240);
+ }
+ /* filas: código + nombre + N celdas ("importe €" o "- €") */
+ var filas={}, pec=null, coste=null, n=ids.length;
+ var celda=/(-|\d{1,3}(?:\.\d{3})*(?:,\d{2})?)\s*€/g;
+ for(var j=iCab+1;j<Math.min(L.length,iCab+60);j++){
+  var l=L[j]; if(!l)continue;
+  var cs=[], mc; celda.lastIndex=0;
+  while(mc=celda.exec(l))cs.push(mc[1]);
+  if(cs.length<n){ if(/^NOTAS?\b|^Conforme\b/i.test(l))break; continue; }
+  var vals=cs.slice(-n).map(function(v){ return v==='-'?null:pdfNumES(v); });
+  if(/^PRESUPUESTO\s+DE\s+EJECUCI[ÓO]N/i.test(l)){ pec={}; ids.forEach(function(id,k){pec[id]=vals[k];}); continue; }
+  if(/^COSTE\s+TOTAL/i.test(l)){ coste={}; ids.forEach(function(id,k){coste[id]=vals[k];}); break; }
+  var mr=l.match(/^(\d{1,2}(?:\.\d{1,2})?)\s+/); if(!mr)continue;
+  var fila={}; ids.forEach(function(id,k){fila[id]=vals[k];});
+  filas[mr[1]]=fila;
+ }
+ if(!Object.keys(filas).length)return null;
+ return {ops:ops,filas:filas,pec:pec,coste:coste,ids:ids};
 }
 function parsePresupuestoPDF(lines){
  var out={capitulos:[],encontrado:[],noEncontrado:[],avisos:[]};
@@ -3765,6 +3891,16 @@ function parsePresupuestoPDF(lines){
   if(mBase){ out.basePdf=pdfNumES(mBase[1]);
    var difB=r2(out.basePdf-out.pem);
    if(Math.abs(difB)>1)out.avisos.push('El PEM leído ('+svEur(out.pem)+') NO cuadra con el total del PDF ('+svEur(out.basePdf)+'): '+(difB>0?'faltan':'sobran')+' '+svEur(Math.abs(difB))+' — revisa capítulos y partidas.');
+  }
+  /* mejoras en columnas: se detectan aquí y se etiquetan en obraDesdePDF */
+  var mejR=detectaMejorasResumen(lines);
+  if(mejR){ out.mejoras=mejR.ops; out.mejFilas=mejR.filas; out.mejPec=mejR.pec; out.mejCoste=mejR.coste; out.mejIds=mejR.ids;
+   var pemOpt=function(id){ var s=0; Object.keys(mejR.filas).forEach(function(k){ var v=mejR.filas[k][id]; if(v!=null)s+=v; }); return r2(s); };
+   out.mejPemBase=pemOpt(mejR.ids[0]);
+   out.avisos.unshift('Presupuesto con '+mejR.ids.length+' MEJORAS ('+mejR.ids.join(' / ')+'). Lo exclusivo de una opción entra MARCADO y solo suma en ella; la obra queda presupuestando la MEJORA '+mejR.ids[0]+' — se cambia en la cabecera del presupuesto.');
+   if(mejR.pec){ var difP=[]; mejR.ids.forEach(function(id){ var a=pemOpt(id), b=mejR.pec[id];
+     if(b!=null&&Math.abs(a-b)>2)difP.push('la '+id+' suma '+svEur(a)+' y el PDF dice '+svEur(b)); });
+    if(difP.length)out.avisos.push('El resumen de mejoras del PDF no cuadra consigo mismo: '+difP.join(' · ')+' — revísalo.'); }
   }
   /* partidas que quedaron a cero o sin título legible: mejor cantarlas que esconderlas */
   var aCero=[],sinTit=[];
@@ -3914,8 +4050,12 @@ function parsePresupuestoPDF(lines){
  out.enPEM=out.capitulos.filter(function(c){return !c.acc;}).reduce(function(a,c){return a+c.importe;},0);
  if(out.costeTotalPDF!=null&&out.pem!=null){
   var io=(out.ivaObra!=null?out.ivaObra:10)/100, ih=(out.ivaHon!=null?out.ivaHon:21)/100;
-  var tas=(out.tasasEur!=null?out.tasasEur:out.pem*((out.tasasPct||0)/100));
-  var recon=out.pem*(1+io)+(out.honTec||0)*(1+ih)+(out.honAgente||0)*(1+ih)+tas;
+  /* con mejoras, el COSTE TOTAL leído es el de la PRIMERA opción (la A): la reconstrucción
+     tiene que usar el PEM de esa opción, no la suma de todo el detalle (que lleva también
+     lo exclusivo de B y C) — si no, saltaba una alarma falsa de 200.000 € */
+  var pemCk=(out.mejPemBase!=null?out.mejPemBase:out.pem);
+  var tas=(out.tasasEur!=null?out.tasasEur:pemCk*((out.tasasPct||0)/100));
+  var recon=pemCk*(1+io)+(out.honTec||0)*(1+ih)+(out.honAgente||0)*(1+ih)+tas;
   out.checkTotal={recon:+recon.toFixed(2),pdf:out.costeTotalPDF,ok:Math.abs(recon-out.costeTotalPDF)<=2};
   if(!out.checkTotal.ok)out.avisos.push('El coste total reconstruido ('+svEur(recon)+') no coincide con el del PDF ('+svEur(out.costeTotalPDF)+'). Revisa honorarios, IVA o tasas.');
  }
@@ -3969,6 +4109,53 @@ function obraDesdePDF(nombre,out){
   }
   o.capitulos.push({id:uid('c'),cod:cod,res:c.nombre,cert:0,partidas:parts});
  });
+ /* MEJORAS del resumen en columnas: se crean las opciones y se etiqueta cada fila.
+    Una fila con importe en TODAS las columnas es común (sin etiqueta); con «- €» en
+    alguna, queda marcada solo con las opciones donde sí está. */
+ if(out.mejoras&&out.mejoras.length&&out.mejFilas){
+  o.mejoras=out.mejoras.map(function(m){ return {id:m.id,nom:m.nom,desc:m.desc||''}; });
+  o.mejoraActiva=o.mejoras[0].id;
+  var idsM=out.mejIds||o.mejoras.map(function(m){return m.id;});
+  var variosImp=[];
+  var etiqueta=function(nodo,fila,esCap){
+   var con=idsM.filter(function(id){ return fila[id]!=null; });
+   if(con.length&&con.length<idsM.length)nodo.mejoras=con.slice();
+   /* la misma fila vale DISTINTO según la opción (la fotovoltaica de B es más pequeña que
+      la de C): no se puede representar con una sola partida — se avisa con los importes */
+   var vals=con.map(function(id){return fila[id];});
+   if(vals.length>1&&(Math.max.apply(null,vals)-Math.min.apply(null,vals))>2)
+    variosImp.push((esCap?'cap. ':'')+nodo.cod+' '+String(nodo.res||'').slice(0,34)+' ('+con.map(function(id){return id+': '+svEur(fila[id]);}).join(' · ')+')');
+  };
+  o.capitulos.forEach(function(c){
+   var fc=out.mejFilas[c.cod]; if(fc)etiqueta(c,fc,true);
+   c.partidas.forEach(function(p2){ var fp=out.mejFilas[p2.cod]; if(fp)etiqueta(p2,fp,false); });
+  });
+  if(variosImp.length)out.avisos.push('Estas filas valen DISTINTO según la mejora y la partida entra con su importe del detalle — ajústala si eliges otra opción: '+variosImp.join(' | ')+'.');
+  /* POR CAPÍTULOS: las mejoras se manejan a nivel de capítulo. Si dentro de uno conviven
+     partidas de opciones distintas (el 05 del PDF: aerotermia solo C, fotovoltaica B·C),
+     el capítulo se PARTE y cada grupo pasa a ser su propio capítulo con su etiqueta; si
+     todas sus partidas llevan la misma, la etiqueta sube al capítulo. */
+  var reord=[];
+  o.capitulos.forEach(function(c){
+   var grupos={},ordenG=[];
+   c.partidas.forEach(function(p2){ var k=(p2.mejoras&&p2.mejoras.length)?p2.mejoras.join('·'):'';
+    if(!grupos[k]){grupos[k]=[];ordenG.push(k);} grupos[k].push(p2); });
+   if(ordenG.length<=1){ var k0=ordenG[0]||'';
+    if(k0){ if(!c.mejoras)c.mejoras=grupos[k0][0].mejoras.slice();
+     grupos[k0].forEach(function(p2){ delete p2.mejoras; }); }
+    reord.push(c); return; }
+   var primero=true, sufijo=0;
+   if(grupos['']&&grupos[''].length){ c.partidas=grupos['']; reord.push(c); primero=false; }
+   ordenG.forEach(function(k){ if(!k)return; var gr=grupos[k];
+    var cod2; if(primero){ cod2=c.cod; primero=false; } else { cod2=c.cod+String.fromCharCode(65+sufijo); sufijo++; }
+    var nc={id:uid('c'),cod:cod2,res:(gr.length===1?String(gr[0].res||c.res):c.res+' — '+k),cert:0,
+      mejoras:gr[0].mejoras.slice(),partidas:gr};
+    gr.forEach(function(p2){ delete p2.mejoras; });
+    reord.push(nc); });
+  });
+  o.capitulos=reord;
+  mejorasSincroniza(o);
+ }
  o.subv={};
  if(out.honTec!=null)o.subv.honTec=out.honTec;
  if(out.honAgente!=null)o.subv.honAgente=out.honAgente;
@@ -5077,22 +5264,25 @@ function specRow(n,isCap){ var tr=document.createElement('tr'); tr.className='t-
  tr.innerHTML='<td colspan="9"><div class="specbox"><div class="spec-l">'+(isCap?'Descripción del capítulo (texto para el cliente)':'Especificación de la partida (texto para el cliente)')+'</div>'+
   '<textarea rows="2" data-k="text" data-kind="'+(isCap?'cap':'part')+'" data-id="'+n.id+'" data-f="spec" placeholder="'+(isCap?'Alcance del capítulo, criterios de ejecución, normativa…':'Sistema, normativa, certificados y garantía que verá el cliente…')+'">'+esc(n.spec||'')+'</textarea></div></td>';
  return tr; }
-function capRow(c,ci){ var tr=document.createElement('tr'); tr.className='row t-cap'+(selected===c.id?' sel':''); tr.dataset.id=c.id; var open=!collapsed[c.id]; var col=capColor(ci||0);
+/* chip de mejora de una fila: qué opciones la incluyen, y apagada si no está en la activa */
+function mejChip(n,o){ var t=n.mejoras; if(!t||!t.length)return '';
+ return '<span class="mejchip'+(enMejora(n,o)?'':' off')+'" title="Solo cuenta en: '+esc(t.join(' · '))+'">'+esc(t.join('·'))+'</span>'; }
+function capRow(c,ci){ var tr=document.createElement('tr'); tr.className='row t-cap'+(selected===c.id?' sel':'')+(enMejora(c)?'':' mej-fuera'); tr.dataset.id=c.id; var open=!collapsed[c.id]; var col=capColor(ci||0);
  tr.innerHTML='<td class="stk s1"><i class="capstripe" style="background:'+col+'"></i><div class="cell"><span class="nat cap" draggable="true" data-drag="c:'+c.id+'" title="Capítulo — arrastra para reordenar" style="color:'+col+';background:'+col+'1f"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M4 7a1.5 1.5 0 011.5-1.5H9l2 2h7.5A1.5 1.5 0 0120 9v8.5A1.5 1.5 0 0118.5 19h-13A1.5 1.5 0 014 17.5z"/></svg></span></div></td>'+
   '<td class="ed stk s2"><input readonly class="ce mono" data-col="cod" data-k="text" data-kind="cap" data-id="'+c.id+'" data-f="cod" value="'+esc(c.cod)+'"></td>'+
   '<td class="stk s3"><div class="cell"><div class="res"><span class="tw '+(open?'open':'')+'" data-tw="'+c.id+'">'+twSvg()+'</span><input readonly class="ce" data-col="res" data-k="text" data-kind="cap" data-id="'+c.id+'" data-f="res" title="'+esc(c.res)+'" value="'+esc(c.res)+'" aria-label="Resumen del capítulo">'+
-  '<span class="spectg'+(specOpen[c.id]?' open':'')+(c.spec?' has':'')+'" data-spectg="'+c.id+'" title="Descripción del capítulo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></span></div></div></td>'+
+  '<span class="spectg'+(specOpen[c.id]?' open':'')+(c.spec?' has':'')+'" data-spectg="'+c.id+'" title="Descripción del capítulo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></span>'+mejChip(c)+'</div></div></td>'+
   '<td><div class="cell"></div></td>'+
   '<td class="r"><div class="cell"></div></td><td class="r"><div class="cell"></div></td>'+
   '<td class="rnum"><div class="cell" id="timp-'+c.id+'">—</div></td>'+
   '<td class="rnum"><div class="cell"><div class="pctcell"><span class="pbar"><i id="tbar-'+c.id+'"></i></span><span id="tpct-'+c.id+'">—</span></div></div></td>'+
-  '<td><div class="cell p0"><div class="rowact"><button data-action="addPart" data-cap="'+c.id+'" title="Añadir partida">'+g('plus','')+'</button><button class="del" data-action="delCap" data-id="'+c.id+'" title="Eliminar">'+g('trash','')+'</button></div></div></td>';
+  '<td><div class="cell p0"><div class="rowact"><button data-action="mejCap" data-id="'+c.id+'" title="Mejora / opción: en qué versiones del presupuesto cuenta este capítulo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 00-2 2v3m18 0V5a2 2 0 00-2-2h-3m0 18h3a2 2 0 002-2v-3M3 16v3a2 2 0 002 2h3"/><path d="M9 12l2 2 4-4"/></svg></button><button data-action="addPart" data-cap="'+c.id+'" title="Añadir partida">'+g('plus','')+'</button><button class="del" data-action="delCap" data-id="'+c.id+'" title="Eliminar">'+g('trash','')+'</button></div></div></td>';
  return tr; }
-function partRow(c,p,ci){ var tr=document.createElement('tr'); tr.className='row t-par'+(selected===p.id?' sel':''); tr.dataset.id=p.id; var col=capColor(ci||0);
+function partRow(c,p,ci){ var tr=document.createElement('tr'); tr.className='row t-par'+(selected===p.id?' sel':'')+(cuentaP(c,p)?'':' mej-fuera'); tr.dataset.id=p.id; var col=capColor(ci||0);
  tr.innerHTML='<td class="stk s1"><i class="capstripe" style="background:'+col+'"></i><div class="cell"><span class="nat par" draggable="true" data-drag="p:'+p.id+'" title="Partida — arrastra para mover"><svg viewBox="0 0 24 24"><rect x="7" y="7" width="10" height="10" rx="2.5" fill="currentColor"/></svg></span></div></td>'+
   '<td class="ed stk s2"><input readonly class="ce mono" data-col="cod" data-k="text" data-kind="part" data-id="'+p.id+'" data-f="cod" value="'+esc(p.cod)+'"></td>'+
   '<td class="stk s3"><div class="cell"><div class="res" style="padding-left:14px"><span class="tw leaf"></span><input readonly class="ce" data-col="res" data-k="text" data-kind="part" data-id="'+p.id+'" data-f="res" title="'+esc(p.res)+'" value="'+esc(p.res)+'" aria-label="Resumen de la partida">'+(p.est?'<span class="estchip" title="Medición estimada por el asistente'+(p.formula?': '+esc(p.formula):'')+'">est</span>':'')+
-  '<span class="spectg'+(specOpen[p.id]?' open':'')+(p.spec?' has':'')+'" data-spectg="'+p.id+'" title="Especificación de la partida"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></span></div></div></td>'+
+  '<span class="spectg'+(specOpen[p.id]?' open':'')+(p.spec?' has':'')+'" data-spectg="'+p.id+'" title="Especificación de la partida"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></span>'+mejChip(p)+'</div></div></td>'+
   '<td class="ed"><input readonly class="ce" data-col="ud" data-k="text" data-kind="part" data-id="'+p.id+'" data-f="ud" value="'+esc(p.ud||'')+'"></td>'+
   '<td class="ed"><input readonly class="ce r'+(tieneLineas(p)?' calc':'')+'" data-col="can" inputmode="decimal" data-k="partNum" data-id="'+p.id+'" data-f="cantidad" value="'+loose(num(p.cantidad))+'"'+(tieneLineas(p)?' title="Cantidad por medición ('+p.lineas.length+' líneas) — edítala en el panel inferior (doble clic)"':'')+'></td>'+
   '<td class="ed" style="position:relative"><input readonly class="ce r" data-col="pre" inputmode="decimal" data-k="partNum" data-id="'+p.id+'" data-f="precio" value="'+m2(num(p.precio)*recF())+'" style="padding-right:20px"><span style="position:absolute;right:5px;top:50%;transform:translateY(-50%)" id="bm-'+p.id+'">'+bmarkOf(p)+'</span></td>'+
@@ -5100,9 +5290,49 @@ function partRow(c,p,ci){ var tr=document.createElement('tr'); tr.className='row
   '<td class="rnum"><div class="cell"><div class="pctcell"><span class="pbar"><i id="tbar-'+p.id+'"></i></span><span id="tpct-'+p.id+'">—</span></div></div></td>'+
   '<td><div class="cell p0"><div class="rowact"><button data-action="medir" data-id="'+p.id+'" title="Medición y detalle (doble clic en la fila)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8l13 13 5-5L8 3z"/><path d="M8 8l2 2M12 6l2 2M6 12l2 2"/></svg></button><button data-action="dupPart" data-id="'+p.id+'" title="Duplicar">'+g('copy','')+'</button><button class="del" data-action="delPart" data-id="'+p.id+'" title="Eliminar">'+g('trash','')+'</button></div></div></td>';
  return tr; }
+/* ---- asignar un capítulo o una partida a sus mejoras ---- */
+function abreMejoraPicker(kind,id){ var o=obra(); if(!o)return;
+ var n=(kind==='cap')?IDX.cap[id]:IDX.part[id]; if(!n)return;
+ var ms=mejorasDe(o), tags=n.mejoras||[];
+ var filas=ms.map(function(m){ return '<label class="mejp-row"><input type="checkbox" data-mejid="'+esc(m.id)+'"'+(tags.indexOf(m.id)>=0?' checked':'')+'>'+
+   '<span class="mejp-id">'+esc(m.id)+'</span><span class="mejp-nom">'+esc(m.nom||('Mejora '+m.id))+(m.desc?'<small>'+esc(String(m.desc).slice(0,90))+'</small>':'')+'</span></label>'; }).join('');
+ pickOpen('¿En qué mejoras cuenta '+(kind==='cap'?'este capítulo':'esta partida')+'?',
+  '<p class="pick-intro">'+esc(n.res||'')+'</p>'+
+  (ms.length?filas:'<p class="pick-intro" style="color:var(--muted)">Este presupuesto aún no tiene mejoras: crea la primera abajo.</p>')+
+  '<div class="mejp-nueva"><input id="mejpNueva" maxlength="30" placeholder="Nueva mejora (p. ej. B — Fotovoltaica)"><button class="mini" id="mejpCrear">+ Crear</button></div>'+
+  '<p class="pick-intro" style="font-size:11px;color:var(--muted);margin-top:8px">Sin ninguna marcada = <b>común</b>: cuenta en todas las versiones del presupuesto.</p>'+
+  '<div style="display:flex;gap:10px;justify-content:flex-end;margin-top:8px"><button class="mini acc" id="mejpNo">Cancelar</button><button class="btn" id="mejpSi">Guardar</button></div>');
+ var body=document.getElementById('pickBody');
+ document.getElementById('mejpNo').onclick=pickClose;
+ document.getElementById('mejpCrear').onclick=function(){
+  var v=String(document.getElementById('mejpNueva').value||'').trim(); if(!v)return;
+  /* "B — Fotovoltaica" -> id B, nombre completo; "MEJORA B" -> id B */
+  var mId=(v.match(/^(?:MEJORA\s+)?([A-Za-z0-9]{1,3})\b/)||[])[1]; mId=(mId||v.slice(0,2)).toUpperCase();
+  if(!Array.isArray(o.mejoras))o.mejoras=[];
+  if(o.mejoras.some(function(m){return m.id===mId;})){ toast('La mejora «'+mId+'» ya existe'); return; }
+  o.mejoras.push({id:mId,nom:/^MEJORA/i.test(v)?v:('MEJORA '+v)});
+  /* la activa se queda en el PRESUPUESTO BASE: lo marcado como mejora se apaga y el total
+     baja al momento — para presupuestar CON la mejora ya está el selector de la cabecera */
+  save(); pickClose(); abreMejoraPicker(kind,id);   /* reabrir ya con la nueva en la lista */
+ };
+ document.getElementById('mejpSi').onclick=function(){
+  var ids=[].slice.call(body.querySelectorAll('input[data-mejid]:checked')).map(function(x){return x.dataset.mejid;});
+  if(ids.length)n.mejoras=ids; else delete n.mejoras;
+  save(); pickClose(); renderEditor();
+  toast(ids.length?('Cuenta solo en: '+ids.join(' · ')):'Común: cuenta en todas'); };
+}
 function renderLivehead(){ var o=obra(); if(!o)return; var f=fichaDe(o);
  function lh(ico,l,v,c,hot,extra){ return '<div class="lh'+(hot?' hot':'')+'">'+g(ico)+'<span class="tx"><span class="l">'+l+'</span><b class="'+(c||'')+'">'+v+'</b>'+(extra||'')+'</span></div>'; }
- document.getElementById('livehead').innerHTML=
+ /* si el presupuesto tiene mejoras, la ACTIVA se elige aquí y todo (totales, subvención,
+    dossier, presentación) se calcula con ella */
+ var ms=mejorasDe(o), selMej='';
+ if(ms.length){ var act=mejoraActiva(o);
+  selMej='<div class="lh lh-mej">'+g('copy')+'<span class="tx"><span class="l">Opción del presupuesto</span>'+
+   '<select id="lhMejora" title="Lo marcado como mejora se ve atenuado y no suma salvo en su opción">'+
+   '<option value=""'+(act===''?' selected':'')+'>Base (sin mejoras) · '+eur0(totalesDePem(o,r2(pemDeOpcion(o,''))).total)+'</option>'+
+   ms.map(function(m){ return '<option value="'+esc(m.id)+'"'+(m.id===act?' selected':'')+'>'+esc(m.nom||('Mejora '+m.id))+' · '+eur0(totalesDePem(o,r2(pemDeOpcion(o,m.id))).total)+'</option>'; }).join('')+
+   '</select></span></div>'; }
+ document.getElementById('livehead').innerHTML=selMej+
   lh('euro','Total c/IVA',eur0(f.t.total),'brand',true)+
   lh('sun','Ahorro energético est.',m1(f.opt.ah)+' %','ok',false,'<span class="gauge"><i style="width:'+Math.min(100,f.opt.ah/75*100)+'%"></i></span>')+
   /* del MISMO motor que la hoja y el dossier (subvCalcular, en f.r): el optimizador
@@ -5113,11 +5343,22 @@ function renderLivehead(){ var o=obra(); if(!o)return; var f=fichaDe(o);
   lh('cal','Cuota '+(f.finMeses||state.params.meses)+' meses',eur0(f.cuotaViv)+'/mes','',false,(f.esAdelanto?'<span class="l" style="color:var(--brand)">ayudas descontadas</span>':''))+
   /* TERMINAR: un solo botón al documento final de venta (dossier), con subvención ya dentro */
   '<button class="lh-cta" id="lhTerminar" title="Ir al documento final: dossier de venta o presentación (con la subvención ya calculada)">'+g('doc')+'<span>Terminar<small>Dossier o presentación</small></span></button>';
- var bt=document.getElementById('lhTerminar'); if(bt)bt.onclick=function(){ abrePickTerminar(); }; }
+ var bt=document.getElementById('lhTerminar'); if(bt)bt.onclick=function(){ abrePickTerminar(); };
+ var sm=document.getElementById('lhMejora');
+ if(sm)sm.onchange=function(){ var oo=obra(); if(!oo)return; oo.mejoraActiva=sm.value; save(); renderEditor();
+   toast(sm.value===''?'Presupuestando el BASE, sin mejoras'
+     :('Presupuestando la '+(mejorasDe(oo).filter(function(m){return m.id===sm.value;})[0]||{nom:sm.value}).nom)); }; }
 function refreshDerived(){ var o=obra(); if(!o)return; var pem=0,maxT=0,tot=[];
  o.capitulos.forEach(function(c){ var ct=capTotal(c); tot.push(ct); pem+=ct; if(ct>maxT)maxT=ct; });
- o.capitulos.forEach(function(c,ci){ var ct=tot[ci]; setTxt('timp-'+c.id,m2(ct)); setTxt('tpct-'+c.id,m2(pct(ct,pem))); setW('tbar-'+c.id,pct(ct,maxT));
-   c.partidas.forEach(function(p){ var imp=importe(p); setTxt('timp-'+p.id,m2(imp)); setTxt('tpct-'+p.id,m2(pct(imp,pem))); setW('tbar-'+p.id,pct(imp,maxT));
+ o.capitulos.forEach(function(c,ci){ var ct=tot[ci];
+   /* un capítulo fuera de la mejora activa enseña lo que VALDRÍA, entre paréntesis, y sin
+      barra: se ve el precio de la opción sin que se cuele en el total */
+   var cFuera=!enMejora(c,o);
+   setTxt('timp-'+c.id,cFuera?('('+m2(capTotalBruto(c,o))+')'):m2(ct));
+   setTxt('tpct-'+c.id,cFuera?'—':m2(pct(ct,pem))); setW('tbar-'+c.id,cFuera?0:pct(ct,maxT));
+   c.partidas.forEach(function(p){ var imp=importe(p); var pFuera=cFuera||!enMejora(p,o);
+     setTxt('timp-'+p.id,pFuera?('('+m2(imp)+')'):m2(imp));
+     setTxt('tpct-'+p.id,pFuera?'—':m2(pct(imp,pem))); setW('tbar-'+p.id,pFuera?0:pct(imp,maxT));
      var bm=document.getElementById('bm-'+p.id); if(bm)bm.innerHTML=bmarkOf(p); }); });
  var t=totalesDe(o); setTxt('footPem',eur(t.pem)); setTxt('footTot',eur(t.total));
  renderLivehead(); renderEconVals(t); renderSubvMini(); renderDist(); }
@@ -6210,7 +6451,10 @@ function presPayload(o){
  if(caePart>0)ay.push({k:'cae',i:rd(caePart),p:rd(r.caePct)});
  return {v:1,dir:(o.dir||o.nombre||''),mun:(o.muni||'Madrid'),viv:num(o.viviendas),
   total:rd(r.costeTotal),subv:rd(r.e.costeSubvencionable),pem:rd(r.e.pem),tasas:rd(r.e.tasasEur),
-  caps:(oo.capitulos||[]).map(function(c){return [c.res,rd(capTotal(c,oo))];}),
+  /* con mejoras, un capítulo común puede quedarse a 0 (todas sus partidas son de otra
+     opción): fuera del deck, que una fila a 0 € solo despista */
+  caps:(function(){ var arr=(oo.capitulos||[]).filter(function(c){return enMejora(c,oo);}).map(function(c){return [c.res,rd(capTotal(c,oo))];});
+    return mejorasDe(oo).length?arr.filter(function(c){return c[1]>0.005;}):arr; })(),
   ay:ay,int:(num(s.finInteres)||4.5),pm:(num(s.finPlazo)||120),zona:s.zona,accC:rd(r.accCoste),
   /* cabecera del presupuesto: los mismos datos que firma el dossier */
   ref:(o.exp||''),fec:hoy(),val:(num(state.params.validez)?m0(num(state.params.validez))+' días':''),
@@ -7933,6 +8177,8 @@ document.addEventListener('click',function(e){
    else if(a==='delCap')delCap(b.dataset.id); else if(a==='delPart')delPart(b.dataset.id); else if(a==='dupPart')dupPart(b.dataset.id);
    else if(a==='openBdp'){ document.getElementById('modalBg').classList.add('show'); fillModal(''); document.getElementById('bdpModalSearch').focus(); }
    else if(a==='medir'){ openDock(b.dataset.id); }
+   else if(a==='mejCap'){ abreMejoraPicker('cap',b.dataset.id); }
+   else if(a==='mejPart'){ abreMejoraPicker('part',b.dataset.id); }
    else if(a==='goSubv')go('subvenciones');
    else if(a==='confirmar'){ var p=IDX.part[b.dataset.id]; if(p){delete p.est; save(); renderTree(document.getElementById('search').value); renderProps(b.dataset.id);
      document.querySelectorAll('#treeBody tr').forEach(function(tr){tr.classList.toggle('sel',tr.dataset.id===selected);}); toast('Medición confirmada');} }
@@ -8414,8 +8660,12 @@ function dossierHtml(o){ var f=fichaDe(o), t=f.t, opt=f.opt, p=state.params;
   '<table class="dkt">'+(ciego
     ?'<colgroup><col style="width:52px"><col><col style="width:86px"><col style="width:56px"></colgroup><thead><tr><th class="l">Cód.</th><th class="l">Concepto</th><th>Cantidad</th><th class="l">Ud</th></tr></thead><tbody>'
     :'<colgroup><col style="width:52px"><col><col style="width:96px"><col style="width:84px"><col style="width:92px"></colgroup><thead><tr><th class="l">Cód.</th><th class="l">Concepto</th><th>Cantidad</th><th>P. unitario</th><th>Importe</th></tr></thead><tbody>');
- o.capitulos.forEach(function(c,ci){ h+='<tr class="cap"><td class="l">C'+esc(c.cod)+'</td><td class="l" colspan="'+(ciego?3:4)+'">'+esc(c.res.toUpperCase())+(c.spec?'<div class="pdesc" style="color:#f4d9d9">'+esc(c.spec)+'</div>':'')+'</td></tr>';
-   c.partidas.forEach(function(pt,pi){ h+='<tr'+(pi%2?' class="alt"':'')+'><td class="l" style="color:#ae0b0b;font-weight:700">'+esc(pt.cod)+'</td>'+
+ /* el documento del cliente lleva SOLO la mejora activa: lo de otras opciones ni aparece
+    en la tabla ni suma — se enseña aparte, en el cuadro de opciones bajo el total */
+ o.capitulos.forEach(function(c,ci){ if(!enMejora(c,o))return;
+   h+='<tr class="cap"><td class="l">C'+esc(c.cod)+'</td><td class="l" colspan="'+(ciego?3:4)+'">'+esc(c.res.toUpperCase())+(c.spec?'<div class="pdesc" style="color:#f4d9d9">'+esc(c.spec)+'</div>':'')+'</td></tr>';
+   c.partidas.forEach(function(pt,pi){ if(!enMejora(pt,o))return;
+     h+='<tr'+(pi%2?' class="alt"':'')+'><td class="l" style="color:#ae0b0b;font-weight:700">'+esc(pt.cod)+'</td>'+
      '<td class="l"><div class="pname">'+esc(pt.res)+'</div>'+(pt.spec?'<div class="pdesc">'+escNl(pt.spec)+'</div>':'')+
      (tieneLineas(pt)?'<div class="dkmed">'+pt.lineas.map(function(ln){ return '<div class="dkml"><span class="c">'+esc(ln.com||'')+'</span><span class="f">'+esc(formulaLinea(ln))+'</span><span class="p">'+m2(parcialLinea(ln))+'</span></div>'; }).join('')+'</div>':'')+'</td>'+
      (ciego?'<td>'+m2(num(pt.cantidad))+'</td><td class="l">'+esc(udFmt(pt.ud))+'</td>'
@@ -8430,8 +8680,25 @@ function dossierHtml(o){ var f=fichaDe(o), t=f.t, opt=f.opt, p=state.params;
   if(t.agente>0)h+='<tr class="fin"><td class="l" colspan="4">Honorarios de agente rehabilitador + IVA '+t.ivaAg+' %</td><td>'+m2(t.agenteConIva)+'</td></tr>';
   if(t.honTecConIva>0)h+='<tr class="fin"><td class="l" colspan="4">Honorarios técnicos (arquitecto) + IVA '+t.ivaHon+' %</td><td>'+m2(t.honTecConIva)+'</td></tr>'; }
  h+='</tbody></table>'+
-  (ciego?'':'<div class="dk-total dk-black"><span class="tl">TOTAL PRESUPUESTO (IVA INCLUIDO)</span><span class="tv">'+eur(t.total)+'</span></div>')+
- '</div>'+dkFoot(p)+'</div>';
+  (ciego?'':'<div class="dk-total dk-black"><span class="tl">TOTAL PRESUPUESTO (IVA INCLUIDO)</span><span class="tv">'+eur(t.total)+'</span></div>');
+ /* cuadro de OPCIONES: si el presupuesto tiene mejoras, debajo del total se listan todas
+    con su importe (IVA incluido), marcando la presentada — como en la hoja de mejoras del
+    presupuesto en papel */
+ var msD=mejorasDe(o);
+ if(!ciego&&msD.length){ var actD=mejoraActiva(o);
+  var filaOp=function(id,nom,desc){ var tm=totalesDePem(o,r2(pemDeOpcion(o,id)));
+    var esA=(id===actD);
+    return '<div style="display:flex;gap:10px;align-items:baseline;padding:7px 10px;border-top:1px solid #f0d0d0;font:11px Arial,sans-serif;color:#333'+(esA?';background:#f9f0f0':'')+'">'+
+     '<b style="color:#ae0b0b;flex:none">'+esc(nom)+(esA?' · PRESENTADA':'')+'</b>'+
+     '<span style="flex:1;min-width:0;color:#666">'+esc(String(desc||'').slice(0,150))+'</span>'+
+     '<b style="flex:none;white-space:nowrap">'+eur(tm.total)+'</b></div>'; };
+  h+='<div style="margin-top:10px;border:1.5px solid #ae0b0b;border-radius:8px;overflow:hidden">'+
+   '<div style="background:#ae0b0b;color:#fff;font:700 10.5px/1 Arial,sans-serif;letter-spacing:.06em;padding:7px 10px">OPCIONES DE ESTE PRESUPUESTO</div>'+
+   filaOp('','PRESUPUESTO BASE','Sin las mejoras opcionales')+
+   msD.map(function(m){ return filaOp(m.id,m.nom||('MEJORA '+m.id),m.desc); }).join('')+
+   '<div style="padding:6px 10px;font:9.5px Arial,sans-serif;color:#888;border-top:1px solid #f0d0d0">Importes con IVA incluido. La tabla superior desglosa la opción presentada; el resto se ofertan como alternativa.</div>'+
+  '</div>'; }
+ h+='</div>'+dkFoot(p)+'</div>';
  /* P4 · LA HOJA DE SUBVENCIONES — el informe completo con los datos de ESTA obra, vestido con la
     estética del dossier. Se OMITE en modo ciego (es todo importes). */
  if(!ciego)h+='<div class="a4">'+dkHead(p,o,'Informe de subvenciones')+
@@ -8472,11 +8739,15 @@ window.PRESTON={state:function(){return state;},obra:obra,ficha:function(){var o
     pres:{token:o.pubPres,html:d}}; }},
  med:{parcial:parcialLinea,suma:sumaLineas,open:function(id){openDock(id);},close:function(){closeDock();},dock:function(){return {open:dockOpen,id:dockId};}},
  carp:{ir:abrirCarpeta,equipo:EQUIPO,de:carpetaDe,lista:obrasCarpeta,abierta:carpetaAbierta},
+ mej:{de:function(){return mejorasDe(obra());},activa:function(v){var o=obra();if(o&&v!=null){o.mejoraActiva=v;save();}return o?mejoraActiva(o):'';},
+  pem:function(id){var o=obra();return o?r2(pemDeOpcion(o,id)):null;},
+  total:function(id){var o=obra();return o?totalesDePem(o,r2(pemDeOpcion(o,id))).total:null;},
+  detecta:detectaMejorasResumen},
  ver:compruebaVersion,
  qr:{matriz:qrMatriz,cw:qrCodewords,ec:qrEC,png:qrDataURL,svg:qrSvgDe},
  pub:{url:pubURL,qr:pubQR,pagina:paginaPublica,publica:publicaObra,token:pubDe,auto:autoPublica,hash:pubHash},
  dir:{bonita:dirBonita,muni:muniBonito,parse:parseDireccion},
- version:'v180-produccion'};
+ version:'v184-produccion'};
 try{var th0=localStorage.getItem('prestonLAB_theme'); if(th0)document.documentElement.setAttribute('data-theme',th0);}catch(e){}
 var _bd=document.getElementById('brandDode'); if(_bd&&typeof PBRAND!=='undefined')_bd.src=PBRAND.dode;
 try{ var _rv=document.getElementById('railVer'); if(_rv)_rv.textContent='Versión '+(PRESTON.version||'').split(' ')[0]; }catch(e){}
