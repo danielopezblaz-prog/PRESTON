@@ -3417,6 +3417,9 @@ function specAdd(txt,l){
  txt=txt||'';
  if(!txt)return l;
  if(/[a-záéíóúñü]-$/.test(txt)&&/^[a-záéíóúñü]/.test(l))return txt.slice(0,-1)+l;
+ /* nombre propio con guion partido de línea ("SAINT-" + "GOBAIN"): se une CONSERVANDO el
+    guion, que aquí es parte del nombre y no un corte de palabra */
+ if(/[A-ZÁÉÍÓÚÑ]-$/.test(txt)&&/^[A-ZÁÉÍÓÚÑ]{2,}\b/.test(l))return txt+l;
  if(/^([*•·▪]|-\s|NOTA\b|NOTAS\b|Incluye:|Criterio de valoraci|Nota\.-)/.test(l))return txt+'\n'+l;
  return txt+' '+l;
 }
@@ -3437,6 +3440,11 @@ function parsePartidasDetalle(lines){
  /* el codigo de partida puede llevar LETRA delante ("A01.01" en presupuestos R-xx) */
  var COD2='[A-Z]{0,2}\\d{1,2}\\.\\d{1,2}';
  var reFull=new RegExp('^('+COD2+')\\s+('+UD+')\\s+(.+?)\\s+('+NUM+')\\s+('+NUM+')\\s*€\\s+('+NUM+')\\s*€$');
+ /* fila completa SIN título ("04.02 M2 5.401,00 3,50 € 18.903,50 €"): el título viaja en su
+    propia línea, antes o después. Tiene que probarse ANTES que reTot, que con su .+? perezoso
+    se tragaba "5.401,00 3,50 €" como si fuera el título y dejaba cantidad 1 y precio=importe
+    (11 partidas de Veredillas, 1 M€ con el precio unitario falsificado). */
+ var reFullNT=new RegExp('^('+COD2+')\\s+('+UD+')\\s+('+NUM+')\\s+('+NUM+')\\s*€?\\s+('+NUM+')\\s*€?$');
  var reTot=new RegExp('^('+COD2+')\\s+('+UD+')\\s+(.+?)\\s+('+NUM+')\\s*€$');
  /* variantes SIN unidad ("01.04 ANDAMIO TUBULAR EN PATIOS 3.632,66 18,00 € 65.387,88 €"):
     el titulo absorbe la columna Ud vacia; se valida cant x precio = importe */
@@ -3459,7 +3467,12 @@ function parsePartidasDetalle(lines){
  var reDeepAlone=/^([A-Z]{0,2}\d{1,2}(?:\.\d{1,2}){2,4})\s*$/;
  var re2Any=new RegExp('^('+COD2+')\\s+(.+)$');
  var reDesc=/^[A-Z]{0,2}\d{1,2}\.\d{1,2}\.\d/;
- var reSkip=/^(CLIENTE\s*:|PRESUPUESTO\s*:?$|PRESUPUESTO\s*:|PRESUPUESTO Y MEDICIONES|SISTEMA DE AISLAMIENTO|Fecha\s*:|FECHA\s*:|fecha\b|Partida\s+Descripcion|C[óo]digo\s+Ud\s+Descrip|C[ÓO]DIGO\s+RESUMEN|Calle Oviedo|C\/\s*Oviedo|P[áa]gina\s+\d+|www\.proyecton|En Legan|REVESTIMIENTOS PROYECTON|Tel[eé]fono\s+Oficina|\d{1,3}$|TOTAL\b|\d{1,2}\s+de\s+[a-zá-úñ]+\s+de\s+\d{4})|PRESUPUESTO\s*:\s*[A-Z]{2,3}-\d{2}|PRESUPUESTO\s+N[ºo°]|P[áa]gina\s+\d+$|Arquitect[oa]\s+T[ée]cnic[oa]/i;
+ var reSkip=/^(CLIENTE\s*:|PRESUPUESTO\s*:?$|PRESUPUESTO\s*:|PRESUPUESTO Y MEDICIONES|Fecha\s*:|FECHA\s*:|fecha\b|Partida\s+Descripcion|C[óo]digo\s+Ud\s+Descrip|C[ÓO]DIGO\s+RESUMEN|Calle Oviedo|C\/\s*Oviedo|P[áa]gina\s+\d+|www\.proyecton|En Legan|REVESTIMIENTOS PROYECTON|Tel[eé]fono\s+Oficina|\d{1,3}$|TOTAL\b|\d{1,2}\s+de\s+[a-zá-úñ]+\s+de\s+\d{4})|PRESUPUESTO\s*:\s*[A-Z]{2,3}-\d{2}|PRESUPUESTO\s+N[ºo°]|P[áa]gina\s+\d+$|Arquitect[oa]\s+T[ée]cnic[oa]/i;
+ /* el membrete "SISTEMA DE AISLAMIENTO TÉRMICO..." va en MAYÚSCULAS; la frase de una
+    descripción va en minúsculas ("Sistema de Aislamiento Térmico por el Exterior..."). Con
+    la alternativa dentro de reSkip (que lleva /i) se decapitaba la descripción del SATE, la
+    partida más cara de Veredillas. SIN /i: solo caza el membrete. */
+ var reMembrete=/^SISTEMA DE AISLAMIENTO/;
  /* separa la unidad del titulo: "m² MONTAJE..." -> {ud:'m²',res:'MONTAJE...'}. La columna Ud
     puede venir VACIA ("CONJUNTO DE SISTEMAS...") -> ud:'' y todo es titulo. Un token corto en
     MAYUSCULAS solo es unidad si es una unidad conocida (UD/ML/M2...), no un titulo ("CATA"). */
@@ -3528,6 +3541,20 @@ function parsePartidasDetalle(lines){
    }
    if(curP)curP.spec=specAdd(curP.spec,l); continue; }
   if(m=l.match(reFull)){ pushP(); if(!cur)startCap('00','Presupuesto',0); curP={cod:m[1],ud:m[2],res:m[3].trim(),cant:pdfNumES(m[4]),precio:pdfNumES(m[5]),importe:pdfNumES(m[6]),spec:''}; continue; }
+  if(m=l.match(reFullNT)){ var cnt_=pdfNumES(m[3]),pnt_=pdfNumES(m[4]),int_=pdfNumES(m[5]);
+   if(Math.abs(cnt_*pnt_-int_)<=2){ pushP(); if(!cur)startCap('00','Presupuesto',0);
+    curP={cod:m[1],ud:m[2],res:'',cant:cnt_,precio:pnt_,importe:int_,spec:''};
+    /* el título puede haber salido en la línea ANTERIOR y estar ya pegado al final de la
+       descripción de la partida previa, en mayúsculas: se recupera de allí */
+    var pv=cur&&cur.partidas[cur.partidas.length-1];
+    if(pv&&pv.spec){ var mrob=pv.spec.match(/(?:^|\n|\. )([A-Z0-9ÁÉÍÓÚÑ][A-Z0-9ÁÉÍÓÚÑ ().,/'-]{5,79})$/);
+     if(mrob&&!/\d,\d/.test(mrob[1])&&/[A-ZÁÉÍÓÚÑ]{2}/.test(mrob[1])){
+      curP.res=mrob[1].trim(); pv.spec=pv.spec.slice(0,pv.spec.length-mrob[1].length).replace(/[\s.]+$/,'.');
+      /* si el robado acaba en preposición, la otra mitad viene en la línea siguiente */
+      if(/\b(DE|DEL|EN|LA|LOS|LAS|Y|PARA|CON|SOBRE|A)$/.test(curP.res))curP._tcont=1;
+     } }
+    if(!curP.res)need=true;   /* sin título aún: se adopta la siguiente línea de texto */
+    continue; } }
   if(m=l.match(reTot)){ pushP(); if(!cur)startCap('00','Presupuesto',0); curP={cod:m[1],ud:m[2],res:m[3].trim(),cant:1,precio:pdfNumES(m[4]),importe:pdfNumES(m[4]),spec:''}; continue; }
   if(m=l.match(reFull2)){ var c2_=pdfNumES(m[3]),p2_=pdfNumES(m[4]),i2_=pdfNumES(m[5]);
    if(Math.abs(c2_*p2_-i2_)<=2){ pushP(); if(!cur)startCap('00','Presupuesto',0);
@@ -3557,19 +3584,40 @@ function parsePartidasDetalle(lines){
    if(cur&&cur.cod===cp2)continue;                                                              /* repeticion por pagina: no romper la partida abierta */
    startCap(cp2,m[2].replace(/\s+/g,' ').trim(),0); inSub=false; continue; }
   /* solo es cabecera de capitulo si no hay una partida a medio leer (curP abierto sin importes):
-     evita que una linea de descripcion tipo "24 HORAS ... 150,00 €" parta la partida en dos */
-  if((m=l.match(reCapAmt))&&(!curP||curP.importe>0)){ startCap(m[1],m[2].replace(/\s+/g,' ').trim(),pdfNumES(m[3])); inSub=false; continue; }
+     evita que una linea de descripcion tipo "24 HORAS ... 150,00 €" parta la partida en dos.
+     EXCEPCIÓN: si el código es EXACTAMENTE el capítulo siguiente (01→02→03...), es cabecera
+     aunque la partida anterior quedase a cero — con el guard a secas, una partida rota se
+     comía la cabecera y el capítulo entero perdía nombre, total y cuadre (los 17.871 € del
+     02.01 de Veredillas desaparecían sin aviso). "24 HORAS" no pasa: 24 nunca es el siguiente. */
+  if((m=l.match(reCapAmt))&&(!curP||curP.importe>0||parseInt(m[1],10)===lastCapN+1)){ startCap(m[1],m[2].replace(/\s+/g,' ').trim(),pdfNumES(m[3])); inSub=false; continue; }
   if((m=l.match(reCapNo))&&parseInt(m[1],10)===lastCapN+1&&!/[a-záéíóúñ]/.test(m[2])){ startCap(m[1],m[2].replace(/\s+/g,' ').trim(),lastAmt||0); inSub=false; continue; }
   if(m=l.match(reUdOnly)){ abreP(m[1],m[2],'',true);
    if(orf&&i-orf.at<=2){ curP.res=orf.res; curP.cant=orf.cant; curP.precio=orf.precio; curP.importe=orf.importe; need=false; orf=null; } continue; }
   if(m=l.match(reAlone)){ abreP(m[1],'','',true);
    if(orf&&i-orf.at<=2){ curP.res=orf.res; curP.cant=orf.cant; curP.precio=orf.precio; curP.importe=orf.importe; need=false; orf=null; } continue; }
   if(m=l.match(re2Any)){ var sp2=udSplit(m[2]); if(sp2){ abreP(m[1],sp2.ud,sp2.res,false); continue; } }
-  if(need&&curP){ if(!curP.ud){ var mh=l.match(reHead); if(mh){curP.ud=mh[1];curP.res=mh[2].trim();need=false;continue;} if(reUdSolo.test(l)){curP.ud=l;continue;} } else if(!curP.res){ curP.res=l; need=false; continue; } }
+  if(need&&curP){ if(!curP.ud){ var mh=l.match(reHead);
+    if(mh){ curP.ud=mh[1]; var restoH=mh[2].trim();
+     /* la línea "UD TÍTULO" puede traer TAMBIÉN cantidad, precio e importe al final
+        ("ML SELLADO DE JUNTAS ... 498,40 21,50 € 10.715,60 €"): antes el título se los
+        tragaba y la partida quedaba a 0 × 0 = 0 */
+     var mcola=restoH.match(new RegExp('^(.*?)\\s+('+NUM+')\\s+('+NUM+')\\s*€?\\s+('+NUM+')\\s*€?$'));
+     if(mcola){ var qc_=pdfNumES(mcola[2]),qp_=pdfNumES(mcola[3]),qi_=pdfNumES(mcola[4]);
+      if(Math.abs(qc_*qp_-qi_)<=2){ curP.res=mcola[1].trim(); curP.cant=qc_; curP.precio=qp_; curP.importe=qi_; need=false; pushP(); continue; } }
+     curP.res=restoH; need=false; continue; }
+    if(reUdSolo.test(l)){curP.ud=l;continue;} }
+   else if(!curP.res){ if(!reSkip.test(l)&&!reMembrete.test(l)&&!/€/.test(l)){ curP.res=l; need=false; } continue; } }
   if(!curP&&(m=l.match(reOrfTitle))){ var oc=pdfNumES(m[2]),op=pdfNumES(m[3]),oi=pdfNumES(m[4]);
    if(Math.abs(oc*op-oi)<=2){ orf={res:m[1].replace(/\s+/g,' ').trim(),cant:oc,precio:op,importe:oi,at:i}; continue; } }
   if(curP&&!curP.importe){ var md=medLinea(l); if(md){ (curP.meds=curP.meds||[]).push(md); continue; } }
-  if(curP&&!reSkip.test(l)) curP.spec=specAdd(curP.spec,l);
+  if(curP&&!reSkip.test(l)&&!reMembrete.test(l)){
+   /* el título venía partido en dos alrededor del código ("ESMALTE EN CERRAJERÍAS ... DE" /
+      código / "PLANTA BAJA"): si el nombre robado quedó a medias, la primera línea corta en
+      mayúsculas lo completa en vez de irse a la descripción */
+   if(curP._tcont){ delete curP._tcont;
+    if(/^[A-Z0-9ÁÉÍÓÚÑ ().,/'-]{2,40}$/.test(l)&&!/\d,\d/.test(l)){ curP.res=(curP.res+' '+l).replace(/\s+/g,' ').trim(); continue; } }
+   curP.spec=specAdd(curP.spec,l);
+  }
  }
  pushP();
  /* ===== PATRON UNIVERSAL: el capitulo de cada partida lo dicta SU CODIGO =====
@@ -3580,11 +3628,24 @@ function parsePartidasDetalle(lines){
  var info={};
  caps.forEach(function(c){ var k=c.cod; if(!info[k])info[k]={nombre:c.nombre,total:c.total||0};
   else { if(!info[k].nombre&&c.nombre)info[k].nombre=c.nombre; if(!info[k].total&&c.total)info[k].total=c.total; } });
- /* el resumen del final suele traer "NN NOMBRE total €" limpio: rellena lo que falte */
+ /* el resumen del final suele traer "NN NOMBRE total €" limpio: rellena lo que falte.
+    También viene PARTIDO en dos líneas (el nombre arriba y "NN importe €" debajo, como en
+    Veredillas): esa pareja se cose aquí para no perder ni nombre ni total. */
+ var reCapPar=new RegExp('^(\\d{2})\\s+('+NUM+')\\s*€?$'), nomPend='';
  for(var j=end;j<L.length;j++){ var lj=L[j]; if(!lj)continue; var mj=lj.match(reCapAmt)||lj.match(reCapPresto);
-  if(mj){ var kj=('0'+mj[1]).slice(-2);
+  if(mj){ var kj=('0'+mj[1]).slice(-2); nomPend='';
    if(!info[kj])info[kj]={nombre:mj[2].replace(/\s+/g,' ').trim(),total:pdfNumES(mj[3])};
-   else if(!info[kj].total)info[kj].total=pdfNumES(mj[3]); } }
+   else { if(!info[kj].total)info[kj].total=pdfNumES(mj[3]);
+     if(/^Cap[íi]tulo\s+\d/.test(info[kj].nombre||''))info[kj].nombre=mj[2].replace(/\s+/g,' ').trim(); }
+   continue; }
+  var mp2=lj.match(reCapPar);
+  if(mp2&&nomPend){ var kp=('0'+mp2[1]).slice(-2);
+   if(!info[kp])info[kp]={nombre:nomPend,total:pdfNumES(mp2[2])};
+   else { if(!info[kp].total)info[kp].total=pdfNumES(mp2[2]);
+     if(!info[kp].nombre||/^Cap[íi]tulo\s+\d/.test(info[kp].nombre))info[kp].nombre=nomPend; }
+   nomPend=''; continue; }
+  if(/^[A-ZÁÉÍÓÚÑ][A-ZÁÉÍÓÚÑ0-9 ().,/'\-]{3,70}$/.test(lj)&&!/\d,\d/.test(lj)&&!/^TOTAL\b/.test(lj))nomPend=lj.replace(/\s+/g,' ').trim();
+  else nomPend=''; }
  for(var kt2 in capTot){ if(!info[kt2])info[kt2]={nombre:capTot[kt2].nombre,total:capTot[kt2].total||0};
   else { if(!info[kt2].nombre)info[kt2].nombre=capTot[kt2].nombre; if(!info[kt2].total&&capTot[kt2].total)info[kt2].total=capTot[kt2].total; } }
  var flat=[]; caps.forEach(function(c){ c.partidas.forEach(function(p){ flat.push(p); }); });
@@ -3613,6 +3674,22 @@ function pdfDireccion(raw){
   var mu=s.match(/\d+\s+([A-ZÁÉÍÓÚÑ][A-ZÁÉÍÓÚÑ .'-]{2,28})\s*$/);
   if(mu){ muni=mu[1]; s=s.slice(0,s.lastIndexOf(mu[1])).replace(/[\s,\-]+$/,''); }
  }
+ /* "C.P. VEREDILLAS TORREJON DE ARDOZ": ni paréntesis, ni separador, ni UN SOLO dígito — las
+    tres reglas de arriba exigen alguno y el municipio se quedaba pegado al nombre (y la obra
+    salía en "Madrid" por defecto, que es un municipio DISTINTO). Se busca al final del texto
+    un municipio conocido de los que trabaja la casa. Solo se aplica sin dígitos, para no
+    comerse un "Puerta de Madrid 3" de verdad. */
+ if(!muni&&!/\d/.test(s)){
+  var sinAc=function(t){return t.toUpperCase().replace(/Á/g,'A').replace(/É/g,'E').replace(/Í/g,'I').replace(/Ó/g,'O').replace(/Ú/g,'U').replace(/Ü/g,'U');};
+  var S=sinAc(s);
+  var MUNIS=['SAN SEBASTIAN DE LOS REYES','SAN FERNANDO DE HENARES','TORREJON DE LA CALZADA','PARACUELLOS DE JARAMA','VELILLA DE SAN ANTONIO','VILLAVICIOSA DE ODON','POZUELO DE ALARCON','BOADILLA DEL MONTE','MEJORADA DEL CAMPO','TORREJON DE ARDOZ','RIVAS-VACIAMADRID','RIVAS VACIAMADRID','HUMANES DE MADRID','COLLADO VILLALBA','ALCALA DE HENARES','ARGANDA DEL REY','COLMENAR VIEJO','TORREJON DE VELASCO','NAVALCARNERO','ARROYOMOLINOS','TORRELODONES','MAJADAHONDA','FUENLABRADA','TRES CANTOS','ALCOBENDAS','VALDEMORO','GALAPAGAR','LAS ROZAS','MOSTOLES','ALCORCON','LEGANES','COSLADA','GETAFE','DAGANZO','ALGETE','PARLA','PINTO','MADRID'];
+  for(var iM=0;iM<MUNIS.length;iM++){ var MM=MUNIS[iM];
+   if(S===MM)break;                                    /* todo el texto ES el municipio: no hay nombre que separar */
+   if(S.length>MM.length&&S.slice(-MM.length)===MM&&/[\s,;\-]/.test(S.charAt(S.length-MM.length-1))){
+    var antes=S.slice(0,S.length-MM.length).replace(/[\s,;\-]+$/,'');
+    if(MM==='MADRID'&&/\b(DE|DEL)$/.test(antes))continue;   /* "PUERTA DE MADRID" no es el municipio */
+    muni=s.slice(s.length-MM.length); s=s.slice(0,s.length-MM.length).replace(/[\s,;\-]+$/,''); break; } }
+ }
  s=s.replace(/^[^A-Za-zÁÉÍÓÚÑáéíóúñ]*(?=[A-Za-zÁÉÍÓÚÑáéíóúñ])/,'')      /* basura inicial */
     .replace(/\bN[ºo°]\s*/gi,'').replace(/\s*,\s*/g,', ').trim();
  var mv=s.match(/(?:^|\s)(C\/|CL|CALLE|AVDA?\.?|AVENIDA|PZA?\.?|PLAZA|PS\.?|PASEO|CTRA\.?|CARRETERA|CAMINO|RONDA|GTA\.?|GLORIETA|TRAV\.?|TRAVES[IÍ]A)\.?\s*/i);
@@ -3626,7 +3703,9 @@ function pdfDireccion(raw){
  if(!resto)return null;
  var bonito=function(t){ return t.toLowerCase().replace(/(^|[\s(/-])([a-záéíóúñ])/g,function(m,a,b){return a+b.toUpperCase();})
    .replace(/\b(De|Del|La|Las|Los|El|Y)\b/g,function(w){return w.toLowerCase();}); };
- var dir=via+' '+bonito(resto);
+ /* el "Calle" solo se antepone si el texto TRAE un tipo de vía o al menos un número: a un
+    nombre de comunidad pelado ("Veredillas") no se le inventa una dirección que no existe */
+ var dir=(mv||/\d/.test(resto))?(via+' '+bonito(resto)):bonito(resto);
  dir=dir.replace(/\s+/g,' ').replace(/[\s,.;:-]+$/,'').trim();
  muni=muni?bonito(muni.trim()):'';
  return {dir:dir, muni:muni, nombre:dir};
@@ -3675,8 +3754,25 @@ function parsePresupuestoPDF(lines){
      out.avisos.push('Capítulo «'+c.nombre+'»: el desglose sumaba '+svEur(suma)+' y el total del PDF es '+svEur(c.total)+' — se añadió una partida de ajuste de '+svEur(dif)+'.'); }
     else if(dif<-1.5){ out.avisos.push('Capítulo «'+c.nombre+'»: las partidas suman '+svEur(suma)+', MÁS que el total del PDF ('+svEur(c.total)+') — revísalo a mano.'); }
    }
-   return {nombre:c.nombre,importe:r2(c.total||suma),acc:false,partidas:c.partidas}; });
+   return {cod:c.cod,nombre:c.nombre,importe:r2(c.total||suma),acc:false,partidas:c.partidas}; });
   out.pem=r2(out.capitulos.reduce(function(a,c){return a+c.importe;},0));
+  /* RED FINAL: el propio PDF declara su total ("TOTAL BASE IMPONIBLE 6.813.906,96 €").
+     Antes esa línea solo se usaba como marca de fin y nadie la comparaba: en Veredillas
+     faltaban 17.871,58 € y no saltaba nada. Ahora, si el PEM leído no cuadra con el
+     total impreso, se dice alto y claro con la diferencia exacta. */
+  var mBase=full.match(/TOTAL\s+BASE\s+IMPONIBLE\D{0,12}?(\d{1,3}(?:\.\d{3})*,\d{2})/i)
+         ||full.match(/TOTAL\s+EJECUCI[ÓO]N\s+MATERIAL\D{0,12}?(\d{1,3}(?:\.\d{3})*,\d{2})/i);
+  if(mBase){ out.basePdf=pdfNumES(mBase[1]);
+   var difB=r2(out.basePdf-out.pem);
+   if(Math.abs(difB)>1)out.avisos.push('El PEM leído ('+svEur(out.pem)+') NO cuadra con el total del PDF ('+svEur(out.basePdf)+'): '+(difB>0?'faltan':'sobran')+' '+svEur(Math.abs(difB))+' — revisa capítulos y partidas.');
+  }
+  /* partidas que quedaron a cero o sin título legible: mejor cantarlas que esconderlas */
+  var aCero=[],sinTit=[];
+  out.capitulos.forEach(function(c){ (c.partidas||[]).forEach(function(p){
+    if(!(p.cant*p.precio>0)&&!(p.importe>0))aCero.push(p.cod||'?');
+    if(/^\d/.test(String(p.res||'').trim()))sinTit.push(p.cod||'?'); }); });
+  if(aCero.length)out.avisos.push(aCero.length+' partida'+(aCero.length===1?'':'s')+' quedaron a 0 (no se pudo leer su medición): '+aCero.slice(0,8).join(', ')+(aCero.length>8?'…':'')+' — complétalas a mano.');
+  if(sinTit.length)out.avisos.push(sinTit.length+' partida'+(sinTit.length===1?'':'s')+' sin título legible (empieza por un número): '+sinTit.slice(0,8).join(', ')+(sinTit.length>8?'…':'')+'.');
  }
  var skipRow=/^(TOTAL|SUBTOTAL|RESUMEN|CAP[IÍ]TULO\b|CAP\.|PRESUPUESTO|COSTE|HONORARIOS?|TASAS?|ICIO|I\.?\s*V\.?\s*A|EJECUCI[ÓO]N|MEJORA\s+[A-ZÁÉÍÓÚ]\s*$|NOTAS?\b)/i;
  var totalCapRe=/^TOTAL\s+CAP[ÍI]TULO\s+\d{1,3}\s+(.+?)[\s.]+(\d{1,3}(?:\.\d{3})*,\d{2})\s*€?$/i;
@@ -3748,7 +3844,11 @@ function parsePresupuestoPDF(lines){
  out.costeTotalPDF=grab(/COSTE\s+TOTAL\s+DE\s+ACTUACI[ÓO]N\s+PARA\s+LA\s+COMUNIDAD\D*?(\d{1,3}(?:\.\d{3})*,\d{2})/i);
  if(m=text.match(/TASAS[\s\S]{0,160}?(\d{1,2}(?:,\d+)?)\s*%\s+(\d{1,3}(?:\.\d{3})*,\d{2})/i)){ out.tasasPct=pdfNumES(m[1]); out.tasasEur=pdfNumES(m[2]); }
  if(m=text.match(/Bonificad[oa]\s+al\s+(\d{1,3})\s*%/i)) out.tasasBonif=pdfNumES(m[1]);
- if(m=full.match(/A\s+(\d{1,3})\s+MESES/i)||full.match(/(\d{1,3})\s+MESES/i)) out.finPlazo=+m[1];
+ /* "N MESES" solo vale como plazo si habla de FINANCIACIÓN: el patrón suelto pescaba
+    "Se contempla 6 meses por cada dos edificios" (una nota del andamio de Veredillas) y
+    dejaba la simulación de cuotas a 6 meses en vez de 120. */
+ if(m=full.match(/(?:FINANCIA\w*|CUOTAS?|PR[ÉE]STAMO|APLAZAD\w*|AMORTIZA\w*)[^\n]{0,120}?A?\s(\d{1,3})\s+MESES/i)
+   ||full.match(/(\d{1,3})\s+MESES[^\n]{0,80}?(?:FINANCIA\w*|CUOTAS?|SIN\s+INTER[ÉE]S|TIN\b)/i)) out.finPlazo=+m[1];
  if(m=full.match(/TIPO\s+DE\s+INTER[ÉE]S\D{0,12}(\d{1,2}(?:,\d+)?)\s*%/i)) out.finInteres=pdfNumES(m[1]);
  if(m=full.match(/ENTRADA\s+INICIAL\s+DE\s+LA\s+COMUNIDAD[^\n]{0,20}?(-|\d{1,3}(?:\.\d{3})*,\d{2})\s*€/i)) out.finEntrada=(m[1]==='-'?0:pdfNumES(m[1]));
  var esEmpresa=function(x){return /PROYECTON|OVIEDO|28914/i.test(x);};   /* membrete: NO basta con Leganes (hay edificios alli) */
@@ -3785,6 +3885,20 @@ function parsePresupuestoPDF(lines){
  if(m=full.match(/CANTIDAD\s+DE\s+VECINOS\D{0,6}(\d{1,3})\b/i)) nv=+m[1];
  else if(m=full.match(/N[ºo°]?\.?\s*(?:DE\s+)?(?:VIVIENDAS?|VECINOS?)\s*:?\s*(\d{1,3})\b/i)) nv=+m[1];
  if(nv!=null&&nv>0&&nv<1000) out.numViv=nv;
+ /* si el PDF no lo declara, se DEDUCE de las partidas "una unidad por vivienda" (tendederos,
+    salidas de gases...): si dos o más coinciden en la misma cantidad, esa es la cifra del
+    edificio. Veredillas no dice viviendas en ninguna parte, pero cuatro partidas dicen 392. */
+ if(out.numViv==null&&out.formato==='partidas'){ var votosV={};
+  out.capitulos.forEach(function(c){ (c.partidas||[]).forEach(function(p){
+    if(/una?\s+unidad\s+por\s+vivienda|1\s+(?:ud\.?|unidad)\s+por\s+vivienda|unidad\s+por\s+vivienda/i.test((p.spec||'')+' '+(p.res||''))){
+     var q=Math.round(p.cant); if(q>1&&q<2000)votosV[q]=(votosV[q]||0)+1; } }); });
+  var mejorV=null; Object.keys(votosV).forEach(function(k){ if(mejorV==null||votosV[k]>votosV[mejorV])mejorV=k; });
+  if(mejorV!=null&&votosV[mejorV]>=2){ out.numViv=+mejorV; out.vivDeducidas=1;
+   out.avisos.push('Nº de viviendas DEDUCIDO de '+votosV[mejorV]+' partidas «una unidad por vivienda»: '+mejorV+' — confírmalo (el PDF no lo declara).'); }
+  /* con UNA sola partida no se afirma (podría ser un subconjunto: no todas las casas llevan
+     toldo), pero la pista se canta igual: es mejor dato que el 20 por defecto */
+  else if(mejorV!=null)out.avisos.push('Una partida dice «una unidad por vivienda» con '+mejorV+' unidades: el edificio puede tener '+mejorV+' viviendas — el PDF no lo declara, compruébalo.');
+ }
  if(m=full.match(/(\d{1,4})\s*LOCALES?/i)) out.numLocales=+(m[1]);
  if(m=full.match(/([\d]{1,3}(?:\.\d{3})*(?:,\d+)?)\s*m2?\D{0,14}LOCAL/i)||full.match(/LOCAL\D{0,14}([\d]{1,3}(?:\.\d{3})*(?:,\d+)?)\s*m/i)) out.supLocales=pdfNumES(m[1]);
  var ACC_RE=/ASCENSOR|RAMPA|SALVAESCALERA|PLATAFORMA|MONTACARGAS|ACCESIBILIDAD|VIDEOPORTER/i;
@@ -3833,12 +3947,17 @@ function obraDesdePDF(nombre,out){
     de adelanto -> el usuario lo activa despues si quiere. Asi los importes cuadran con el PDF. */
  o.recPct=0; o.recAgentePct=0;
  o.capitulos=[];
- out.capitulos.forEach(function(c,i){ var cod=('0'+(i+1)).slice(-2);
+ out.capitulos.forEach(function(c,i){
+  /* el código del PDF se CONSERVA (capítulo y partida): renumerar por posición tapaba los
+     agujeros — si se perdía la 01.01, la 01.02 del PDF pasaba a llamarse 01.01 y nada en la
+     pantalla delataba que faltaba una partida de 930.000 €. El botón «Renumerar» sigue
+     existiendo para quien lo quiera correlativo. */
+  var cod=(c.cod&&/^\d{2}$/.test(String(c.cod)))?String(c.cod):('0'+(i+1)).slice(-2);
   var parts;
   if(c.partidas&&c.partidas.length){
    /* partidas REALES leidas del PDF: codigo, unidad, descripcion corta (res), descripcion larga
       (spec), cantidad y precio unitario. El importe lo recalcula Preston (cantidad x precio). */
-   parts=c.partidas.map(function(p,j){ var np={id:uid('p'),cod:cod+'.'+('0'+(j+1)).slice(-2),
+   parts=c.partidas.map(function(p,j){ var np={id:uid('p'),cod:(p.cod?String(p.cod):cod+'.'+('0'+(j+1)).slice(-2)),
     ud:(p.ud||'ud'),res:(p.res||c.nombre),cantidad:r2(num(p.cant)),precio:r2(num(p.precio)),ref:null,med:null,spec:(p.spec||'')};
    /* medicion DESGLOSADA del PDF (uds x long x anch x alt): se vuelca a las lineas de la
       partida (mismo modelo que el dock), asi el presupuesto sale luego igual que el PDF */
@@ -3862,6 +3981,14 @@ function obraDesdePDF(nombre,out){
  if(out.finInteres!=null)o.subv.finInteres=out.finInteres;
  if(out.finEntrada!=null)o.subv.finEntrada=out.finEntrada;
  if(out.supLocales)o.subv.supLocales=out.supLocales;
+ /* lo que el PDF NO trae se queda con los valores de por defecto de la obra vacía: hay que
+    DECIRLO, porque 20 viviendas o "Madrid" parecen datos importados y son relleno. Antes
+    entraban en silencio y la ficha mentía. */
+ var porDef=[];
+ if(!out.numViv)porDef.push(o.viviendas+' viviendas');
+ if(!out.muni)porDef.push('municipio «'+o.muni+'»');
+ porDef.push(o.plantas+' plantas','año '+o.anno);
+ out.avisos.push('Datos que el PDF no trae y quedan POR DEFECTO: '+porDef.join(', ')+' — corrígelos en Ajustes (si hay dirección con número, el Catastro los completa solo).');
  return o;
 }
 /* Busca la obra en el Catastro con la direccion sacada del PDF y completa lo que el propio PDF
@@ -3928,10 +4055,23 @@ function importarPDFPreston(file){
        descripciones ("galv anizado", "ev itar"). Se mide el HUECO real entre fragmentos
        (x del siguiente - fin del anterior) y solo se pone espacio si es un hueco de verdad,
        proporcional al cuerpo de letra. */
-    var byY={}; tc.items.forEach(function(it){ if(!it.str)return; var y=Math.round(it.transform[5]);
-      (byY[y]=byY[y]||[]).push({x:it.transform[4],w:num(it.width),h:Math.abs(num(it.transform[3]))||num(it.height)||10,s:it.str}); });
-    Object.keys(byY).map(Number).sort(function(a,b){return b-a;}).forEach(function(y){
-      var its=byY[y].sort(function(a,b){return a.x-b.x;}), l='';
+    /* Las FILAS se arman por CERCANÍA en Y, no por la Y exacta: en las tablas de Presto las
+       celdas de una misma fila bailan ~1 px (el número no apoya en la misma línea base que el
+       texto) y agrupar por Math.round partía la fila en dos. Eso destrozaba partidas enteras:
+       el código con sus importes por un lado y la unidad con el título por otro, y ya ninguna
+       regla del parser casaba (en Veredillas se llevó por delante la partida más grande del
+       presupuesto, 930.638 €). La tolerancia queda muy por debajo del interlineado (~8-11 px),
+       y se compara contra la Y del ANCLA de la fila para que no se encadene una deriva. */
+    var todos=[]; tc.items.forEach(function(it){ if(!it.str)return;
+      todos.push({y:it.transform[5],x:it.transform[4],w:num(it.width),h:Math.abs(num(it.transform[3]))||num(it.height)||10,s:it.str}); });
+    todos.sort(function(a,b){ return b.y-a.y||a.x-b.x; });
+    var filas=[];
+    todos.forEach(function(t){ var f=filas[filas.length-1];
+      var tol=Math.min(3,Math.max(2,(t.h||10)*0.35));
+      if(f&&Math.abs(f.y-t.y)<=tol)f.its.push(t);
+      else filas.push({y:t.y,its:[t]}); });
+    filas.forEach(function(f){
+      var its=f.its.sort(function(a,b){return a.x-b.x;}), l='';
       for(var k=0;k<its.length;k++){ var t=its[k];
         if(k>0){ var pv=its[k-1], hueco=t.x-(pv.x+pv.w), umbral=Math.max(0.8,(pv.h||10)*0.22);
           if(hueco>umbral&&!/\s$/.test(l)&&!/^\s/.test(t.s))l+=' '; }
@@ -3947,7 +4087,16 @@ function importarPDFPreston(file){
   var o=obraDesdePDF(String(file.name||'Obra PDF').replace(/\.pdf$/i,''),out);
   normObra(o); state.obras.unshift(asignaCarpeta(o)); state.activeId=o.id; selected=null; collapsed={}; save(); go('presupuesto');
   toast('PDF importado: '+out.encontrado.join(' · '));
-  if(out.avisos&&out.avisos.length){ out.avisos.slice(0,2).forEach(function(a,i){ setTimeout(function(){ toast('⚠ '+a); },1600+i*2600); }); }
+  /* Los avisos se enseñan TODOS y de una vez, en una ventana que hay que cerrar: como
+     toasts de 2 segundos se perdían (solo salían 2 de N y desaparecían solos), y un aviso
+     de "faltan 17.871 €" no puede ser algo que parpadea y se va. */
+  if(out.avisos&&out.avisos.length){
+   pickOpen('Importación del PDF — '+out.avisos.length+' aviso'+(out.avisos.length===1?'':'s'),
+    '<div style="max-height:340px;overflow:auto;display:grid;gap:8px">'+
+    out.avisos.map(function(a){ return '<div style="font-size:12.5px;line-height:1.5;padding:9px 11px;border:1px solid var(--warn);background:var(--warn-bg);border-radius:9px;color:var(--ink)">⚠ '+esc(a)+'</div>'; }).join('')+
+    '</div><div style="display:flex;justify-content:flex-end;margin-top:10px"><button class="btn" id="avImpOk">Entendido</button></div>');
+   var bAv=document.getElementById('avImpOk'); if(bAv)bAv.onclick=pickClose;
+  }
   /* con la direccion del edificio ya se puede preguntar al Catastro por viviendas y año */
   if(o.dir){ toast('Buscando «'+(o.nombre||o.dir)+'» en el Catastro…');
    catAutoDesdeObra(o,function(ok,detalle){
@@ -8327,7 +8476,7 @@ window.PRESTON={state:function(){return state;},obra:obra,ficha:function(){var o
  qr:{matriz:qrMatriz,cw:qrCodewords,ec:qrEC,png:qrDataURL,svg:qrSvgDe},
  pub:{url:pubURL,qr:pubQR,pagina:paginaPublica,publica:publicaObra,token:pubDe,auto:autoPublica,hash:pubHash},
  dir:{bonita:dirBonita,muni:muniBonito,parse:parseDireccion},
- version:'v177-cubierta-subestructura (LAB · copia de pruebas)'};
+ version:'v179-importador-pdf (LAB · copia de pruebas)'};
 try{var th0=localStorage.getItem('prestonLAB_theme'); if(th0)document.documentElement.setAttribute('data-theme',th0);}catch(e){}
 var _bd=document.getElementById('brandDode'); if(_bd&&typeof PBRAND!=='undefined')_bd.src=PBRAND.dode;
 try{ var _rv=document.getElementById('railVer'); if(_rv)_rv.textContent='Versión '+(PRESTON.version||'').split(' ')[0]; }catch(e){}
