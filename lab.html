@@ -2161,6 +2161,7 @@ function normObra(o){ if(!o.id)o.id=uid("o");
     if(!o.mejoras.length){ delete o.mejoras; delete o.mejoraActiva; } }
   (o.capitulos||[]).forEach(function(c){ if(c.mejoras!=null&&!Array.isArray(c.mejoras))delete c.mejoras;
     (c.partidas||[]).forEach(function(p){ if(p.mejoras!=null&&!Array.isArray(p.mejoras))delete p.mejoras; }); });
+  if(Array.isArray(o.mejoras))mejorasAplica(o);   /* del servidor los capítulos llegan sin etiqueta: el mapa las repone */
   /* La dirección se deja bien escrita venga de donde venga: del PDF, del BC3, de un
      JSON importado, del asistente o del servidor. Aquí y no en cada importador,
      porque normObra es el único punto por el que pasan TODAS las obras.
@@ -2222,6 +2223,9 @@ var saveTimer=null,saveTick=null;
 var saveFallo=false;
 function save(){ var ok=true;
  try{ state.bdp=bdpDeltas();
+  /* las etiquetas de mejora se espejan al mapa de la obra ANTES de persistir: es lo único
+     que sobrevive al servidor (los capítulos no tienen columna de extras) */
+  (state.obras||[]).forEach(function(o){ if(o&&(o.mejoras||o.mejorasMapa))mejorasSincroniza(o); });
   localStorage.setItem(KEY,JSON.stringify(state));
   try{ if(state.activeId)localStorage.setItem('prestonLAB_activo',state.activeId); }catch(_){}
  }catch(e){ ok=false; }
@@ -2354,6 +2358,20 @@ function mejoraActiva(o){ o=o||obra(); var ms=mejorasDe(o); if(!ms.length)return
 function enMejora(x,o){ var t=x&&x.mejoras; if(!t||!t.length)return true;
  var act=mejoraActiva(o); return !!act&&t.indexOf(act)>=0; }
 function cuentaP(c,p,o){ return enMejora(c,o)&&enMejora(p,o); }
+/* PERSISTENCIA: el servidor guarda los extras de cada PARTIDA en su columna JSON, pero de
+   los CAPÍTULOS solo guarda código, nombre y certificación — una etiqueta puesta en un
+   capítulo moriría en el primer sincronizado. Por eso las etiquetas viajan ADEMÁS en un
+   mapa a nivel de obra (o.mejorasMapa, clave = id del capítulo o partida), que cae en la
+   columna wizard y sobrevive a todo; al cargar se vuelven a colocar. El mapa aguanta
+   incluso que un Prestón antiguo edite la obra: para él es un campo desconocido más. */
+function mejorasSincroniza(o){ if(!o)return; var m={},hay=false;
+ (o.capitulos||[]).forEach(function(c){ if(c.mejoras&&c.mejoras.length){m[c.id]=c.mejoras.slice();hay=true;}
+  (c.partidas||[]).forEach(function(p){ if(p.mejoras&&p.mejoras.length){m[p.id]=p.mejoras.slice();hay=true;} }); });
+ if(hay)o.mejorasMapa=m; else delete o.mejorasMapa; }
+function mejorasAplica(o){ if(!o)return; var m=o.mejorasMapa;
+ if(!m){ mejorasSincroniza(o); return; }   /* datos guardados antes del mapa: se construye */
+ (o.capitulos||[]).forEach(function(c){ if(m[c.id])c.mejoras=m[c.id].slice(); else delete c.mejoras;
+  (c.partidas||[]).forEach(function(p){ if(m[p.id])p.mejoras=m[p.id].slice(); else delete p.mejoras; }); }); }
 /* total del capítulo SIN el filtro de mejoras: lo que valdría si entrase */
 function capTotalBruto(c,o){return c.partidas.reduce(function(s,p){return s+importe(p,o);},0);}
 function capTotal(c,o){ if(!enMejora(c,o))return 0;
@@ -3397,7 +3415,7 @@ function obraDesdeBC3(nombre,px){
  if(idsB.length){ o.mejoras=idsB.map(function(id){ var nom='';
    o.capitulos.forEach(function(c){ if(c.mejoras&&c.mejoras[0]===id&&!nom)nom=c.res; });
    return {id:id,nom:nom||('MEJORA '+id)}; });
-  o.mejoraActiva=idsB[0]; }
+  o.mejoraActiva=idsB[0]; mejorasSincroniza(o); }
  return o;
 }
 function importaBC3File(file){
@@ -4109,6 +4127,30 @@ function obraDesdePDF(nombre,out){
    c.partidas.forEach(function(p2){ var fp=out.mejFilas[p2.cod]; if(fp)etiqueta(p2,fp,false); });
   });
   if(variosImp.length)out.avisos.push('Estas filas valen DISTINTO según la mejora y la partida entra con su importe del detalle — ajústala si eliges otra opción: '+variosImp.join(' | ')+'.');
+  /* POR CAPÍTULOS: las mejoras se manejan a nivel de capítulo. Si dentro de uno conviven
+     partidas de opciones distintas (el 05 del PDF: aerotermia solo C, fotovoltaica B·C),
+     el capítulo se PARTE y cada grupo pasa a ser su propio capítulo con su etiqueta; si
+     todas sus partidas llevan la misma, la etiqueta sube al capítulo. */
+  var reord=[];
+  o.capitulos.forEach(function(c){
+   var grupos={},ordenG=[];
+   c.partidas.forEach(function(p2){ var k=(p2.mejoras&&p2.mejoras.length)?p2.mejoras.join('·'):'';
+    if(!grupos[k]){grupos[k]=[];ordenG.push(k);} grupos[k].push(p2); });
+   if(ordenG.length<=1){ var k0=ordenG[0]||'';
+    if(k0){ if(!c.mejoras)c.mejoras=grupos[k0][0].mejoras.slice();
+     grupos[k0].forEach(function(p2){ delete p2.mejoras; }); }
+    reord.push(c); return; }
+   var primero=true, sufijo=0;
+   if(grupos['']&&grupos[''].length){ c.partidas=grupos['']; reord.push(c); primero=false; }
+   ordenG.forEach(function(k){ if(!k)return; var gr=grupos[k];
+    var cod2; if(primero){ cod2=c.cod; primero=false; } else { cod2=c.cod+String.fromCharCode(65+sufijo); sufijo++; }
+    var nc={id:uid('c'),cod:cod2,res:(gr.length===1?String(gr[0].res||c.res):c.res+' — '+k),cert:0,
+      mejoras:gr[0].mejoras.slice(),partidas:gr};
+    gr.forEach(function(p2){ delete p2.mejoras; });
+    reord.push(nc); });
+  });
+  o.capitulos=reord;
+  mejorasSincroniza(o);
  }
  o.subv={};
  if(out.honTec!=null)o.subv.honTec=out.honTec;
@@ -5242,7 +5284,7 @@ function partRow(c,p,ci){ var tr=document.createElement('tr'); tr.className='row
   '<td class="ed" style="position:relative"><input readonly class="ce r" data-col="pre" inputmode="decimal" data-k="partNum" data-id="'+p.id+'" data-f="precio" value="'+m2(num(p.precio)*recF())+'" style="padding-right:20px"><span style="position:absolute;right:5px;top:50%;transform:translateY(-50%)" id="bm-'+p.id+'">'+bmarkOf(p)+'</span></td>'+
   '<td class="rnum"><div class="cell" id="timp-'+p.id+'" style="font-weight:600">—</div></td>'+
   '<td class="rnum"><div class="cell"><div class="pctcell"><span class="pbar"><i id="tbar-'+p.id+'"></i></span><span id="tpct-'+p.id+'">—</span></div></div></td>'+
-  '<td><div class="cell p0"><div class="rowact"><button data-action="medir" data-id="'+p.id+'" title="Medición y detalle (doble clic en la fila)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8l13 13 5-5L8 3z"/><path d="M8 8l2 2M12 6l2 2M6 12l2 2"/></svg></button><button data-action="mejPart" data-id="'+p.id+'" title="Mejora / opción: en qué versiones del presupuesto cuenta esta partida"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 00-2 2v3m18 0V5a2 2 0 00-2-2h-3m0 18h3a2 2 0 002-2v-3M3 16v3a2 2 0 002 2h3"/><path d="M9 12l2 2 4-4"/></svg></button><button data-action="dupPart" data-id="'+p.id+'" title="Duplicar">'+g('copy','')+'</button><button class="del" data-action="delPart" data-id="'+p.id+'" title="Eliminar">'+g('trash','')+'</button></div></div></td>';
+  '<td><div class="cell p0"><div class="rowact"><button data-action="medir" data-id="'+p.id+'" title="Medición y detalle (doble clic en la fila)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8l13 13 5-5L8 3z"/><path d="M8 8l2 2M12 6l2 2M6 12l2 2"/></svg></button><button data-action="dupPart" data-id="'+p.id+'" title="Duplicar">'+g('copy','')+'</button><button class="del" data-action="delPart" data-id="'+p.id+'" title="Eliminar">'+g('trash','')+'</button></div></div></td>';
  return tr; }
 /* ---- asignar un capítulo o una partida a sus mejoras ---- */
 function abreMejoraPicker(kind,id){ var o=obra(); if(!o)return;
@@ -8696,7 +8738,7 @@ window.PRESTON={state:function(){return state;},obra:obra,ficha:function(){var o
  qr:{matriz:qrMatriz,cw:qrCodewords,ec:qrEC,png:qrDataURL,svg:qrSvgDe},
  pub:{url:pubURL,qr:pubQR,pagina:paginaPublica,publica:publicaObra,token:pubDe,auto:autoPublica,hash:pubHash},
  dir:{bonita:dirBonita,muni:muniBonito,parse:parseDireccion},
- version:'v181-mejoras (LAB · copia de pruebas)'};
+ version:'v182-mejoras-capitulos (LAB · copia de pruebas)'};
 try{var th0=localStorage.getItem('prestonLAB_theme'); if(th0)document.documentElement.setAttribute('data-theme',th0);}catch(e){}
 var _bd=document.getElementById('brandDode'); if(_bd&&typeof PBRAND!=='undefined')_bd.src=PBRAND.dode;
 try{ var _rv=document.getElementById('railVer'); if(_rv)_rv.textContent='Versión '+(PRESTON.version||'').split(' ')[0]; }catch(e){}
