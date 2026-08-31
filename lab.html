@@ -555,6 +555,17 @@ table.data{width:100%;border-collapse:collapse}
 .actc .ac-opts .ib{display:flex;align-items:center;gap:5px;background:var(--bg);border:1px solid var(--line);border-radius:4px;padding:3px 7px;font-size:11.5px}
 .actc .ac-opts input,.actc .ac-opts select{border:0;background:transparent;color:var(--ink);font:inherit;font-size:11.5px;width:58px;outline:none;font-variant-numeric:tabular-nums}
 .actc .ac-opts select{width:auto}
+/* lo que entra siempre: se ve QUE incluye, pero no se puede desmarcar */
+.actc.fija{cursor:default;border-style:dashed;background:var(--bg)}
+.actc.fija:hover{border-color:var(--line)}
+.actc.fija .ac-ico{background:var(--ok-bg);color:var(--ok)}
+.ac-siempre{font-size:9.5px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--ok);
+  background:var(--ok-bg);border-radius:999px;padding:3px 8px;flex-shrink:0}
+/* rotulillos que agrupan la pantalla: envolvente, ocultaciones, instalaciones */
+.wiz-gtit{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;padding:16px 14px 0;font-size:11px;
+  font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.wiz-gtit small{font-size:10.5px;font-weight:600;letter-spacing:0;text-transform:none}
+.wiz-gtit+.actgrid{padding-top:8px}
 .wiz-foot{display:flex;gap:10px;align-items:center;padding:14px}
 /* "Más datos" del paso 1: encuesta detallada plegada por defecto */
 .wiz-mas{border-top:1px solid var(--line);margin:0 14px}
@@ -1449,6 +1460,8 @@ table.medt{width:100%;border-collapse:collapse;font-size:12px}
 
 /* selector visual de tipo de cubierta (asistente) */
 .ctwrap{display:flex;gap:8px;width:100%;margin:2px 0 8px;flex-wrap:wrap}
+/* con tres tipos de cubierta cada botón necesita menos ancho para no romper la fila */
+.ctwrap.tres .ctbtn{flex:1 1 150px}
 .ctbtn{flex:1 1 170px;display:flex;align-items:center;gap:10px;text-align:left;cursor:pointer;font-family:inherit;
  border:1.5px solid var(--line);border-radius:9px;padding:9px 11px;background:var(--panel);color:var(--ink);transition:border-color .12s,background .12s}
 .ctbtn:hover{border-color:var(--brand)}
@@ -2358,7 +2371,11 @@ function wizDefaults(){ return {nombre:'',dir:'',muni:'Madrid',viviendas:24,loca
      y E48 PINTURAS, dentro de 02 ACTUACIONES PREVIAS) vienen siempre. Estaban apagadas y por eso
      desaparecían de los presupuestos sin avisar. Las no medibles entran a 0 ("a medir"): no
      inflan el precio, pero no se olvidan. Se pueden desmarcar en el asistente. */
-  banco:'presto',cubTipo:'plana',iDesmont:true,iGas:true,iPinturas:true}; }
+  /* cubTipo: 'plana' · 'inclinada' (ya lo es) · 'plana2incli' (se convierte, y por eso
+     lleva la subestructura de omegas que crea la pendiente).
+     Los desmontajes y montajes YA NO son opcionales: entran siempre. */
+  banco:'presto',cubTipo:'plana',iGas:true,iPinturas:true,
+  cubreAires:false,cubreAiresCod:'03.117',cubreTend:false,cubreTendCod:'03.116'}; }
 function wizAutos(w){ w.altura=w.altura||w.plantas*3;
   if(!w.longPlanta)w.longPlanta=r2(w.bruta/Math.max(1,w.altura));
   if(!w.nvent&&w.viviendas)w.nvent=Math.round(w.viviendas*5.5);
@@ -2395,10 +2412,16 @@ function generaPartidas(w){ w=wizAutos(Object.assign({},w));
     add('E27',0,'juntas de dilatación — a medir',null,true);
     add('E22',0,'rodapié en terrazas abiertas — a medir',null,true); }
   if(w.cubierta){
-    if(w.cubTipo==='inclinada'){ /* cubierta inclinada panel sandwich (E29-E38) */
+    /* Tres caminos. Inclinada y «de plana a inclinada» comparten TODO menos una partida:
+       la subestructura de omegas (E31), que es justo lo que levanta la pendiente sobre una
+       cubierta que hoy es plana. Si el edificio ya está inclinado, esa pendiente existe y
+       la subestructura no se pone. */
+    var haciaInclinada=(w.cubTipo==='inclinada'||w.cubTipo==='plana2incli');
+    if(haciaInclinada){ /* cubierta inclinada panel sandwich (E29-E38) */
       add('E29',w.cubM2,'levantado = superficie de cubierta');
       add('E30',w.cubM2,'preparación = superficie de cubierta');
-      add('E31',w.cubM2,'omegas = superficie de cubierta');
+      if(w.cubTipo==='plana2incli')
+        add('E31',w.cubM2,'omegas = superficie de cubierta · subestructura que da la pendiente');
       add('E32',w.cubM2,'lana IBR 80 = superficie de cubierta');
       add('E35',w.cubM2,'panel sandwich 60 mm = superficie de cubierta');
       add('E33',w.longPlanta,'canalones ≈ aleros (longitud de planta) — ajustar');
@@ -2418,7 +2441,10 @@ function generaPartidas(w){ w=wizAutos(Object.assign({},w));
       add('11.07',1,'prueba de estanqueidad por inundación');
       add('11.10',w.longPlanta,'albardillas ≈ perímetro — ajustar'); } }
   /* intervenciones específicas del banco Presto (las no medibles entran a 0, "a medir") */
-  if(w.iDesmont){
+  /* DESMONTAJES Y MONTAJES: ya no se pregunta. En una obra de fachada hay que descolgar y
+     volver a poner los aires, el cableado, las rejillas, los tendederos y las bajantes
+     SIEMPRE, así que no tiene sentido ofrecer no hacerlo. Lo no medible entra a 0. */
+  {
     add('E04',r2(w.longPlanta*w.plantas),'cableado ≈ longitud de planta × plantas — ajustar');
     add('E05',w.viviendas,'1 compresor por vivienda — se cobra lo realmente ejecutado');
     add('E08',0,'toldos en terrazas y fachada — a medir',null,true);
@@ -2429,6 +2455,11 @@ function generaPartidas(w){ w=wizAutos(Object.assign({},w));
     add('E41',0,'luminarias en terrazas — a medir',null,true);
     add('E42',w.viviendas,'1 tendedero por vivienda');
     add('E43',0,'antenas parabólicas — a medir',null,true); }
+  /* Celosías de ocultación: se piden por vivienda, una por casa. El nombre, el precio y la
+     descripción salen de la partida REAL del banco que se elija en el asistente, así que
+     cambiar de modelo (aluminio, PVC, chapa deployé) cambia el precio solo. */
+  if(w.cubreAires)add(w.cubreAiresCod||'03.117',w.viviendas,'1 por vivienda — ajustar a las máquinas reales');
+  if(w.cubreTend)add(w.cubreTendCod||'03.116',w.viviendas,'1 por vivienda');
   if(w.iGas){
     add('E13',w.viviendas,'1 acometida por vivienda — ajustar a las afectadas');
     add('E44',w.viviendas,'1 salida de humos por vivienda — ajustar'); }
@@ -4528,7 +4559,8 @@ function renderWiz(){ if(!wizData)wizData=wizDefaults();
    if(el)el.addEventListener('input',function(){ wizData._catTouched=true;
      var map={catTv:'tv',catNv:'nv',catNum:'num',catMuni:'muni',catRc:'rc'}; if(wizData._cat)wizData._cat[map[cid]]=el.value; }); });
  host.querySelectorAll('.actc').forEach(function(c){ c.addEventListener('click',function(e){ if(e.target.closest('input,select,button'))return;
-   var k=c.dataset.act; wizData[k]=!wizData[k]; renderWiz(); }); });
+   var k=c.dataset.act; if(!k)return;   /* las tarjetas de lo que va siempre no llevan data-act */
+   wizData[k]=!wizData[k]; renderWiz(); }); });
  host.querySelectorAll('select[data-rw]').forEach(function(s){ s.addEventListener('change',function(){ renderWiz(); }); });
  host.querySelectorAll('[data-cubtipo]').forEach(function(b){ b.addEventListener('click',function(){ wizData.cubTipo=b.dataset.cubtipo; renderWiz(); }); });
  var wm=host.querySelector('details.wiz-mas'); if(wm)wm.addEventListener('toggle',function(){ wizMasOpen=wm.open; });
@@ -4718,21 +4750,47 @@ function catAplicar(){ var w=wizData; if(!w||!catLast)return; var aplicados=0;
 function actc(k,ic,titulo,body,opts){ var on=wizData[k];
  return '<div class="actc'+(on?' on':'')+'" data-act="'+k+'"><div class="ac-top"><span class="ac-ico">'+g(ic,'')+'</span><h5>'+titulo+'</h5><span class="chk"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M4 12l5 5L20 6"/></svg></span></div>'+
   '<div class="ac-body">'+body+'</div>'+(on&&opts?'<div class="ac-opts">'+opts+'</div>':'')+'</div>'; }
+/* tarjeta de lo que va SIEMPRE: se ve lo que incluye, pero no se puede desmarcar */
+function actfija(ic,titulo,body){
+ return '<div class="actc fija"><div class="ac-top"><span class="ac-ico">'+g(ic,'')+'</span><h5>'+titulo+'</h5>'+
+  '<span class="ac-siempre">siempre</span></div><div class="ac-body">'+body+'</div></div>'; }
+/* elegir el modelo de una partida entre varias del banco: se ve el precio de cada una */
+function wizModelo(campo,codigos,actual,etiqueta,pista){
+ var ops=codigos.map(function(c){ var b=bdpByCod(c); if(!b)return '';
+   return '<option value="'+esc(c)+'"'+(actual===c?' selected':'')+'>'+esc(b.res)+' — '+m2(b.pre)+' €/'+esc(b.ud)+'</option>'; }).join('');
+ return '<span class="ib" style="display:block">'+esc(etiqueta)+' <select data-w="'+campo+'">'+ops+'</select>'+
+  (pista?'<span class="ib-hint">'+esc(pista)+'</span>':'')+'</span>'; }
 function wizPaso2(){ var w=wizData;
- return '<div class="panelbox"><div class="ph"><h2>¿Qué estamos interviniendo?</h2><span class="grow"></span><span class="sub">Solo partidas reales del banco Proyecton (Presto), con sus descripciones — el banco crecerá con cada archivo que se incorpore</span></div><div class="actgrid">'+
-  actc('sate','sate','SATE en fachada','Partidas reales: revisión de paramentos, SATE (elige la marca y el espesor), alfeizares, coronación, canaletas, juntas y rodapié.',
-    '<span class="ib" style="display:block;margin-bottom:8px">¿Qué SATE? <select data-w="sateCod">'+BDP.filter(function(b){return b.cap==='03'&&b.med&&b.med.indexOf('sate')===0&&(b.cod+'').indexOf('BAR')!==0;}).map(function(b){return '<option value="'+esc(b.cod)+'"'+((w.sateCod||'E20')===b.cod?' selected':'')+'>'+esc(b.res)+' — '+m2(b.pre)+' €/m²</option>';}).join('')+'</select><span class="ib-hint">marca y espesor del SATE de fachada</span></span>'+
-    '<span class="ib">Superficie SATE <input data-w="sateM2" inputmode="decimal" value="'+loose(w.sateM2||'')+'" placeholder="'+fEs(r2(w.bruta+(w.patios||0)))+'"> m²<span class="ib-hint">tu medición · en blanco = fachada sin descontar</span></span>')+
-  actc('cubierta','roof','Cubierta','Rehabilitación de la cubierta del edificio. <b>Elige el tipo:</b>',
-    '<div class="ctwrap">'+
-     '<button type="button" class="ctbtn'+(w.cubTipo!=='inclinada'?' on':'')+'" data-cubtipo="plana"><span class="ct-ico">▭</span><span class="ct-t"><b>Cubierta PLANA</b><small>Impermeabilización bicapa + losa Filtrón (partidas 11.xx)</small></span></button>'+
-     '<button type="button" class="ctbtn'+(w.cubTipo==='inclinada'?' on':'')+'" data-cubtipo="inclinada"><span class="ct-ico">⌂</span><span class="ct-t"><b>Cubierta INCLINADA</b><small>Panel sandwich sobre omegas (partidas E29–E38)</small></span></button>'+
+ var viv=m0(num(w.viviendas)||0);
+ return '<div class="panelbox"><div class="ph"><h2>¿Qué estamos interviniendo?</h2><span class="grow"></span><span class="sub">Solo partidas reales del banco Proyecton (Presto), con sus descripciones — el banco crecerá con cada archivo que se incorpore</span></div>'+
+  /* ---- 1) lo gordo: envolvente ---- */
+  '<div class="wiz-gtit">La envolvente</div><div class="actgrid">'+
+  actc('sate','sate','SATE en fachada','Revisión de paramentos, SATE, alfeizares, coronación, canaletas, juntas y rodapié.',
+    wizModelo('sateCod',BDP.filter(function(b){return b.cap==='03'&&b.med&&b.med.indexOf('sate')===0&&(b.cod+'').indexOf('BAR')!==0;}).map(function(b){return b.cod;}),
+      (w.sateCod||'E20'),'Sistema','marca y espesor del SATE de fachada')+
+    '<span class="ib" style="display:block;margin-top:6px">Superficie <input data-w="sateM2" inputmode="decimal" value="'+loose(w.sateM2||'')+'" placeholder="'+fEs(r2(w.bruta+(w.patios||0)))+'"> m²<span class="ib-hint">tu medición · en blanco = fachada sin descontar</span></span>')+
+  actc('cubierta','roof','Cubierta','Rehabilitación de la cubierta. <b>Elige el tipo:</b>',
+    '<div class="ctwrap tres">'+
+     '<button type="button" class="ctbtn'+(w.cubTipo==='plana'||!w.cubTipo?' on':'')+'" data-cubtipo="plana"><span class="ct-ico">▭</span><span class="ct-t"><b>PLANA</b><small>Impermeabilización bicapa + losa Filtrón (11.xx)</small></span></button>'+
+     '<button type="button" class="ctbtn'+(w.cubTipo==='inclinada'?' on':'')+'" data-cubtipo="inclinada"><span class="ct-ico">⌂</span><span class="ct-t"><b>INCLINADA</b><small>Ya lo es: panel sandwich sobre la pendiente actual (E29–E38)</small></span></button>'+
+     '<button type="button" class="ctbtn'+(w.cubTipo==='plana2incli'?' on':'')+'" data-cubtipo="plana2incli"><span class="ct-ico">◺</span><span class="ct-t"><b>DE PLANA A INCLINADA</b><small>Lo mismo que la inclinada <b>más la subestructura de omegas</b> que crea la pendiente (E31)</small></span></button>'+
     '</div>'+
     '<span class="ib">Superficie <input data-w="cubM2" inputmode="decimal" value="'+loose(w.cubM2||'')+'" placeholder="auto"> m²</span>')+
-  actc('iDesmont','cfg','Desmontajes y montajes','Aires acondicionados, cableado, rejillas, tendederos, bajantes, toldos, rejas, antenas…','')+
+  '</div>'+
+  /* ---- 2) ocultaciones: opcionales, una por vivienda ---- */
+  '<div class="wiz-gtit">Ocultaciones en fachada <small>una por vivienda; el precio sale del modelo que elijas</small></div><div class="actgrid">'+
+  actc('cubreAires','sate','Cubre aires acondicionados','Celosía o cajón para tapar las máquinas exteriores.'+(num(w.viviendas)?' Entrarán <b>'+viv+'</b>, una por vivienda.':''),
+    wizModelo('cubreAiresCod',['03.117','03.119'],(w.cubreAiresCod||'03.117'),'Modelo',''))+
+  actc('cubreTend','check','Cubre tendederos','Celosía que oculta el tendedero de cada terraza.'+(num(w.viviendas)?' Entrarán <b>'+viv+'</b>, una por vivienda.':''),
+    wizModelo('cubreTendCod',['03.116','03.115','03.118'],(w.cubreTendCod||'03.116'),'Modelo',''))+
+  '</div>'+
+  /* ---- 3) el resto ---- */
+  '<div class="wiz-gtit">Instalaciones y acabados</div><div class="actgrid">'+
   actc('iGas','warn','Modificación de gas','Separación de tuberías de abonado y prolongación de salidas de humos.','')+
   actc('iPinturas','check','Pinturas','Bandejas de terrazas, esmalte en tubería de gas y barandillas.','')+
- '</div><div class="hint" style="padding:0 14px 12px">Seguridad y salud y gestión de residuos se incluyen siempre (partidas E39 y E40). Ventanas, aerotermia, fotovoltaica o amianto se añadirán cuando se incorporen sus archivos de Presto.</div>'+
+  actfija('cfg','Desmontajes y montajes','Aires acondicionados, cableado, rejillas, tendederos, bajantes, toldos, rejas y antenas. En una obra de fachada hay que descolgarlo y volver a ponerlo, así que va siempre.')+
+  actfija('warn','Seguridad y salud · Residuos','Plan de seguridad y salud de la obra y gestión de residuos con el 70 % de valorización (E39 y E40).')+
+ '</div><div class="hint" style="padding:0 14px 12px">Ventanas, aerotermia, fotovoltaica o amianto se añadirán cuando se incorporen sus archivos de Presto.</div>'+
  '<div class="wiz-foot"><button class="mini" id="wizBack">← Edificio</button><span class="spring"></span><button class="btn" id="wizNext">Calcular mediciones →</button></div></div>';
 }
 var wizCapOpen={};
@@ -8198,7 +8256,7 @@ window.PRESTON={state:function(){return state;},obra:obra,ficha:function(){var o
  qr:{matriz:qrMatriz,cw:qrCodewords,ec:qrEC,png:qrDataURL,svg:qrSvgDe},
  pub:{url:pubURL,qr:pubQR,pagina:paginaPublica,publica:publicaObra,token:pubDe,auto:autoPublica,hash:pubHash},
  dir:{bonita:dirBonita,muni:muniBonito,parse:parseDireccion},
- version:'v168-carpetas-arbol (LAB · copia de pruebas)'};
+ version:'v170-asistente-cubiertas (LAB · copia de pruebas)'};
 try{var th0=localStorage.getItem('prestonLAB_theme'); if(th0)document.documentElement.setAttribute('data-theme',th0);}catch(e){}
 var _bd=document.getElementById('brandDode'); if(_bd&&typeof PBRAND!=='undefined')_bd.src=PBRAND.dode;
 try{ var _rv=document.getElementById('railVer'); if(_rv)_rv.textContent='Versión '+(PRESTON.version||'').split(' ')[0]; }catch(e){}
