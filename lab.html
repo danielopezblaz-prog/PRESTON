@@ -965,6 +965,40 @@ table.bdp{width:100%;border-collapse:collapse}
 .dk-serv div{break-inside:avoid;padding:5px 0 5px 15px;position:relative}
 .dk-serv div::before{content:"";position:absolute;left:0;top:10px;width:7px;height:7px;background:#ae0b0b;border-radius:2px}
 .dk-lema{background:#ae0b0b;color:#fff;text-align:center;letter-spacing:.32em;font-size:12px;padding:12px 8px;margin:18px 0 4px}
+/* ===== comparativa de OPCIONES (mejoras): capítulos en filas, una columna por opción,
+   igual que la hoja de mejoras del presupuesto en papel ===== */
+.dkopt-w{margin-top:14px;border:1px solid #e0cfcf;border-radius:10px;overflow:hidden;
+  box-shadow:0 1px 5px rgba(120,30,30,.09);page-break-inside:avoid;break-inside:avoid}
+.dkopt-h{background:linear-gradient(135deg,#ae0b0b,#8c0909);color:#fff;padding:9px 12px;
+  display:flex;justify-content:space-between;align-items:center;gap:10px}
+.dkopt-h b{font:800 10.5px/1 Arial,sans-serif;letter-spacing:.1em}
+.dkopt-h span{font:600 8.5px/1 Arial,sans-serif;letter-spacing:.05em;opacity:.85}
+table.dkopt{width:100%;border-collapse:collapse;font-size:9.8px;table-layout:fixed}
+.dkopt th,.dkopt td{padding:5px 8px;text-align:right;font-variant-numeric:tabular-nums;
+  border-bottom:1px solid #f1e6e6;word-wrap:break-word}
+.dkopt th.l,.dkopt td.l{text-align:left}
+/* cabecera de columnas: cada opción con su nombre; la presentada, en granate */
+.dkopt thead th{background:#f7f1f1;color:#5a4a4a;font:800 8.5px/1.3 Arial,sans-serif;
+  letter-spacing:.06em;text-transform:uppercase;border-bottom:1.5px solid #e0cfcf;vertical-align:bottom}
+.dkopt thead th.act{background:#ae0b0b;color:#fff}
+.dkopt thead th .pres{display:block;font:700 7px/1.4 Arial,sans-serif;letter-spacing:.1em;opacity:.9}
+/* filas de capítulo */
+.dkopt tbody tr.cap td{color:#333}
+.dkopt tbody tr.cap:nth-child(even) td{background:#fcfafa}
+/* el código no se parte nunca: con 26 px y el relleno a los lados, «01» caía en dos líneas */
+.dkopt td.cod{color:#ae0b0b;font-weight:700;white-space:nowrap;padding-left:10px;padding-right:2px;text-align:left}
+.dkopt td.no{color:#c4b4b4}                       /* «— €»: esa opción no lo lleva */
+.dkopt td.act{background:#faf3f3}
+.dkopt td.excl{font-weight:700;color:#8c0909}     /* solo está en esta opción */
+/* bloque económico */
+.dkopt tr.eco td{background:#f9f6f6;color:#5a4a4a;font-size:9.3px}
+.dkopt tr.eco.first td{border-top:1.5px solid #ae0b0b}
+.dkopt tr.eco td.l{font-weight:600}
+.dkopt tr.tot td{background:#ae0b0b;color:#fff;font:800 11px/1.3 Arial,sans-serif;padding:8px}
+.dkopt tr.dif td{font-size:8.6px;color:#b7791f;padding-top:4px;padding-bottom:6px;border-bottom:0}
+.dkopt tr.dif td.base{color:#999}
+.dkopt-f{padding:6px 12px 7px;font:italic 8.5px/1.5 Arial,sans-serif;color:#999;
+  border-top:1px solid #f1e6e6;background:#fdfafa}
 /* tabla presupuesto */
 table.dkt{width:100%;border-collapse:collapse;font-size:10.4px;margin:6px 0}
 .dkt th{background:#1a1a1a;color:#fff;font-size:9px;letter-spacing:.09em;padding:7px 9px;text-align:right;text-transform:uppercase}
@@ -2376,6 +2410,14 @@ function mejorasAplica(o){ if(!o)return; var m=o.mejorasMapa;
  if(!m){ mejorasSincroniza(o); return; }   /* datos guardados antes del mapa: se construye */
  (o.capitulos||[]).forEach(function(c){ if(m[c.id])c.mejoras=m[c.id].slice(); else delete c.mejoras;
   (c.partidas||[]).forEach(function(p){ if(m[p.id])p.mejoras=m[p.id].slice(); else delete p.mejoras; }); }); }
+/* total de UN capítulo en UNA opción concreta. null = esa opción no lo lleva (en la
+   comparativa se pinta «— €», igual que el «- €» del presupuesto en papel). */
+function capTotalOpcion(c,o,id){ var tc=c.mejoras;
+ if(tc&&tc.length&&tc.indexOf(id)<0)return null;
+ var s=0,algo=false;
+ c.partidas.forEach(function(p){ var tp=p.mejoras;
+  if(tp&&tp.length&&tp.indexOf(id)<0)return; algo=true; s+=importe(p,o); });
+ return algo?s:null; }
 /* total del capítulo SIN el filtro de mejoras: lo que valdría si entrase */
 function capTotalBruto(c,o){return c.partidas.reduce(function(s,p){return s+importe(p,o);},0);}
 function capTotal(c,o){ if(!enMejora(c,o))return 0;
@@ -8686,33 +8728,52 @@ function dossierHtml(o){ var f=fichaDe(o), t=f.t, opt=f.opt, p=state.params;
     presupuesto en papel */
  var msD=mejorasDe(o);
  if(!ciego&&msD.length){ var actD=mejoraActiva(o);
-  var totBase=totalesDePem(o,r2(pemDeOpcion(o,''))).total;
-  var filaOp=function(id,nom,desc){ var tm=totalesDePem(o,r2(pemDeOpcion(o,id)));
-    var esA=(id===actD);
-    var dif=r2(tm.total-totBase);
-    /* la marca de radio dice de un vistazo cuál es la presentada; las demás, aro gris */
-    var marca=esA
-      ?'<span style="flex:none;width:13px;height:13px;border-radius:50%;background:#ae0b0b;display:inline-grid;place-items:center;margin-top:2px"><span style="width:5px;height:5px;border-radius:50%;background:#fff"></span></span>'
-      :'<span style="flex:none;width:13px;height:13px;border-radius:50%;border:1.5px solid #c9b8b8;margin-top:2px"></span>';
-    return '<div style="display:flex;gap:10px;align-items:flex-start;padding:9px 12px;border-top:1px solid #f0d0d0'+
-      (esA?';background:#faf3f3;box-shadow:inset 3px 0 0 #ae0b0b':'')+'">'+marca+
-     '<span style="flex:1;min-width:0">'+
-      '<span style="display:flex;align-items:center;gap:7px;flex-wrap:wrap">'+
-       '<b style="font:800 11px/1.2 Arial,sans-serif;letter-spacing:.04em;color:'+(esA?'#ae0b0b':'#1a1a1a')+'">'+esc(nom).toUpperCase()+'</b>'+
-       (esA?'<span style="font:800 8px/1 Arial,sans-serif;letter-spacing:.09em;background:#ae0b0b;color:#fff;border-radius:999px;padding:3px 7px">PRESENTADA</span>':'')+
-      '</span>'+
-      (desc?'<span style="display:block;font:9.5px/1.45 Arial,sans-serif;color:#777;margin-top:2px">'+esc(String(desc).slice(0,170))+'</span>':'')+
-     '</span>'+
-     '<span style="flex:none;text-align:right;white-space:nowrap">'+
-      '<b style="font:800 12.5px/1.2 Arial,sans-serif;color:'+(esA?'#ae0b0b':'#1a1a1a')+';font-variant-numeric:tabular-nums">'+eur(tm.total)+'</b>'+
-      (id!==''&&Math.abs(dif)>0.5?'<span style="display:block;font:9px/1.3 Arial,sans-serif;color:'+(dif>0?'#b7791f':'#2e7d57')+'">'+(dif>0?'+':'−')+' '+eur(Math.abs(dif)).replace(' €','')+' € sobre el base</span>':'')+
-     '</span></div>'; };
-  h+='<div style="margin-top:12px;border:1px solid #e0cfcf;border-radius:10px;overflow:hidden;box-shadow:0 1px 4px rgba(120,30,30,.08)">'+
-   '<div style="background:linear-gradient(135deg,#ae0b0b,#8c0909);color:#fff;font:800 10px/1 Arial,sans-serif;letter-spacing:.1em;padding:8px 12px;display:flex;justify-content:space-between;align-items:center">'+
-    '<span>OPCIONES DE ESTE PRESUPUESTO</span><span style="font:600 8.5px/1 Arial,sans-serif;letter-spacing:.05em;opacity:.85">IVA INCLUIDO</span></div>'+
-   filaOp('','Presupuesto base','Sin las mejoras opcionales')+
-   msD.map(function(m){ return filaOp(m.id,m.nom||('MEJORA '+m.id),m.desc); }).join('')+
-   '<div style="padding:6px 12px 7px;font:italic 8.5px/1.5 Arial,sans-serif;color:#999;border-top:1px solid #f0d0d0;background:#fdfafa">La tabla superior desglosa la opción presentada; las demás se ofrecen como alternativa sobre el mismo presupuesto.</div>'+
+  /* COMPARATIVA como la hoja de mejoras del presupuesto en papel: los capítulos en filas,
+     una columna por opción y, debajo, el mismo desglose económico (PEM, IVA, honorarios,
+     total). Donde una opción no lleva un capítulo va «— €», igual que su «- €». */
+  var cols=[{id:'',nom:'PRESUPUESTO BASE',desc:'Sin las mejoras opcionales'}]
+   .concat(msD.map(function(m){ return {id:m.id,nom:String(m.nom||('MEJORA '+m.id)),desc:m.desc||''}; }));
+  var tt=cols.map(function(cl){ return totalesDePem(o,r2(pemDeOpcion(o,cl.id))); });
+  var anchoN=Math.max(26,58-(cols.length-1)*7);          /* la columna de nombres cede sitio */
+  var anchoC=Math.floor((100-anchoN)/cols.length);
+  var clsAct=function(i){ return cols[i].id===actD?' act':''; };
+  var eurT=function(v){ return m2(v)+' €'; };
+  var filaEco=function(et,valores,extra){
+   return '<tr class="eco'+(extra||'')+'"><td class="l" colspan="2">'+et+'</td>'+
+    valores.map(function(v,i){ return '<td class="'+clsAct(i).trim()+'">'+eurT(v)+'</td>'; }).join('')+'</tr>'; };
+  var th='<tr><th class="l" colspan="2">Cap. · Resumen del presupuesto</th>'+
+   cols.map(function(cl,i){ return '<th class="'+(cl.id===actD?'act':'')+'">'+esc(cl.nom)+
+     (cl.id===actD?'<span class="pres">PRESENTADA</span>':'')+'</th>'; }).join('')+'</tr>';
+  var filasCap='';
+  o.capitulos.forEach(function(c){
+   var vals=cols.map(function(cl){ return capTotalOpcion(c,o,cl.id); });
+   if(vals.every(function(v){ return v==null||v<0.005; }))return;    /* capítulo vacío en todas */
+   var soloUna=vals.filter(function(v){ return v!=null; }).length===1;
+   filasCap+='<tr class="cap"><td class="cod">'+esc(c.cod)+'</td><td class="l">'+esc(c.res)+'</td>'+
+    vals.map(function(v,i){ return '<td class="'+(v==null?'no ':'')+(soloUna&&v!=null?'excl ':'')+clsAct(i).trim()+'">'+
+      (v==null?'— €':eurT(v))+'</td>'; }).join('')+'</tr>';
+  });
+  var cfgD=o.config||{gg:0,bi:0,iva:10};
+  var eco=filaEco('Presupuesto de ejecución material',tt.map(function(t2){return t2.pem;}),' first');
+  if(tt[0].gg+tt[0].bi>0)eco+=filaEco('Gastos generales y beneficio industrial',tt.map(function(t2){return t2.gg+t2.bi;}));
+  eco+=filaEco('I.V.A. '+loose(cfgD.iva)+' %',tt.map(function(t2){return t2.iva;}));
+  if(tt[0].agente>0)eco+=filaEco('Honorarios agente rehabilitador + IVA '+tt[0].ivaAg+' %',tt.map(function(t2){return t2.agenteConIva;}));
+  if(tt[0].honTecConIva>0)eco+=filaEco('Honorarios técnicos + IVA '+tt[0].ivaHon+' %',tt.map(function(t2){return t2.honTecConIva;}));
+  var totBase=tt[0].total;
+  var filaTot='<tr class="tot"><td class="l" colspan="2">COSTE TOTAL PARA LA COMUNIDAD</td>'+
+   tt.map(function(t2){ return '<td>'+eurT(t2.total)+'</td>'; }).join('')+'</tr>';
+  var filaDif='<tr class="dif"><td class="l" colspan="2">Diferencia sobre el presupuesto base</td>'+
+   cols.map(function(cl,i){ var d=r2(tt[i].total-totBase);
+     return '<td class="'+(cl.id===''?'base':'')+'">'+(cl.id===''?'referencia':((d>0?'+ ':'− ')+m2(Math.abs(d))+' €'))+'</td>'; }).join('')+'</tr>';
+  h+='<div class="dkopt-w"><div class="dkopt-h"><b>OPCIONES DE ESTE PRESUPUESTO</b><span>IMPORTES CON IVA INCLUIDO</span></div>'+
+   '<table class="dkopt"><colgroup><col style="width:34px"><col style="width:'+anchoN+'%">'+
+    cols.map(function(){ return '<col style="width:'+anchoC+'%">'; }).join('')+'</colgroup>'+
+   '<thead>'+th+'</thead><tbody>'+filasCap+eco+filaTot+filaDif+'</tbody></table>'+
+   (cols.some(function(cl){return cl.desc;})
+     ?'<div class="dkopt-f">'+cols.filter(function(cl){return cl.desc;}).map(function(cl){
+        return '<b style="color:#8c0909;font-style:normal">'+esc(cl.nom)+':</b> '+esc(String(cl.desc).slice(0,180)); }).join('<br>')+'</div>'
+     :'')+
+   '<div class="dkopt-f">La tabla de arriba desglosa la opción presentada; las demás se ofrecen como alternativa sobre el mismo presupuesto.</div>'+
   '</div>'; }
  h+='</div>'+dkFoot(p)+'</div>';
  /* P4 · LA HOJA DE SUBVENCIONES — el informe completo con los datos de ESTA obra, vestido con la
@@ -8763,7 +8824,7 @@ window.PRESTON={state:function(){return state;},obra:obra,ficha:function(){var o
  qr:{matriz:qrMatriz,cw:qrCodewords,ec:qrEC,png:qrDataURL,svg:qrSvgDe},
  pub:{url:pubURL,qr:pubQR,pagina:paginaPublica,publica:publicaObra,token:pubDe,auto:autoPublica,hash:pubHash},
  dir:{bonita:dirBonita,muni:muniBonito,parse:parseDireccion},
- version:'v185-opciones-bonitas (LAB · copia de pruebas)'};
+ version:'v188-comparativa (LAB · copia de pruebas)'};
 try{var th0=localStorage.getItem('prestonLAB_theme'); if(th0)document.documentElement.setAttribute('data-theme',th0);}catch(e){}
 var _bd=document.getElementById('brandDode'); if(_bd&&typeof PBRAND!=='undefined')_bd.src=PBRAND.dode;
 try{ var _rv=document.getElementById('railVer'); if(_rv)_rv.textContent='Versión '+(PRESTON.version||'').split(' ')[0]; }catch(e){}
