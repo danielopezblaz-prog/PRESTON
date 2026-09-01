@@ -1902,6 +1902,7 @@ PBRAND.qr=qrSvg(PBRAND.qrData,PBRAND.qrN);
           <button class="btn" id="btnPublicar" title="El enlace del QR se actualiza solo al abrir el dossier y al imprimir. Este botón lo fuerza."><svg class="g" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h2v2h-2zM18 14h2v2h-2zM14 18h2v2h-2zM18 18h2v2h-2z"/></svg>Actualizar enlace del QR</button>
           <span id="pubEstado" style="margin-left:10px;font-size:12px;color:var(--muted)"></span>
           <label class="doss-ciego" style="display:inline-flex;align-items:center;gap:7px;margin-left:14px;font-size:13px;color:var(--ink-2);cursor:pointer" title="Genera el presupuesto sin precios: solo códigos, conceptos y mediciones"><input type="checkbox" id="dossCiego" style="width:16px;height:16px;cursor:pointer">Ocultar precios (presupuesto ciego)</label>
+          <label class="doss-ciego" style="display:inline-flex;align-items:center;gap:7px;margin-left:14px;font-size:13px;color:var(--ink-2);cursor:pointer" title="Quita las líneas de medición (uds × largo × ancho × alto) de debajo de cada partida: se queda la cantidad total"><input type="checkbox" id="dossSinMed" style="width:16px;height:16px;cursor:pointer">Ocultar desglose de mediciones</label>
         </div>
         <div id="dossBody"></div>
       </div></div></section>
@@ -7873,6 +7874,9 @@ function renderDossier(){ var o=obra(); if(!o)return;
  var dc=document.getElementById('dossCiego');
  if(dc){ dc.checked=!!(typeof UI2!=='undefined'&&UI2&&UI2.ciego);
    dc.onchange=function(){ if(typeof UI2!=='undefined'){UI2.ciego=dc.checked;saveUI2();} renderDossier(); }; }
+ var dm=document.getElementById('dossSinMed');
+ if(dm){ dm.checked=!!(typeof UI2!=='undefined'&&UI2&&UI2.sinMed);
+   dm.onchange=function(){ if(typeof UI2!=='undefined'){UI2.sinMed=dm.checked;saveUI2();} renderDossier(); }; }
  var b=document.getElementById('dossBody'); b.innerHTML=dossierHtml(o);
  ajustaPaginasA4(b); requestAnimationFrame(function(){ajustaPaginasA4(b);});
  /* el enlace del QR se pone al día solo, sin preguntar; si el documento no ha
@@ -8696,6 +8700,7 @@ function dossierHtml(o){ var f=fichaDe(o), t=f.t, opt=f.opt, p=state.params;
  /* P3 · PRESUPUESTO Y MEDICIONES — en modo CIEGO se ocultan P. unitario, Importe y
     todos los totales: queda un documento de mediciones y alcance, sin precios. */
  var ciego=(typeof UI2!=='undefined'&&UI2&&UI2.ciego);
+ var sinMed=(typeof UI2!=='undefined'&&UI2&&UI2.sinMed);
  h+='<div class="a4">'+dkHead(p,o,ciego?'Mediciones':'Presupuesto y mediciones')+'<div class="dk-pad">'+
   '<h2 class="dk dk-black">'+(ciego?'MEDICIONES':'PRESUPUESTO Y MEDICIONES')+'</h2>'+
   (ciego?'<div style="font-size:10px;color:#666;margin:-4px 0 8px">Documento sin precios (presupuesto ciego): mediciones y alcance de la obra.</div>':'')+
@@ -8709,7 +8714,9 @@ function dossierHtml(o){ var f=fichaDe(o), t=f.t, opt=f.opt, p=state.params;
    c.partidas.forEach(function(pt,pi){ if(!enMejora(pt,o))return;
      h+='<tr'+(pi%2?' class="alt"':'')+'><td class="l" style="color:#ae0b0b;font-weight:700">'+esc(pt.cod)+'</td>'+
      '<td class="l"><div class="pname">'+esc(pt.res)+'</div>'+(pt.spec?'<div class="pdesc">'+escNl(pt.spec)+'</div>':'')+
-     (tieneLineas(pt)?'<div class="dkmed">'+pt.lineas.map(function(ln){ return '<div class="dkml"><span class="c">'+esc(ln.com||'')+'</span><span class="f">'+esc(formulaLinea(ln))+'</span><span class="p">'+m2(parcialLinea(ln))+'</span></div>'; }).join('')+'</div>':'')+'</td>'+
+     /* el desglose de medición (uds × largo × ancho × alto) se puede quitar desde la barra
+        del dossier: hay clientes a los que se les manda solo la cantidad total */
+     ((tieneLineas(pt)&&!sinMed)?'<div class="dkmed">'+pt.lineas.map(function(ln){ return '<div class="dkml"><span class="c">'+esc(ln.com||'')+'</span><span class="f">'+esc(formulaLinea(ln))+'</span><span class="p">'+m2(parcialLinea(ln))+'</span></div>'; }).join('')+'</div>':'')+'</td>'+
      (ciego?'<td>'+m2(num(pt.cantidad))+'</td><td class="l">'+esc(udFmt(pt.ud))+'</td>'
            :'<td>'+m2(num(pt.cantidad))+' '+esc(udFmt(pt.ud))+'</td><td>'+m2(num(pt.precio)*recF(o))+'</td><td>'+m2(importe(pt,o))+'</td>')+'</tr>'; });
    if(!ciego)h+='<tr class="sub"><td class="l" colspan="4">TOTAL C'+esc(c.cod)+' — '+esc(c.res.toUpperCase())+'</td><td>'+m2(capTotal(c,o))+'</td></tr>'; });
@@ -8824,7 +8831,7 @@ window.PRESTON={state:function(){return state;},obra:obra,ficha:function(){var o
  qr:{matriz:qrMatriz,cw:qrCodewords,ec:qrEC,png:qrDataURL,svg:qrSvgDe},
  pub:{url:pubURL,qr:pubQR,pagina:paginaPublica,publica:publicaObra,token:pubDe,auto:autoPublica,hash:pubHash},
  dir:{bonita:dirBonita,muni:muniBonito,parse:parseDireccion},
- version:'v188-comparativa (LAB · copia de pruebas)'};
+ version:'v190-sin-mediciones (LAB · copia de pruebas)'};
 try{var th0=localStorage.getItem('prestonLAB_theme'); if(th0)document.documentElement.setAttribute('data-theme',th0);}catch(e){}
 var _bd=document.getElementById('brandDode'); if(_bd&&typeof PBRAND!=='undefined')_bd.src=PBRAND.dode;
 try{ var _rv=document.getElementById('railVer'); if(_rv)_rv.textContent='Versión '+(PRESTON.version||'').split(' ')[0]; }catch(e){}
